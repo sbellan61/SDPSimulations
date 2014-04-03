@@ -350,6 +350,104 @@ for(yv in 2) { ##  for each Y variable
   }
 }
 
+
+####################################################################################################
+####################################################################################################
+####################################################################################################
+## Science Manuscript Figure 4
+r2 <- T                                 # show p values on regression plots
+acs.to.do <- which(in.arr[,2,2]==7)
+fg.col <- 'black'
+wid <- 5.5
+hei <- 3.5
+cex <- 2
+####################################################################################################
+## New version of figures with color scale for SDP & no arrows for CI's
+rmp <- colorRamp(c("red","yellow"))     #create color ramp
+outdir <- file.path('results','PrevFigsNew')
+if(!file.exists(outdir)) dir.create(outdir)
+yvars <- c('lgt.cprev','lgt.pprev','lgt.psdc','lgt.fD')
+ytypes <- c('prev','prev')#,'SDP','fancyD')
+ynames <- c('DHS prev','peak prev')#,'SDP','fancyD')
+ytexts <- c('HIV prevalence', 'peak HIV prevalence')#,'DHS serodiscordant proportion', 'fancy D')
+xclasses <- c('contact')
+ylims <- list(c(.01, .5), c(.01, .5), c(.3, .99), c(.3, .99))
+for(yv in 2) { ##  for each Y variable
+  for(xc in 1) { ##  and each X class
+    xclass <- xclasses[xc]
+    if(xclass=='contact') { # name HIV infectivity & contact coefficients
+      xvars <- c('lbp','lrr.ep','lrr.bp.m','lrr.bp.f')
+      xlabs <- c('intrinsic HIV transmission rate \n(per 100 person-years)', expression(c['extra-couple']),
+                 expression(c['pre-couple,male']), expression(c['pre-couple,female']))
+      xlabs <- c('intrinsic HIV transmission rate \n(per 100 person-years)', 'extra-couple mixing coefficient',
+                 'male pre-couple mixing coefficient', 'female pre-couple mixing coefficient')
+      xlabs <- c('intrinsic HIV transmission rate \n(per 100 person-years)', 'extra-couple mixing coefficient',
+                 'male pre-couple mixing coefficient', 'female pre-couple mixing coefficient')
+      xlim <- list(c(1,50),c(.08,50),c(.08,50),c(.08,50)) # xlimits for each x variable, same regardless of class            
+    }else{                    # name HIV infectivity & other betas
+      xvars <- c('lbp','lbe','lbmb','lbfb')
+      xlabs <- c('HIV transmission rate (per 100 person-years)', expression(beta['extra-couple']),
+                 expression(beta['pre-couple,male']), expression(beta['pre-couple,female']))
+      xlabs <- c('HIV transmission rate (per 100 person-years)', 'extra-couple transmission coefficient',
+                 'male pre-couple transmission coefficient', 'female pre-couple transmission coefficient')
+      xlim <- list(c(.3,50),c(.08,100),c(.08,100),c(.08,100)) # xlimits for each x variable, same regardless of class
+    }
+    xtypes <- c('within', rep('contact',3)) # for axis function
+    ytype <- ytypes[yv]                                     # yvar type
+    yvar <- rdat[,yvars[yv]]                                # yvar
+    rdat$psdc.raw <- draw$psdc
+    zvar <- rdat[,'psdc']                                     # zvar for point color
+    zord <- order(order(zvar))
+    rzvar <- max(zvar)-min(zvar)
+    zvar <- (zvar - min(zvar))/rzvar                     # scale so it's between 0 & 1
+    cols <- rgb(rmp(zvar), alpha = 200,max = 255)
+    for(aa in acs.to.do) {     # for each assumed acute phase relative hazard
+      rdat <- rdatl[[aa]]           # pick fitted parameters from array for that acute phase relative hazard
+      pdf(file.path(outdir,paste0(ynames[yv],' vs ', xclass,'-',fg.col,'.pdf')), w = wid, h = hei) # initialize PDF
+      layout(matrix(c(1,3,2,4,5,5),2,3), widths = c(1,1,.8))
+      cex.lab <- .7
+      par(mar = c(4.5,4,1.5,.5), oma = c(0,0,0,0), cex.lab = cex.lab, fg = fg.col, col.axis=fg.col, col.lab=fg.col)
+      for(xv in 1:4) { ## for each plot panel (each x variable)
+        xvar   <- rdat[,xvars[xv]] # get xvariable
+        xvar.l <- rdat[,paste0(xvars[xv],'.l')] # get xvariable lower credible limit
+        xvar.u <- rdat[,paste0(xvars[xv],'.u')] # get xvariable upper credible limit      
+        plot(0,0, type = 'n', ylab = '', xlab='', las = las, yaxt = yaxt, xaxt = xaxt, # initialize plot
+             xlim = log(xlim[[xv]]), ylim = logit(ylims[[yv]]), bty = 'n')
+        mtext(xlabs[xv], side = 1, line = 2.8, adj = .5, cex = cex.lab)
+        axis.fxn(T,T, ytype=ytype, xtype=xtypes[xv]) # add axes using function above
+        ## arrows(xvar.l, yvar, xvar.u, yvar, code = 3, col = cols, len = .05, angle = 90) # credible intervals
+        ## weighted regression model (variance in xvars, from fitting transmission coefficients)
+        if(xv==1) {
+          mod <- lm(yvar ~ xvar, rdat, weights = geom.w)
+          newx<- seq(min(xvar.l,na.rm=T), max(xvar.u,na.rm=T), l = 120) # sequence of x variables over which to predict
+          prd<-predict(mod,newdata=data.frame(xvar = newx),interval = c("confidence"), level = 0.95,type="response") # predict
+          ## plot thick solid regression line with thin dashed CI lines
+          for(pl in 1:3)    lines(newx,prd[,pl], lty=ifelse(pl==1,1,2), lwd = ifelse(pl==1,2,1))
+          if(r2)  mtext(paste(expression(P), '=',signif(summary(mod)[[5]][2,4],2)),
+                        side = 3, line = -2, adj = .25, cex = .7) # add p value to plot
+        }
+        points(xvar, yvar, cex = cex, pch = 19, col = cols) # medians
+        text(xvar, yvar, c(16:1)[zord], cex = .5)
+      }
+      par(mar=rep(0,4), cex = .8)
+      plot(0,0, xlim = c(0, 10), ylim = c(0, 100), type = 'n', bty = 'n', axes = F, xlab = '', ylab ='')
+      fros <- 25
+      tos <- 85
+      points(rep(.5,16), seq(fros, tos, l = 16), pch = 19, cex = cex*.95, col = cols[order(zvar)])
+      text(.5, seq(fros, tos, l = 16), 16:1, cex = cex*.3)
+      rdat$country[rdat$country=='WA'] <- 'West Africa'
+      text(1, seq(fros, tos, l = 16), paste0(rdat$country[order(zvar)],  ' (',signif(rdat$psdc[order(zvar)],2)*100,'%)'),
+           pos = 4, cex = cex.lab)
+      text(5, 95, 'country \n(serodiscordant \nproportion as %)', cex = .9)
+      par(xpd=NA)
+      arrows(8,fros,8,tos, code = 2, len = .05, lwd = 3)
+      mtext('serodiscordant proportion', side = 4, line = -2, cex = .8, adj = .6)
+      mtext('peak HIV prevalence', side = 2, line = -1, cex = .8, adj = .5, outer = T) 
+      dev.off()      
+    }
+  }
+}
+
 ####################################################################################################
 ## Full model & univariate models
 acs.to.do <- 1:8
