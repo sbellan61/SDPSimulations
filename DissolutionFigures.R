@@ -199,4 +199,3 @@ plot(0,0,type = 'n', axes = F, bty ='n', xlab ='',ylab='')
 sel <- !duplicated(dframe.s$country)
 legend('topleft', dframe.s$country[sel], col = dframe.s$col[sel], pch = 19, bty = 'n', ncol = 1, cex = .7)
 dev.off()
-w
