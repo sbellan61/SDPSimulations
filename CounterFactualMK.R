@@ -185,12 +185,7 @@ for(aa in acutes)  {                    # loop through acute phase relative haza
                    " infl.fac=", infl.fac[ii], " maxN=", maxN[ii], " sample.tmar=", sample.tmar[ii],
                    " psNonPar=", psNonPar[ii], " seed=1 tmar=(65*12):(113*12) each=", each[ii],
                    " tint=113*12' SimulationStarter.R ", file.path(batchdirnm, "routs", paste0(ds.nm[group[ii]], ii, ".Rout")), sep='')
-                                        #      if(ii > 158) {
   #     if(totn %in% jtd & ii %in% 89:92 & aa==7) { ## for finishing up jobs that didn't get properly submitted (cluster issues sometimes)
-#      if(ii < 27 | ii <)) {
-#          if((ii > 26 & ii < 77) & aa %in% c(1,7,25,50) & totn %in% jtd) { # acute/het sensitivity (called Ac7 still)
-#          if((ii %in% c(77:84,89:92)) & aa %in% 7 & totn %in% jtd) { # het sensitivity at acute of 7
-#          if(ii < 77 & aa%in% c(1,7,25,50) & totn %in% jtd) {
             num.doing <- num.doing+1
             cat(cmd)               # add command
             cat('\n')              # add new line
