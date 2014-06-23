@@ -19,18 +19,22 @@ nc <- 12                                       # core per simulation
 ## affected by assortativity between patners
 ####################################################################################################
 countries <- 1:length(ds.nm)
-countries <- which(ds.nm=='Zambia')
-cc <- which(ds.nm=='Uganda') ## to get Ugandan prameters from DHS
+## countries <- which(ds.nm=='Zambia')
+cc <- which(ds.nm %in% c('Rwanda','Swaziland', 'Lesotho', 'Tanzania','Uganda')) ## to get Ugandan prameters from DHS
 each <- 200 ##  equates to ~100,000 couples
-blocks <- expand.grid(group = countries,
-                      acute.sc = 7,
+blocks <- expand.grid(acute.sc = 7,
                       late.sc = 1, aids.sc = 1, death = T,
-                      het.gen.sd = seq(0,3, by = .5),
+                      het.gen.sd = seq(0,3, by = 1),
                       het.gen.cor = c(0,.5,.7, .9),
-                      bmb.sc = 1, bfb.sc = 1,
-                      bme.sc = 1, bfe.sc = 1,
-                      bmp.sc = 1, bfp.sc = 1)
+                      bmb.sc = 1, ## bfb.sc = 1,
+                      bme.sc = 1, ## bfe.sc = 1,
+                      bmp.sc = c(1,2,5,10), ## bfp.sc = 1)
+                      group = countries)
+blocks$bfb.sc <- blocks$bmb.sc
+blocks$bfe.sc <- blocks$bme.sc
+blocks$bfp.sc <- blocks$bmp.sc
 blocks$het.gen <- blocks$het.gen.sd > 0
+blocks$jobnum <- 1:nrow(blocks)
 
 counterf.betas <- F ## change betas in counterfactuals? if not change beta_within & c's (so beta_within affects all routes)
 sub.betas <- F      ## substitute betas? if not beta_within & c's
