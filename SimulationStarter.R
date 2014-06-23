@@ -89,8 +89,6 @@ temp <- psrun(country = country,   # what country are we 'simulating'
               infl.fac = infl.fac, # if non-parametric approach, how many pseudocouples to inflate each couple to
               last.int = F, sample.tmar = sample.tmar, # if non-parametric approach decide how to distribute marriage dates & interview times.
               tmar = tmar, each = each, tint = tint, # parametric approach, couple pseudopop built parametrically from multivariate copulas
-              start.rak = start.rak, end.rak = end.rak, # interval for Rakai style retrospective cohort analyses
-              return.ts = return.ts,                    # return ts?
               death = death,          # include HIV mortality in model?
               acute.sc = acute.sc, late.sc = late.sc, aids.sc = aids.sc, # relative of infectivity of different phases vs chronic phase
               ##  how to scale transmission coefficients (for counterfactual analysis of how
@@ -111,7 +109,6 @@ temp <- psrun(country = country,   # what country are we 'simulating'
               het.e = het.e, het.e.sd = het.e.sd, het.e.cor = het.e.cor, # extra-couple 
               het.p = het.p, het.p.sd = het.p.sd, het.p.cor = het.p.cor, # within-couple
               ##########
-              one.couple = one.couple, # for debugging, repeat one couple married in 1990, 100,000 times
               scale.by.sd = scale.by.sd, # adjust beta means to keep geometric mean constant with increasing heterogeneity (defaults to TRUE)
               scale.adj = scale.adj,   # adjust them arbitrarily
               out.dir = out.dir,       # output directory
@@ -121,9 +118,8 @@ temp <- psrun(country = country,   # what country are we 'simulating'
 
 load(temp)                              # load output of simulations
 names(output)                           # list objects summarized below
-## jobnum=which job; evout=line list of each couple; tss=time series of pseudopopulation, rakacRR=
-## retrospective cohort estimate of acute infectivity; pars=input parameters; tmar=marriage cohort
-## dates; each=# couples per marriage cohort
+## jobnum=which job; evout=line list of each couple; tss=time series of pseudopopulation, pars=input
+## parameters; tmar=marriage cohort dates; each=# couples per marriage cohort
 ## 
 head(output$evout)                      # columns explained below
 ## uid=unique couple identifier; ds=dat set; ser=couple serostatus (1:4::{++,+-,-+,--});
