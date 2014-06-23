@@ -19,7 +19,6 @@ for(gg in 1:nrow(dframe)) {             # for each country
     dframe$cprev[gg] <- (sum(dat$ser[sel] %in% 2:3) + 2*sum(dat$ser[sel] == 1)) / (sum(sel)*2) 
   }
 
-
 acutes <- as.numeric(in.arr[,1,2])
 ## make a list of data frame with betas, and contact coefficients (log-ed) for each acute fit
 acs.to.do <- which(rowSums(!is.na(in.arr[,,2]))>0)
@@ -354,10 +353,10 @@ for(yv in 2) { ##  for each Y variable
 ####################################################################################################
 ####################################################################################################
 ####################################################################################################
-## Science Manuscript Figure 4
+## Figure 4
 r2 <- T                                 # show p values on regression plots
 acs.to.do <- which(in.arr[,2,2]==7)
-fg.col <- 'black'
+fg.col <- 'white'
 wid <- 5.5
 hei <- 3.5
 cex <- 2

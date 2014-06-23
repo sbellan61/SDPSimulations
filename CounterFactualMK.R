@@ -21,7 +21,7 @@ nc <- 12                                       # core per simulation
 ## rates.
 ####################################################################################################
 countries <- 1:length(ds.nm)
-##countries <- which(ds.nm=='Uganda')
+                                        #countries <- which(ds.nm=='Zambia')
 each.val <- 200                          #  number of couples per couple formation (marital) cohort
 counterf.betas <- F                       # change betas in counterfactuals? if not change beta_within & c's (so beta_within affects all routes)
 sub.betas <- F                           # substitute betas? if not beta_within & c's
@@ -36,7 +36,7 @@ nn <- 400 # number of simulations per country-acute combination (must be bigger 
 substitute <- F                         # not a substitution analysis
 totn <- 0                               # total number of simulations (steps up to final value)
 num.doing <- 0
-sink("RakAcute.txt")         # create a control file to send to the cluster
+sink("HetCounterFactualAcute.txt")         # create a control file to send to the cluster
 outdir <- file.path('results','CounterFactual')
 if(!file.exists(outdir))      dir.create(outdir) # create directory if necessary
 for(aa in acutes)  {                    # loop through acute phase relative hazard
@@ -183,20 +183,19 @@ for(aa in acutes)  {                    # loop through acute phase relative haza
                    " het.beh=", het.beh[ii], " het.beh.sd=", het.beh.sd[ii], " het.beh.cor=", het.beh.cor[ii],
                    " scale.by.sd=", scale.by.sd[ii], " scale.adj=", scale.adj[ii],
                    " infl.fac=", infl.fac[ii], " maxN=", maxN[ii], " sample.tmar=", sample.tmar[ii],
-                   " psNonPar=", psNonPar[ii], " seed=1 tmar=(60*12):(13*12) each=", each[ii],
-                   " tint=13*12' SimulationStarter.R ", file.path(batchdirnm, "routs", paste0(ds.nm[group[ii]], ii, ".Rout")), sep='')
+                   " psNonPar=", psNonPar[ii], " seed=1 tmar=(65*12):(113*12) each=", each[ii],
+                   " tint=113*12' SimulationStarter.R ", file.path(batchdirnm, "routs", paste0(ds.nm[group[ii]], ii, ".Rout")), sep='')
                                         #      if(ii > 158) {
   #     if(totn %in% jtd & ii %in% 89:92 & aa==7) { ## for finishing up jobs that didn't get properly submitted (cluster issues sometimes)
 #      if(ii < 27 | ii <)) {
 #          if((ii > 26 & ii < 77) & aa %in% c(1,7,25,50) & totn %in% jtd) { # acute/het sensitivity (called Ac7 still)
 #          if((ii %in% c(77:84,89:92)) & aa %in% 7 & totn %in% jtd) { # het sensitivity at acute of 7
-      if(ii < 77 & aa%in% c(1,7,25,50) & totn %in% jtd) {
- #     if(ii==1) {
+#          if(ii < 77 & aa%in% c(1,7,25,50) & totn %in% jtd) {
             num.doing <- num.doing+1
             cat(cmd)               # add command
             cat('\n')              # add new line
           }
-        }
+     #   }
     } 
 }
 sink()
