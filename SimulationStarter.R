@@ -15,7 +15,6 @@
 #################################################################################################### 
 rm(list=ls())                           # clear workspace
 
-setwd('/home1/02413/sbellan/SDPSimulations/')     # setwd
 args=(commandArgs(TRUE))                # load arguments from R CMD BATCH 
 if(length(args)>0)  {## Then cycle through each element of the list and evaluate the expressions.
     for(i in 1:length(args)) {
@@ -77,7 +76,7 @@ if(substitute) {
     }
 }else{
   s.epic.nm <- NA # not substituting epidemic curves, this will cause rcop() to use default country epidemic curves
-  s.epic.ind <- NA  
+  s.epic.ind <- NA
 }
 
 ## Simulate couples transmission model (calling psrun() from sim fxns3.R). Output (temp) is the name of the file that is produced.
@@ -85,8 +84,6 @@ temp <- psrun(country = country,   # what country are we 'simulating'
               s.demog = s.demog,        # what country to use for demograhy
               maxN = maxN, vfreq = vfreq, # maximum # of couples in pseudo-population; Frequency with which to report on simulation progress.
               pars = spars,             # transmission coefficients
-              psNonPar = psNonPar,      # nonparametric approach?
-              infl.fac = infl.fac, # if non-parametric approach, how many pseudocouples to inflate each couple to
               last.int = F, sample.tmar = sample.tmar, # if non-parametric approach decide how to distribute marriage dates & interview times.
               tmar = tmar, each = each, tint = tint, # parametric approach, couple pseudopop built parametrically from multivariate copulas
               death = death,          # include HIV mortality in model?
@@ -103,14 +100,14 @@ temp <- psrun(country = country,   # what country are we 'simulating'
               het.gen.cor = het.gen.cor, # inter-partner correlation of individual risk deviate for genetic heterogeneity
               ## next 3 are same as previous 3, but for behavioral heterogeneity (risk deviate
               ## amplifies only pre- and extra-couple transmission susceptibility)
-              het.beh = het.beh, het.beh.sd = het.beh.sd, het.beh.cor = het.beh.cor,
-              ## route-specific heterogeneity (i.e. individuals' hazards are multiplied by a different lognormal risk deviate for each route)
-              het.b = het.b, het.b.sd = het.b.sd, het.b.cor = het.b.cor, # pre-couple   
-              het.e = het.e, het.e.sd = het.e.sd, het.e.cor = het.e.cor, # extra-couple 
-              het.p = het.p, het.p.sd = het.p.sd, het.p.cor = het.p.cor, # within-couple
+              ## het.beh = het.beh, het.beh.sd = het.beh.sd, het.beh.cor = het.beh.cor,
+              ## ## route-specific heterogeneity (i.e. individuals' hazards are multiplied by a different lognormal risk deviate for each route)
+              ## het.b = het.b, het.b.sd = het.b.sd, het.b.cor = het.b.cor, # pre-couple   
+              ## het.e = het.e, het.e.sd = het.e.sd, het.e.cor = het.e.cor, # extra-couple 
+              ## het.p = het.p, het.p.sd = het.p.sd, het.p.cor = het.p.cor, # within-couple
               ##########
-              scale.by.sd = scale.by.sd, # adjust beta means to keep geometric mean constant with increasing heterogeneity (defaults to TRUE)
-              scale.adj = scale.adj,   # adjust them arbitrarily
+              ## scale.by.sd = scale.by.sd, # adjust beta means to keep geometric mean constant with increasing heterogeneity (defaults to TRUE)
+              ## scale.adj = scale.adj,   # adjust them arbitrarily
               out.dir = out.dir,       # output directory
               nc = nc,                 # number of cores
               make.jpgs = F,           # create jpgs of results
@@ -122,6 +119,8 @@ names(output)                           # list objects summarized below
 ## parameters; tmar=marriage cohort dates; each=# couples per marriage cohort
 ## 
 head(output$evout)                      # columns explained below
+with(output$evout, cor(log(m.het.gen), log(f.het.gen)))
+with(output$evout, range(log(m.het.gen), log(f.het.gen)))
 ## uid=unique couple identifier; ds=dat set; ser=couple serostatus (1:4::{++,+-,-+,--});
 ## tms/tfs=male/female sexual debuts (months since 1900); tmar=couple formation (i.e. marriage)
 ## date; tint=DHS interview/testing date; mardur.mon=couple duration in months; circ=circumciscion
