@@ -2,7 +2,10 @@
 ## Collect, summarize, & visualize results from counterfactual simulations.
 ####################################################################################################
 rm(list=ls())                           # clear workspace
-library(plyr)
+gc()
+library(plyr); library(mgcv)
+
+setwd('SDPSimulations')
 
 source('PlotFunctions.R')                    # load functions to collect & plot results
 source('SimulationFunctions.R')                   # load simulation functions
@@ -20,111 +23,135 @@ if(!file.exists(dir.figs)) dir.create(dir.figs)      # create it
 load(file.path(dir.results, 'blocks.Rdata'))
 ## Load all results files in the results directory (all Rdata files except blocks & cfs)
 fs <- list.files(pattern = '.Rdata', path = file.path(dir.results), recursive = T, full.names = T)
-fs <- fs[!grepl('blocks',fs) & !grepl('cfs',fs)]
+fs <- fs[!grepl('blocks',fs) & !grepl('cfs',fs) & !grepl('mardur',fs)]
 #fs <- fs[grepl('Acute7',fs)]
 print(length(fs))
-    
+## Order them by jobnumber
+getjob <- function(x) as.numeric(sub('.Rdata', '', strsplit(x,c('-'))[[1]][3]))
+ord <- order(sapply(fs, getjob))
+fs <- fs[ord]
 ## coll: collects all results into data frame of input parameters, and array of time series
 if(!file.exists(file.path(dir.results, 'cfs.Rdata')) | do.again) {
-  cfs <- coll(fs, nc = 12, give.ev = T)
-  cfs$cframe <- cfs$cframe[order(cfs$cframe$job),] # order by jobs
-  cfs$t.arr <- cfs$t.arr[,,order(cfs$cframe$job)]          # ditto
-  cfs$evout <- cfs$evout[,,order(cfs$cframe$job)]          # ditto  
-  attach(cfs) # for convenience, be careful later!
+  cfs <- coll(fs, nc = 12, give.ev = F)
   save(cfs, file = file.path(dir.results, 'cfs.Rdata'))
 }else{
   load(file.path(dir.results, 'cfs.Rdata'))
-  attach(cfs)
 }
-dim(cframe) ## dimensions & check for duplicate runs
-print(paste(sum(duplicated(cframe$job)), 'duplicate jobs'))
-cframe <- cframe[!duplicated(cframe$job),]
-t.arr <-  t.arr[,,!duplicated(cframe$job)]
-acutes <- unique(cframe$acute.sc)       # which acute phase relative hazards (RHs) were simulated
+dim(cfs$cframe) ## dimensions & check for duplicate runs
+print(paste(sum(duplicated(cfs$cframe$job)), 'duplicate jobs'))
+cfs$cframe <- cfs$cframe[!duplicated(cfs$cframe$job),]
+cfs$t.arr <-  cfs$t.arr[,,!duplicated(cfs$cframe$job)]
+acutes <- unique(cfs$cframe$acute.sc)       # which acute phase relative hazards (RHs) were simulated
 nac <- length(acutes)                   # how many
-countries <- unique(cframe$group.ind)   # countries simulated
+countries <- unique(cfs$cframe$group.ind)   # countries simulated
 countries <- countries[order(countries)]
 ngroup <- length(countries)             # how many
-jtd <- which(!blocks$jobnum %in% cframe$job)    # jobs undone
-## print(paste("didn't do jobs:",paste(head(jtd,50), collapse=','))) # check to see if any jobs didn't complete
-## save(jtd, file='data files/CFJobsToDo.Rdata')
-
-cx <- .9
-####################################################################################################
-## Figure 2 for the manuscript
-####################################################################################################
-col.pl <- 'black'
-ac <- 7 ## acute phase RH to use in Figure
-## for(one.file in c(F,T)) {
-rmp <- colorRampPalette(c("yellow","red"))
-hazm <- c('bmb.sc','bme.sc','bmp.sc')   ## for each route get simjob with as fitted, 0, 10 scalars; acuteRH=7, no heterogeneity
-
-
-pdf(file.path(dir.figs,paste0('Figure X - Assortativity Summary ', ds.nm[cc],' Ac',ac,'.pdf')), w = 4.5, h = 4)
-par(mfrow = c(2,2), mar = c(3,1,2,0), oma = c(1,3,0,0), fg = col.pl, col.axis = col.pl, 'ps' = 12,
-    col.lab = col.pl, col = col.pl, col.main = col.pl)
-for(hh in 1:4) {
-  hsd <- c(0,1,2,3)[hh]
-  js <- with(blocks, which(het.gen.sd==hsd))# & het.gen.cor %in% c(0,.7,.9)))
-  js1 <- which(blocks$het.gen.sd==hsd & blocks$het.gen.cor==0)
-  njs <- length(js)
-  cc <- blocks$group[1]
-  cols <- rmp(njs)
-  ltys <- 1:4
-  lwds <- rep(1,njs)
-  main <- bquote(sigma[lambda]==.(hsd))
-  yaxt <- hh%%2==1
-  legtitle <- 'intracouple correlation'
-  leg <- blocks$het.gen.cor[js]
-  plot.sdp.nsub(js = js, leg = leg, js1 = js1, make.pdf = F, early.yr = 1985, show.pts = show.pts, pts.group = cc,
-                main = main, cex.leg = .8, yaxt = yaxt, ylab = '', ltys = ltys, lwds = lwds, cols = cols,
-                title = legtitle, col.pl = col.pl, show.leg = hh==1, sep.leg = F, browse=F)
-}
-mtext('SDP', side = 2, line = 2, adj = .5, cex = 1, outer = T)
-dev.off()
+jtd <- which(!blocks$jobnum %in% cfs$cframe$job)    # jobs undone
+print(paste("didn't do jobs:",paste(head(jtd,50), collapse=','))) # check to see if any jobs didn't complete
+save(jtd, file='data files/AssortJobsToDo.Rdata')
 
 
 ####################################################################################################
-## Get SDP by region
-sdpfx <- function(ser) sum(ser %in% 2:3) / sum(ser%in%1:3)
+## Couple Serostatus Summary Functions
+sdpfx <- function(ser) sum(ser %in% 2:3) / sum(ser%in%1:3) ## serodiscordant proportion
 sdp.lcifx <- function(ser)  ifelse(sum(ser%in%1:3)>0, unlist(binom.test(sum(ser%in%2:3),sum(ser%in%1:3))[4])[1], NA)
 sdp.ucifx <- function(ser)  ifelse(sum(ser%in%1:3)>0, unlist(binom.test(sum(ser%in%2:3),sum(ser%in%1:3))[4])[2], NA)
-
-prevfx <- function(ser) (sum(ser %in% 2:3) + 2*sum(ser==1)) / (2*length(ser))
+prevfx <- function(ser) (sum(ser %in% 2:3) + 2*sum(ser==1)) / (2*length(ser)) ## prevalence
 prev.lcifx <- function(ser)  ifelse(sum(ser%in%1:4), unlist(binom.test(sum(ser%in%1:3),sum(ser%in%1:4))[4])[1], NA)
 prev.ucifx <- function(ser)  ifelse(sum(ser%in%1:4), unlist(binom.test(sum(ser%in%1:3),sum(ser%in%1:4))[4])[2], NA)
+sdcfx <- function(ser) sum(ser %in% 2:3) / length(ser) ## prevalence of serodiscordance
+cpcfx <- function(ser) sum(ser %in% 1) / length(ser)## prevalence of concordant positivity
+ 
+## Extract these things from each simulation result as a function of time since couple formation
+serostatus.by.mardur.mods <- function(fs, type = 'sdp') {
+#  browser()
+  load(fs)
+  temp <- output$evout
+  rm(output); gc()
+  temp$is.sd <- temp$ser %in% 2:3
+  temp$is.cp <- temp$ser %in% 1
+  temp.pos <- temp[temp$ser %in% 1:3,]
+  if(type=='sdp') mod <- gam(is.sd ~ s(mardur.mon, bs='cr', k = 5), family = binomial('logit'), temp.pos) ## cubic spline functions of SDP vs mardur
+  if(type=='sdc') mod <- gam(is.sd ~ s(mardur.mon, bs='cr', k = 5), family = binomial('logit'), temp) ## serodiscordance prevalence vs mardur
+  if(type=='cpc') mod <- gam(is.cp ~ s(mardur.mon, bs='cr', k = 5), family = binomial('logit'), temp) ## concordant positive prevalence vs mardur
+  rm(temp, temp.pos); gc()
+  return(list(mod))
+}
 
+wrp.serostatus.by.mardur.mods <- function(jobs, mc.cores = 12) { ## Parallelize it
+  fss <- fs[jobs]
+    out <- mclapply(fss, serostatus.by.mardur.mods, mc.cores = 12)
+    names(out) <- jobs
+    return(out)
+  }
+
+rmp <- colorRampPalette(c('black',"orange",'red',"purple"))
+col.pl <- 'black'
+ac <- 7 ## acute phase RH to use in Figure
+ 
 ####################################################################################################
 ## Plot SDP in a survey year as a function of time since married
-pdf(file.path(dir.figs,paste0('Figure X - SDP vs mardur ', ds.nm[cc],' Ac',ac,'.pdf')), w = 6.5, h = 4)
-for(bb in 1:5) {
-  breaks <- seq(0, 85, by = bb)
-  labs <- breaks[-length(breaks)]
-  par(mfrow = c(2,2), mar = c(3,1,2,0), oma = c(3,3,0,0), fg = col.pl, col.axis = col.pl, 'ps' = 12,
-      col.lab = col.pl, col = col.pl, col.main = col.pl)
-  for(hh in 1:4) {
-    hsd <- c(0,1,2,3)[hh]
-    js <- with(blocks, which(het.gen.sd==hsd))# & het.gen.cor %in% c(0,.7,.9)))
-    js1 <- which(blocks$het.gen.sd==hsd & blocks$het.gen.cor==0)
-    njs <- length(js)
-    cc <- blocks$group[1]
-    cols <- rmp(njs)
-    cols[1] <- 'black'
-    ltys <- 1:4
-    lwds <- rep(1,njs)
-    main <- bquote(sigma[lambda]==.(hsd))
-    yaxt <- ifelse(hh%%2==1, 's','n')
-    plot(0,0, type = 'n', xlab = '', ylab = '', main = main, xlim = c(0,25), ylim = c(0,1), las = 2, yaxt = yaxt, bty = 'n')
-    if(hh==1) legend('topright', leg = blocks$het.gen.cor[js], col = cols, lty = ltys, cex = .6, title = expression(ro), ncol=4)
-    for(jj in 1:length(js)) {
-      temp <- cfs$e.arr[,,js[jj]]
-      te <- cut(temp[,'mardur.mon']/12, breaks , lab = labs)
-      temp <- cbind(temp, mdcn = as.numeric(levels(te)[te]))
-      rsdpm <- ddply(as.data.frame(temp), .(mdcn), summarise, sdp = sdpfx(ser), prev = prevfx(ser), yr = round(tint[1]/12+1900))
-      with(rsdpm, lines(mdcn, sdp, col = cols[jj], lty = ltys[jj]))
+xs <- 0:400
+for(sc in unique(blocks$bmp.sc)) {
+  pdf(file.path(dir.figs,paste0('Figure X - SDP vs mardur Ac',ac,' beta.sc', sc,'.pdf')), w = 6.5, h = 5)
+  for(cc in 1:length(ds.nm)) { ## by country
+    par(mfrow = c(2,2), mar = c(3,1,2,.5), oma = c(3,3,2,0), fg = col.pl, col.axis = col.pl, 'ps' = 12,
+        col.lab = col.pl, col = col.pl, col.main = col.pl)
+    for(hh in 1:4) { ## for each heterogeneity sd
+      hsd <- c(0,1,2,3)[hh]
+      js <- with(blocks, which(het.gen.sd==hsd & group==cc & bmp.sc==sc)) ## simulations with that heterogeneity
+      js1 <- with(blocks, which(het.gen.sd==hsd & het.gen.cor==0 & group==cc & bmp.sc==sc)) ## the one with no correlation
+      njs <- length(js) 
+      cols <- rmp(njs)
+      cols[1] <- 'black'
+      ltys <- 1:4
+      lwds <- rep(1,njs)
+      main <- bquote(sigma[lambda]==.(hsd))
+      js <- js[!js %in% jtd]
+      temp.mods <- wrp.serostatus.by.mardur.mods(js)
+      plot(0,0, type = 'n', xlab = '', ylab = '', main = main, xlim = c(0,25), ylim = c(0,1), las = 1, yaxt = 'n', bty = 'n')
+      if(hh%%2==1) axis(2, at = seq(0,1, by = .2), las = 2)
+      if(hh%%2==0) axis(2, at = seq(0,1, by = .2), lab = NA)
+      if(hh==1) legend('bottomleft', leg = blocks$het.gen.cor[js], col = cols, lty = ltys, lwd = 1.5, cex = .8, title = expression(rho[lambda]), ncol=4, bty = 'n')
+      for(jj in 1:length(js)) { ## for each simulation, add lines to plot
+        simj <- as.character(js[jj])
+        ys <- predict(temp.mods[[simj]][[1]], data.frame(mardur.mon = xs, is.sd = NA), type = 'response')
+        lines(xs/12, ys, col = cols[jj], lty = ltys[jj], lwd = 1.5)
+      }
     }
-  }
     mtext('SDP', side = 2, line = 2, adj = .5, cex = 1, outer = T)
-    mtext(paste0('couple duration (',bb, ' year groupings)'), side = 1, line = 1, outer = T)
+    mtext(paste0('couple duration (years) '), side = 1, line = 1, outer = T)
+    mtext(ds.nm[cc], side = 3, line = 1, outer = T)
+  }
+  dev.off()
 }
-graphics.off()
+
+####################################################################################################
+## Figure SDP time series by amount of intracouple correlation & intercouple heterogeneity
+####################################################################################################
+for(sc in unique(blocks$bmp.sc)) {
+  pdf(file.path(dir.figs,paste0('Figure X - Assortativity Summary Ac',ac,' beta.sc', sc, '.pdf')), w = 4.5, h = 4)
+  par(mfrow = c(2,2), mar = c(3,1,2,0), oma = c(1,3,2,0), fg = col.pl, col.axis = col.pl, 'ps' = 12,
+      col.lab = col.pl, col = col.pl, col.main = col.pl)
+  for(cc in 1:length(ds.nm)) { ## by country
+    for(hh in 1:4) { ## for each amount of heterogeneity
+      hsd <- c(0,1,2,3)[hh]
+      js <- with(blocks, which(het.gen.sd==hsd & group==cc & bmp.sc==sc)) ## simulations with that heterogeneity
+      js1 <- with(blocks, which(het.gen.sd==hsd & het.gen.cor==0 & group==cc & bmp.sc==sc)) ## the one with no correlation
+      njs <- length(js)
+      cols <- rmp(njs)
+      ltys <- 1:4
+      lwds <- rep(1,njs)
+      main <- bquote(sigma[lambda]==.(hsd))
+      yaxt <- hh%%2==1
+      legtitle <- expression(rho[lambda])
+      leg <- blocks$het.gen.cor[js]
+      plot.sdp.nsub(js = js, leg = leg, js1 = js1, make.pdf = F, early.yr = 1985, show.pts = show.pts, pts.group = cc,
+                    main = main, cex.leg = .8, yaxt = yaxt, ylab = '', ltys = ltys, lwds = lwds, cols = cols,
+                    title = legtitle, col.pl = col.pl, show.leg = hh==1, sep.leg = F, browse=F)
+    }
+    mtext('SDP', side = 2, line = 2, adj = .5, cex = 1, outer = T)
+    mtext(ds.nm[cc], side = 3, line = 1, outer = T)
+  }
+  graphics.off()
+}

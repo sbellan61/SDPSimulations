@@ -5,14 +5,14 @@
 rm(list=ls())                                  # clear workspace
 load("data files/ds.nm.all.Rdata") # country names
 load('data files/pars.arr.ac.Rdata')    # load acute phase relative hazards used to fit (in.arr[,,2])
-load('data files/CFJobsToDo.Rdata') ## for finishing up jobs from last run that didn't get finished due to cluster problems.
+load(file='data files/AssortJobsToDo.Rdata') ## for finishing up jobs from last run that didn't get finished due to cluster problems.
 hazs <- c('bmb','bfb','bme','bfe','bmp','bfp') #  transmission coefficient names, for convenience
 nc <- 12                                       # core per simulation
 ## source('AssortMK.R')
 
 ####################################################################################################
 ####################################################################################################
-##   COUNTERFACTUAL ANALYSIS
+##   Assortativity COUNTERFACTUAL ANALYSIS
 ####################################################################################################
 ## Using an HIV transmission model fit to Demographic and Health Surveys in 18 sub-Saharan African
 ## countries, we used counter-factual simulations to examine how serodiscordant proportions are
@@ -20,7 +20,6 @@ nc <- 12                                       # core per simulation
 ####################################################################################################
 countries <- 1:length(ds.nm)
 ## countries <- which(ds.nm=='Zambia')
-cc <- which(ds.nm %in% c('Rwanda','Swaziland', 'Lesotho', 'Tanzania','Uganda')) ## to get Ugandan prameters from DHS
 each <- 200 ##  equates to ~100,000 couples
 blocks <- expand.grid(acute.sc = 7,
                       late.sc = 1, aids.sc = 1, death = T,
@@ -72,9 +71,11 @@ for(ii in 1:nrow(blocks)) { ## for each simulation
                     " seed=1 tmar=(65*12):(113*12) each=", each, " maxN=", maxN, 
                     " tint=113*12' SimulationStarter.R ", file.path(batchdirnm, "routs", paste0(ds.nm[group], ii, ".Rout")), sep='')
               )
-  num.doing <- num.doing+1
-  cat(cmd)               # add command
-  cat('\n')              # add new line
+  if(ii %in% jtd) {
+    num.doing <- num.doing+1
+    cat(cmd)               # add command
+    cat('\n')              # add new line
+  }
 }
 sink()
 save(blocks, file = file.path(outdir,'blocks.Rdata')) # these are country-acute phase specific blocks
