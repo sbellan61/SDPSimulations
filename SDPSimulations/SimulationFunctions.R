@@ -15,6 +15,211 @@ ageweib <- function(age, death = T)
       }
   }
 
+## Create a pseudo-population and do it event driven simulation with that then compiling it into a
+## population timeseries.
+psrun <- function(country, s.demog = NA, # country to simulate;  country whose relationship patterns are to be used in simulation
+                  seed = 1,      # seed to set for random number generation
+                  ## population size
+                  maxN = 10^4, # maximum pseudo-population size (sample inflated pop) to avoid memory problems
+                  ## non-parametric approach to generate couple pseudo-population
+                  infl.fac = 4,      #  pseudo-population inflation factor
+                  last.int = F,      #  set interview dates to be the latest one for all individuals
+                  psNonPar = F,      # use non-parametric pseudo-population generator?
+                  pars,              # transmission parameters to use
+                  sample.tmar = T,   # sample marriage time too?
+                  ## for parametric approach to generate couple pseudo-population
+                  tmar, each, tint,    # marriage times, # at each marriage time & interview time
+                  ## sensitivity analyses
+                  death = T,             #  include AIDS mortality?
+                  acute.sc, late.sc, aids.sc, #  relative hazards of HIV phases compared to chronic phase
+                  ##  next three lines scale transmission coefficients by the following values (used
+                  ## for counterfactual simulations where different routes are amplified or
+                  ## diminished)
+                  bmb.sc = 1, bfb.sc = 1, #  pre-couple 
+                  bme.sc = 1, bfe.sc = 1, #  extra-couple                 
+                  bmp.sc = 1, bfp.sc = 1, #  within-couple
+                  counterf.betas = F, # change betas in counterfactuals? if not change beta_within & c's (so beta_within affects all routes)
+                  ##  Route-specific heterogeneity parameters {do this type of heterogeneity?;
+                  ##  standard deviation of lognormal risk deviate; inter-partner correlation}
+                  het.b = F, het.b.sd = 0, het.b.cor = 0, #  pre-couple   
+                  het.e = F, het.e.sd = 0, het.e.cor = 0, #  extra-couple 
+                  het.p = F, het.p.sd = 0, het.p.cor = 0, #  within-couple
+                  het.gen = F, het.gen.sd = 0, het.gen.cor = 0, # same for genetic heterogeneity ( same lognormal risk deviate for all three routes)
+                  het.beh = F, het.beh.sd = 0, het.beh.cor = 0, # same for behavioral heterogeneity ( same lognormal risk deviate for pre- & extra-couple routes)
+                  ## individual suscepbitility constant through life is either HIGH or LOW risk,
+                  ## proportion high risk (phigh) are at rrhigh times higher risk
+                  hilo = F, phigh.m = .2, phigh.f = .2, rrhigh.m = 10, rrhigh.f = 10, ## NOT USED IN THIS PROJECT
+                  scale.by.sd = T, # adjust beta means to keep geometric mean constant with increasing heterogeneity
+                  scale.adj = 1,   # adjust betas arbitrarily
+                  ## processing & visualizations
+                  nc = 12,               # number of cores
+                  out.dir,               # output directory
+                  make.jpgs = T,         # make some pictures of results
+                  early.yr = 1985,       # earliest year to show in timeseries plots
+                  plot.pdfs = T,         # make some PDFs of results
+                  save.new = F,          # always save as a new file (don't overwrite)
+                  vfreq = 100,           # progress update frequency
+                  mdcol = "dark green",  # male discordant color
+                  fdcol = "purple",      # female discordant color
+                  sscol = "dark gray",   # concordant negative color
+                  cccol = "red",         # concordant positive color
+                  browse = F)            # debug
+  {
+    set.seed(seed)                      # set RNG seed
+    start.time1 <- Sys.time()           # track computation time
+    odat <- dat                         # store original data set workspace
+    if(browse) browser()                # debug
+    ## calculate pre-couple duration (earliest sexual debut to couple formation) 
+    odat$bd <- apply(cbind(odat$tmar-odat$tms,odat$tmar-odat$tfs), 1, max) 
+    ##  calculate couple duration
+    odat$cd <- odat$tint - odat$tmar
+    dat <- odat[odat$group==ds.nm[s.demog],]
+    ##  male and female durations of sex before marriage, just to see how
+    ##  they affect output later on.
+    dat$mds <- dat$tmar - dat$tms
+    dat$fds <- dat$tmar - dat$tfs
+######################################## 
+    ## Generate Pseudo-Population
+########################################
+    if(psNonPar) { ## NON-Parametric APPROACH:Inflate observed couples times their inverse
+                   ## probability of having survived to be observed. First, simulate with state
+                   ## probability model to get inflation factors for each couple based on
+                   ## probability of survival
+        sim <- pcalc(pars, dat, sim = T, survive = T, browse = F, trace = F) # Use Markov State Probability model to get survival probabilities
+        surp <- rowSums(sim$pser.a) # survival probabilities =  probability couples are in one of the alive states at DHS interview
+        infl <- 1/surp              # infl fator = 1 / survival probabilities
+        ## Generate pseudocouple data set based on infl.fac X # of couples per infl couple (infl.fac
+        ## just allows us to create bigger pseudopopulations).
+        numb <- rpois(rep(1,nrow(dat)),infl.fac*infl) # poisson RNG for # of pseudocouples per real couple
+        psdat <- dat[rep(1:nrow(dat), numb),]
+        ## Reduce pseudopopulation to maximum psuedopopulation size desired
+        if(nrow(psdat) > maxN) {
+            smp <- sample(1:nrow(psdat), maxN)
+            smp <- smp[order(smp)]
+            psdat <- psdat[smp,]
+          }
+        ## make interview dates all the last interview date so we don't truncate some couple's simulations
+        psdat$tint <- max(psdat$tint)
+      }else{ # Parametric Approach: use normal copulas fitted to relationship history patterns for each country to simulate pseudo-population.
+        psdat <- rcop(s.demog, NN = maxN, sample.tmar = sample.tmar, tmar = tmar, each = each, tint = tint, browse = F)
+      }
+    ## Plots pseudo-population distributions for exploration later.
+    psdat.add <- add.vars(psdat) # Append extra variables (see psdat.add() below) to pseudo-population
+    real <- add.vars(dat)       # Append extra variables (see psdat.add() below) to real population
+    rgs <- apply(rbind(real[,vars],psdat.add[,vars]), 2 , range) # get full range for all variables
+    sz <- 800                                                    # JPG dimensions
+    if(make.jpgs) {                                              ##  show copula fits
+        ## Secular trends of simulated data
+        jpeg(file.path(out.dir,paste(ds.nm[country], "sec trend SIM.jpg", sep = "")), width = sz, height = sz)
+        par(mfrow=c(2,2))
+        for(vv in 1:4) {                # for each variable
+            scatter.smooth(psdat.add$tmar, psdat.add[,vars[vv]], xlab = "couple formation date",
+                           ylab = labs[vv], bty = "n", pch = 19, cex = .5, ylim = rgs[,vv])
+            abline(lm(psdat.add[,vars[vv]]~psdat.add$tmar), col = "red", lwd = 3)
+            mtext(paste(ds.nm[country],"nonpar"[psNonPar],"smpTmar"[sample.tmar], "synthCoh"[!psNonPar & !sample.tmar]),
+                  side = 3, line = 0, outer = T, cex = 2)        
+          }
+        legend("topleft", c("linear fit", "loess fit"), col = c("red","black"), lty = 1, lwd = 1, bty = "n")    
+        dev.off()
+        ## Secular trends of real data for comparison
+        jpeg(file.path(out.dir,paste(ds.nm[country], "sec trend Real.jpg", sep = "")), width = sz, height = sz)
+        par(mfrow=c(2,2))
+        for(vv in 1:4) {                # for each variable
+            scatter.smooth(real$tmar, real[,vars[vv]], xlab = "couple formation date", ylab = labs[vv], bty = "n", pch = 19, cex = .5, ylim = rgs[,vv])
+            abline(lm(real[,vars[vv]]~real$tmar), col = "red", lwd = 3)
+            mtext(paste(ds.nm[country],"real data"), side = 3, line = 0, outer = T, cex = 2)        
+          }
+        legend("topleft", c("linear fit", "loess fit"), col = c("red","black"), lty = 1, lwd = 1, bty = "n")        
+        dev.off()
+        ## 5D multivariate distribution
+        sz <- 1200
+        ## Simulated data
+        jpeg(file.path(out.dir,paste(ds.nm[country], "N-", maxN,"-distr-SIM.jpg", sep = "")), w = sz, h = sz)
+        ## lims & breaks chosen from multi-countyr comparison code (pscor.R)
+        ylim <- data.frame(l = rep(0,5), u = c(.02, .04, .25, .3, .01))
+        breaks <- list(seq(0,60*12, by = 12), seq(0,60*12, by = 12), seq(0,60*12, by = 1), seq(0,60*12, by = 1), # for histograms below
+                       seq(600, 1600, by = 12))
+        ##  pairwise scatterplots of simulated data
+        sbpairs(psdat.add[,vars], browse = F, do.pdf = F, do.jpeg = F, rgs = rgs, hist.freq = F, yrg = ylim, breaks = breaks)
+        mtext(paste(ds.nm[country],"nonpar"[psNonPar],"smpTmar"[sample.tmar], "synthCoh"[!psNonPar & !sample.tmar]), side = 3, line = 0, outer = T, cex = 2)
+        dev.off()
+        ## pairwise scatterplots of real data
+        jpeg(file.path(out.dir,paste(ds.nm[country], "N-", nrow(dat),"-distr-REAL.jpg", sep = "")), w = sz, h = sz)
+        sbpairs(real[,vars], browse = F, do.pdf = F, do.jpeg = F, rgs = rgs, hist.freq = F, yrg = ylim, breaks = breaks)
+        mtext(paste(ds.nm[country],"actual data"), side = 3, line = 0, outer = T, cex = 2)
+        dev.off()
+      }
+    ######################################################################
+    ## Simulate couple transmission model with pseudo-population
+    ######################################################################
+    ## Scale extra-couple parameters
+    print('Running simulation')
+    cpars <- pars
+    if(counterf.betas) { ## change betas in counterfactuals
+    cpars["bmb"] <- cpars["bmb"]*bmb.sc
+    cpars["bfb"] <- cpars["bfb"]*bfb.sc   
+    cpars["bme"] <- cpars["bme"]*bme.sc
+    cpars["bfe"] <- cpars["bfe"]*bfe.sc   
+    cpars["bmp"] <- cpars["bmp"]*bmp.sc
+    cpars["bfp"] <- cpars["bfp"]*bfp.sc
+  }else{ ## change HIV transmission rate (beta_within) & contact coefficients (c's) in counterfactuals
+    cpars["bmb"] <- cpars["bmb"]*bmb.sc*bmp.sc
+    cpars["bfb"] <- cpars["bfb"]*bfb.sc*bfp.sc
+    cpars["bme"] <- cpars["bme"]*bme.sc*bmp.sc
+    cpars["bfe"] <- cpars["bfe"]*bfe.sc*bfp.sc
+    cpars["bmp"] <- cpars["bmp"]*bmp.sc
+    cpars["bfp"] <- cpars["bfp"]*bfp.sc
+  }
+    ##  call event-driven simulation
+    evout <- event.fn(cpars, psdat, vfreq = 100, death = death, acute.sc = acute.sc, late.sc = late.sc, aids.sc = aids.sc, nc = nc,
+                      het.b = het.b, het.b.sd = het.b.sd, het.b.cor = het.b.cor,
+                      het.e = het.e, het.e.sd = het.e.sd, het.e.cor = het.e.cor,
+                      het.p = het.p, het.p.sd = het.p.sd, het.p.cor = het.p.cor, 
+                      het.gen = het.gen, het.gen.sd = het.gen.sd, het.gen.cor = het.gen.cor,
+                      het.beh = het.beh, het.beh.sd = het.beh.sd, het.beh.cor = het.beh.cor,
+                      hilo = hilo, phigh.m = phigh.m, phigh.f = phigh.f, rrhigh.m = rrhigh.m, rrhigh.f = rrhigh.f,
+                      scale.by.sd = scale.by.sd, scale.adj = scale.adj,
+                      browse=F)
+    temptsout <- ts.fxn(evout)     ##  convert line lists to population timeseries
+    tss <- temptsout[['tss']]      # grab tss
+    hours <- round(as.numeric(difftime(Sys.time(), start.time1, unit = "hour")),3) # runtime
+    if(!exists(as.character(substitute(jobnum)))) jobnum <- NA # jobnum is set globally when on cluster
+    if(!exists(as.character(substitute(simj)))) simj <- NA # simj is set globally when on cluster (job # within country/acute batch)
+    ##  produce output list
+    output <- list(jobnum = jobnum, simj = simj, evout = evout, tss = tss, 
+                   pars = c(bmb.sc = bmb.sc, bfb.sc = bfb.sc, bme.sc = bme.sc, bfe.sc = bfe.sc, bmp.sc = bmp.sc, bfp.sc = bfp.sc, 
+                     death = death, acute.sc = acute.sc, late.sc = late.sc, aids.sc = aids.sc,
+                     s.epic = s.epic, s.demog = s.demog,
+                     s.bmb = s.bmb, s.bfb = s.bfb,
+                     s.bme = s.bme, s.bfe = s.bfe,
+                     s.bmp = s.bmp, s.bfp = s.bfp,                     
+                     het.b = het.b, het.b.sd = het.b.sd, het.b.cor = het.b.cor,
+                     het.e = het.e, het.e.sd = het.e.sd, het.e.cor = het.e.cor,
+                     het.p = het.p, het.p.sd = het.p.sd, het.p.cor = het.p.cor, 
+                     het.gen = het.gen, het.gen.sd = het.gen.sd, het.gen.cor = het.gen.cor,
+                     het.beh = het.beh, het.beh.sd = het.beh.sd, het.beh.cor = het.beh.cor,
+                     group.ind = group.ind, infl.fac = infl.fac, maxN = maxN,
+                     psNonPar = psNonPar, last.int = F, sample.tmar = sample.tmar, tint = tint,
+                     hours = hours),
+                   tmar = tmar, each = each) # these are vectors & so must be given separately
+    sim.nm <- paste(ds.nm[country], "-", nrow(evout), '-', jobnum, sep = "") # name simulation results (country-#couples-jobum)
+    ## create file name making sure not to save over old files
+    output.nm.base <- file.path(out.dir, sim.nm) #paste(sim.nm, ".Rdata", sep = ""))
+    stepper <- 1
+    output.nm <- output.nm.base
+    if(save.new) { ## don't save over old files
+        while(file.exists(paste0(output.nm,'.Rdata'))) { 
+            stepper <- stepper + 1
+            output.nm <- paste0(output.nm.base, '-', stepper)
+        }
+    }
+    output.nm <- paste0(output.nm, '.Rdata')
+    print(paste('saving file',output.nm))
+    save(output, file = output.nm)
+    return(output.nm)
+  }
+## Returns results in a couples line list format, a time series format, and also gives all information on simulation parameters
+
 ##  Event-driven simulation function
 event.fn <- function(pars, dat, browse = F, # transmission coefficients to use for simulation, DHS couples data, debug
                      death = T, # have aids death in model?
@@ -80,12 +285,21 @@ event.fn <- function(pars, dat, browse = F, # transmission coefficients to use f
           assign(paste('m.het.',het.t,sep=''), rep(1, K))
           assign(paste('f.het.',het.t,sep=''), rep(1, K))          
         }
+        ## Discrete (binary) heterogeneity: High risk & low risk groups
+        m.het.hilo <- rep(1,K)
+        f.het.hilo <- rep(1,K)
+        if(hilo) {
+          m.high <- rbinom(K, 1, phigh.m)
+          f.high <- rbinom(K, 1, phigh.f)
+          m.het.hilo[m.high] <- rrhigh.m
+          f.het.hilo[f.high] <- rrhigh.f      
       } # end heterogeneity risk deviate assignment loop
     ## make data frame for storing output
     dat <- data.frame(dat, mser, fser, mdoi, fdoi, mdod, fdod, mcoi, fcoi, m.het.gen, f.het.gen, m.het.beh, f.het.beh,
                       m.het.b, f.het.b, # pre-couple   
                       m.het.e, f.het.e, # extra-couple 
-                      m.het.p, f.het.p) # within-couple
+                      m.het.p, f.het.p, # within-couple
+                      m.het.hilo, f.het.hilo) ## genetic, binary (hi vs lo)
     ## track if infections from partner were due to acute phase infectiousness
     dat$mcoi.phase <- NA
     dat$fcoi.phase <- NA
@@ -199,8 +413,9 @@ cloop <- function(batch, dat, pars, breaks, vfreq, browse = F, death, acute.sc, 
           {
             ## male before marriage: get bernoulli probability of infection in each month of sexual
             ## activity before marriage
+            temp.haz <- bmb*dat$m.het.hilo[ii]*dat$m.het.b[ii]*dat$m.het.beh[ii]*dat$m.het.gen[ii]*epicf[dat$tms[ii]:(dat$tmar[ii]-1), epic.ind.temp]
             m.inf.bef <- rbinom(dat$tmar[ii] - dat$tms[ii],1, # hets: b,beh,gen
-                                prob = 1 - exp(-bmb*dat$m.het.b[ii]*dat$m.het.beh[ii]*dat$m.het.gen[ii]*epicf[dat$tms[ii]:(dat$tmar[ii]-1), epic.ind.temp]))
+                                prob = 1 - exp(-temp.haz)
             if(sum(m.inf.bef)>0)            ## if he gets infected in 1 or more months
               {
                 ## change serostatus to HIV+ & use earliest infection as date of infection. Then
@@ -228,8 +443,9 @@ cloop <- function(batch, dat, pars, breaks, vfreq, browse = F, death, acute.sc, 
             ## female before marriage: get bernoulli probability of
             ## infection in each month of sexual activity before
             ## marriage
+            temp.haz <- bfb*dat$f.het.hilo[ii]*dat$f.het.b[ii]*dat$f.het.gen[ii]*dat$f.het.beh[ii]*epicm[dat$tfs[ii]:(dat$tmar[ii]-1), epic.ind.temp]
             f.inf.bef <- rbinom(dat$tmar[ii] - dat$tfs[ii],1, # hets: b,beh,gen
-                                prob = 1 - exp(-bfb*dat$f.het.b[ii]*dat$f.het.gen[ii]*dat$f.het.beh[ii]*epicm[dat$tfs[ii]:(dat$tmar[ii]-1), epic.ind.temp]))
+                                prob = 1 - exp(-temp.haz))
             if(sum(f.inf.bef)>0) { ## if she gets infected in 1 or more months
               ## change serostatus to HIV+ & use earliest infection as date of infection. Then
               ## figure out date of death from age-at-seroconversion dependent Weibull survival
@@ -297,7 +513,9 @@ cloop <- function(batch, dat, pars, breaks, vfreq, browse = F, death, acute.sc, 
                     f.aids.sc <- 1
                   }
                 ## Bernoulli within-couple transmission probabilities in current month; hets: p, gen
-                temp.prob <- 1 - exp(-c(f.ac.sc*f.lt.sc*f.aids.sc*bmp*dat$m.het.p[ii]*dat$m.het.gen[ii], m.ac.sc*m.lt.sc*m.aids.sc*bfp*dat$f.het.p[ii]*dat$f.het.gen[ii]))
+                temp.hazs <- c(f.ac.sc*f.lt.sc*f.aids.sc*bmp*dat$m.het.hilo[ii]*dat$m.het.p[ii]*dat$m.het.gen[ii],
+                               m.ac.sc*m.lt.sc*m.aids.sc*bfp*dat$f.het.hilo[ii]*dat$f.het.p[ii]*dat$f.het.gen[ii])
+                temp.prob <- 1 - exp(-temp.hazs)
                 from.part <- rbinom(2, 1, temp.prob)                   # Bernoulli random variables
                 from.part <- from.part * c(dat$fser[ii], dat$mser[ii]) # only counts if partner is infected
                 ## if new male infection from partner
@@ -342,8 +560,9 @@ cloop <- function(batch, dat, pars, breaks, vfreq, browse = F, death, acute.sc, 
                       }
                   }
                 ## extra-couple infections c(m,f);  temporary transmission probability; hets: e, gen, beh
-                exc <- rbinom(2, 1, prob = c(1 - exp(-bme*dat$m.het.e[ii]*dat$m.het.gen[ii]*dat$m.het.beh[ii]*epicf[tt, epic.ind.temp]),
-                                             1 - exp(-bfe*dat$f.het.e[ii]*dat$f.het.gen[ii]*dat$f.het.beh[ii]*epicm[tt, epic.ind.temp])))
+                temp.hazs <- c(bme*dat$m.het.hilo[ii]*dat$m.het.e[ii]*dat$m.het.gen[ii]*dat$m.het.beh[ii]*epicf[tt, epic.ind.temp],
+                               bfe*dat$f.het.hilo[ii]*dat$f.het.e[ii]*dat$f.het.gen[ii]*dat$f.het.beh[ii]*epicm[tt, epic.ind.temp])
+                exc <- rbinom(2, 1, prob = 1 - exp(-temp.hazs)) 
                 ## if new m inf from extracouple
                 if(dat$mser[ii]==0 & exc[1] == 1) {
                     dat$mser[ii] <- 1
@@ -746,207 +965,6 @@ tsloop <- function(batch, dat, breaks, start, end, verbose, vfreq, browse = F)
 ord <- function(x,ind) {
   unlist(apply(x, 1, function(x) x[which(x == x[order(x)][ind])][1]))
 }
-
-## Create a pseudo-population and do it event driven simulation with that then compiling it into a
-## population timeseries.
-psrun <- function(country, s.demog = NA, # country to simulate;  country whose relationship patterns are to be used in simulation
-                  seed = 1,      # seed to set for random number generation
-                  ## population size
-                  maxN = 10^4, # maximum pseudo-population size (sample inflated pop) to avoid memory problems
-                  ## non-parametric approach to generate couple pseudo-population
-                  infl.fac = 4,      #  pseudo-population inflation factor
-                  last.int = F,      #  set interview dates to be the latest one for all individuals
-                  psNonPar = F,      # use non-parametric pseudo-population generator?
-                  pars,              # transmission parameters to use
-                  sample.tmar = T,   # sample marriage time too?
-                  ## for parametric approach to generate couple pseudo-population
-                  tmar, each, tint,    # marriage times, # at each marriage time & interview time
-                  ## sensitivity analyses
-                  death = T,             #  include AIDS mortality?
-                  acute.sc, late.sc, aids.sc, #  relative hazards of HIV phases compared to chronic phase
-                  ##  next three lines scale transmission coefficients by the following values (used
-                  ## for counterfactual simulations where different routes are amplified or
-                  ## diminished)
-                  bmb.sc = 1, bfb.sc = 1, #  pre-couple 
-                  bme.sc = 1, bfe.sc = 1, #  extra-couple                 
-                  bmp.sc = 1, bfp.sc = 1, #  within-couple
-                  counterf.betas = F, # change betas in counterfactuals? if not change beta_within & c's (so beta_within affects all routes)
-                  ##  Route-specific heterogeneity parameters {do this type of heterogeneity?;
-                  ##  standard deviation of lognormal risk deviate; inter-partner correlation}
-                  het.b = F, het.b.sd = 0, het.b.cor = 0, #  pre-couple   
-                  het.e = F, het.e.sd = 0, het.e.cor = 0, #  extra-couple 
-                  het.p = F, het.p.sd = 0, het.p.cor = 0, #  within-couple
-                  het.gen = F, het.gen.sd = 0, het.gen.cor = 0, # same for genetic heterogeneity ( same lognormal risk deviate for all three routes)
-                  het.beh = F, het.beh.sd = 0, het.beh.cor = 0, # same for behavioral heterogeneity ( same lognormal risk deviate for pre- & extra-couple routes)
-                  scale.by.sd = T, # adjust beta means to keep geometric mean constant with increasing heterogeneity
-                  scale.adj = 1,   # adjust betas arbitrarily
-                  ## processing & visualizations
-                  nc = 12,               # number of cores
-                  out.dir,               # output directory
-                  make.jpgs = T,         # make some pictures of results
-                  early.yr = 1985,       # earliest year to show in timeseries plots
-                  plot.pdfs = T,         # make some PDFs of results
-                  save.new = F,          # always save as a new file (don't overwrite)
-                  vfreq = 100,           # progress update frequency
-                  mdcol = "dark green",  # male discordant color
-                  fdcol = "purple",      # female discordant color
-                  sscol = "dark gray",   # concordant negative color
-                  cccol = "red",         # concordant positive color
-                  browse = F)            # debug
-  {
-    set.seed(seed)                      # set RNG seed
-    start.time1 <- Sys.time()           # track computation time
-    odat <- dat                         # store original data set workspace
-    if(browse) browser()                # debug
-    ## calculate pre-couple duration (earliest sexual debut to couple formation) 
-    odat$bd <- apply(cbind(odat$tmar-odat$tms,odat$tmar-odat$tfs), 1, max) 
-    ##  calculate couple duration
-    odat$cd <- odat$tint - odat$tmar
-    dat <- odat[odat$group==ds.nm[s.demog],]
-    ##  male and female durations of sex before marriage, just to see how
-    ##  they affect output later on.
-    dat$mds <- dat$tmar - dat$tms
-    dat$fds <- dat$tmar - dat$tfs
-######################################## 
-    ## Generate Pseudo-Population
-########################################
-    if(psNonPar) { ## NON-Parametric APPROACH:Inflate observed couples times their inverse
-                   ## probability of having survived to be observed. First, simulate with state
-                   ## probability model to get inflation factors for each couple based on
-                   ## probability of survival
-        sim <- pcalc(pars, dat, sim = T, survive = T, browse = F, trace = F) # Use Markov State Probability model to get survival probabilities
-        surp <- rowSums(sim$pser.a) # survival probabilities =  probability couples are in one of the alive states at DHS interview
-        infl <- 1/surp              # infl fator = 1 / survival probabilities
-        ## Generate pseudocouple data set based on infl.fac X # of couples per infl couple (infl.fac
-        ## just allows us to create bigger pseudopopulations).
-        numb <- rpois(rep(1,nrow(dat)),infl.fac*infl) # poisson RNG for # of pseudocouples per real couple
-        psdat <- dat[rep(1:nrow(dat), numb),]
-        ## Reduce pseudopopulation to maximum psuedopopulation size desired
-        if(nrow(psdat) > maxN) {
-            smp <- sample(1:nrow(psdat), maxN)
-            smp <- smp[order(smp)]
-            psdat <- psdat[smp,]
-          }
-        ## make interview dates all the last interview date so we don't truncate some couple's simulations
-        psdat$tint <- max(psdat$tint)
-      }else{ # Parametric Approach: use normal copulas fitted to relationship history patterns for each country to simulate pseudo-population.
-        psdat <- rcop(s.demog, NN = maxN, sample.tmar = sample.tmar, tmar = tmar, each = each, tint = tint, browse = F)
-      }
-    ## Plots pseudo-population distributions for exploration later.
-    psdat.add <- add.vars(psdat) # Append extra variables (see psdat.add() below) to pseudo-population
-    real <- add.vars(dat)       # Append extra variables (see psdat.add() below) to real population
-    rgs <- apply(rbind(real[,vars],psdat.add[,vars]), 2 , range) # get full range for all variables
-    sz <- 800                                                    # JPG dimensions
-    if(make.jpgs) {                                              ##  show copula fits
-        ## Secular trends of simulated data
-        jpeg(file.path(out.dir,paste(ds.nm[country], "sec trend SIM.jpg", sep = "")), width = sz, height = sz)
-        par(mfrow=c(2,2))
-        for(vv in 1:4) {                # for each variable
-            scatter.smooth(psdat.add$tmar, psdat.add[,vars[vv]], xlab = "couple formation date",
-                           ylab = labs[vv], bty = "n", pch = 19, cex = .5, ylim = rgs[,vv])
-            abline(lm(psdat.add[,vars[vv]]~psdat.add$tmar), col = "red", lwd = 3)
-            mtext(paste(ds.nm[country],"nonpar"[psNonPar],"smpTmar"[sample.tmar], "synthCoh"[!psNonPar & !sample.tmar]),
-                  side = 3, line = 0, outer = T, cex = 2)        
-          }
-        legend("topleft", c("linear fit", "loess fit"), col = c("red","black"), lty = 1, lwd = 1, bty = "n")    
-        dev.off()
-        ## Secular trends of real data for comparison
-        jpeg(file.path(out.dir,paste(ds.nm[country], "sec trend Real.jpg", sep = "")), width = sz, height = sz)
-        par(mfrow=c(2,2))
-        for(vv in 1:4) {                # for each variable
-            scatter.smooth(real$tmar, real[,vars[vv]], xlab = "couple formation date", ylab = labs[vv], bty = "n", pch = 19, cex = .5, ylim = rgs[,vv])
-            abline(lm(real[,vars[vv]]~real$tmar), col = "red", lwd = 3)
-            mtext(paste(ds.nm[country],"real data"), side = 3, line = 0, outer = T, cex = 2)        
-          }
-        legend("topleft", c("linear fit", "loess fit"), col = c("red","black"), lty = 1, lwd = 1, bty = "n")        
-        dev.off()
-        ## 5D multivariate distribution
-        sz <- 1200
-        ## Simulated data
-        jpeg(file.path(out.dir,paste(ds.nm[country], "N-", maxN,"-distr-SIM.jpg", sep = "")), w = sz, h = sz)
-        ## lims & breaks chosen from multi-countyr comparison code (pscor.R)
-        ylim <- data.frame(l = rep(0,5), u = c(.02, .04, .25, .3, .01))
-        breaks <- list(seq(0,60*12, by = 12), seq(0,60*12, by = 12), seq(0,60*12, by = 1), seq(0,60*12, by = 1), # for histograms below
-                       seq(600, 1600, by = 12))
-        ##  pairwise scatterplots of simulated data
-        sbpairs(psdat.add[,vars], browse = F, do.pdf = F, do.jpeg = F, rgs = rgs, hist.freq = F, yrg = ylim, breaks = breaks)
-        mtext(paste(ds.nm[country],"nonpar"[psNonPar],"smpTmar"[sample.tmar], "synthCoh"[!psNonPar & !sample.tmar]), side = 3, line = 0, outer = T, cex = 2)
-        dev.off()
-        ## pairwise scatterplots of real data
-        jpeg(file.path(out.dir,paste(ds.nm[country], "N-", nrow(dat),"-distr-REAL.jpg", sep = "")), w = sz, h = sz)
-        sbpairs(real[,vars], browse = F, do.pdf = F, do.jpeg = F, rgs = rgs, hist.freq = F, yrg = ylim, breaks = breaks)
-        mtext(paste(ds.nm[country],"actual data"), side = 3, line = 0, outer = T, cex = 2)
-        dev.off()
-      }
-    ######################################################################
-    ## Simulate couple transmission model with pseudo-population
-    ######################################################################
-    ## Scale extra-couple parameters
-    print('Running simulation')
-    cpars <- pars
-    if(counterf.betas) { ## change betas in counterfactuals
-    cpars["bmb"] <- cpars["bmb"]*bmb.sc
-    cpars["bfb"] <- cpars["bfb"]*bfb.sc   
-    cpars["bme"] <- cpars["bme"]*bme.sc
-    cpars["bfe"] <- cpars["bfe"]*bfe.sc   
-    cpars["bmp"] <- cpars["bmp"]*bmp.sc
-    cpars["bfp"] <- cpars["bfp"]*bfp.sc
-  }else{ ## change HIV transmission rate (beta_within) & contact coefficients (c's) in counterfactuals
-    cpars["bmb"] <- cpars["bmb"]*bmb.sc*bmp.sc
-    cpars["bfb"] <- cpars["bfb"]*bfb.sc*bfp.sc
-    cpars["bme"] <- cpars["bme"]*bme.sc*bmp.sc
-    cpars["bfe"] <- cpars["bfe"]*bfe.sc*bfp.sc
-    cpars["bmp"] <- cpars["bmp"]*bmp.sc
-    cpars["bfp"] <- cpars["bfp"]*bfp.sc
-  }
-    ##  call event-driven simulation
-    evout <- event.fn(cpars, psdat, vfreq = 100, death = death, acute.sc = acute.sc, late.sc = late.sc, aids.sc = aids.sc, nc = nc,
-                      het.b = het.b, het.b.sd = het.b.sd, het.b.cor = het.b.cor,
-                      het.e = het.e, het.e.sd = het.e.sd, het.e.cor = het.e.cor,
-                      het.p = het.p, het.p.sd = het.p.sd, het.p.cor = het.p.cor, 
-                      het.gen = het.gen, het.gen.sd = het.gen.sd, het.gen.cor = het.gen.cor,
-                      het.beh = het.beh, het.beh.sd = het.beh.sd, het.beh.cor = het.beh.cor,
-                      scale.by.sd = scale.by.sd, scale.adj = scale.adj,
-                      browse=F)
-    temptsout <- ts.fxn(evout)     ##  convert line lists to population timeseries
-    tss <- temptsout[['tss']]      # grab tss
-    hours <- round(as.numeric(difftime(Sys.time(), start.time1, unit = "hour")),3) # runtime
-    if(!exists(as.character(substitute(jobnum)))) jobnum <- NA # jobnum is set globally when on cluster
-    if(!exists(as.character(substitute(simj)))) simj <- NA # simj is set globally when on cluster (job # within country/acute batch)
-    ##  produce output list
-    output <- list(jobnum = jobnum, simj = simj, evout = evout, tss = tss, 
-                   pars = c(bmb.sc = bmb.sc, bfb.sc = bfb.sc, bme.sc = bme.sc, bfe.sc = bfe.sc, bmp.sc = bmp.sc, bfp.sc = bfp.sc, 
-                     death = death, acute.sc = acute.sc, late.sc = late.sc, aids.sc = aids.sc,
-                     s.epic = s.epic, s.demog = s.demog,
-                     s.bmb = s.bmb, s.bfb = s.bfb,
-                     s.bme = s.bme, s.bfe = s.bfe,
-                     s.bmp = s.bmp, s.bfp = s.bfp,                     
-                     het.b = het.b, het.b.sd = het.b.sd, het.b.cor = het.b.cor,
-                     het.e = het.e, het.e.sd = het.e.sd, het.e.cor = het.e.cor,
-                     het.p = het.p, het.p.sd = het.p.sd, het.p.cor = het.p.cor, 
-                     het.gen = het.gen, het.gen.sd = het.gen.sd, het.gen.cor = het.gen.cor,
-                     het.beh = het.beh, het.beh.sd = het.beh.sd, het.beh.cor = het.beh.cor,
-                     group.ind = group.ind, infl.fac = infl.fac, maxN = maxN,
-                     psNonPar = psNonPar, last.int = F, sample.tmar = sample.tmar, tint = tint,
-                     hours = hours),
-                   tmar = tmar, each = each) # these are vectors & so must be given separately
-    sim.nm <- paste(ds.nm[country], "-", nrow(evout), '-', jobnum, sep = "") # name simulation results (country-#couples-jobum)
-    ## create file name making sure not to save over old files
-    output.nm.base <- file.path(out.dir, sim.nm) #paste(sim.nm, ".Rdata", sep = ""))
-    stepper <- 1
-    output.nm <- output.nm.base
-    if(save.new) { ## don't save over old files
-        while(file.exists(paste0(output.nm,'.Rdata'))) { 
-            stepper <- stepper + 1
-            output.nm <- paste0(output.nm.base, '-', stepper)
-        }
-    }
-    output.nm <- paste0(output.nm, '.Rdata')
-    print(paste('saving file',output.nm))
-    save(output, file = output.nm)
-    return(output.nm)
-  }
-## Returns results in a couples line list format, a time series format, and also gives all information on simulation parameters
 
 
 ## Create a function that takes the output from event.fn and makes it look like the sample
