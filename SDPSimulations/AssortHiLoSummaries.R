@@ -4,8 +4,7 @@
 rm(list=ls())                           # clear workspace
 gc()
 library(plyr); library(mgcv)
-
-setwd('DHSProject/SDPSimulations/')
+## setwd('DHSProject/SDPSimulations')
 
 source('PlotFunctions.R')                    # load functions to collect & plot results
 source('SimulationFunctions.R')                   # load simulation functions
@@ -14,9 +13,9 @@ load('data files/ds.nm.all.Rdata')        # country names
 load('data files/dframe.s.Rdata')        # SDP by survey
 do.again <- F                           # collect results again (otherwise load cfs.Rdata)
 show.pts <- T                           # show observed SDP in real DHS data
-## source('CounterFactualSummaries.R')
 
 dir.results <- file.path('results','CounterAssort') # results locations
+dir.results <- file.path('results','CounterAssortHiLo') # results locations
 dir.figs <- file.path(dir.results, 'Figures')        # make a directory to store figures
 if(!file.exists(dir.figs)) dir.create(dir.figs)      # create it
 ## load 'blocks' which gives info on all simulations within each country-acute group
@@ -49,7 +48,6 @@ ngroup <- length(countries)             # how many
 jtd <- which(!blocks$jobnum %in% cfs$cframe$job)    # jobs undone
 print(paste("didn't do jobs:",paste(head(jtd,50), collapse=','))) # check to see if any jobs didn't complete
 save(jtd, file='data files/AssortJobsToDo.Rdata')
-
 
 ####################################################################################################
 ## Couple Serostatus Summary Functions
@@ -88,31 +86,33 @@ wrp.serostatus.by.mardur.mods <- function(jobs, mc.cores = 12) { ## Parallelize 
 rmp <- colorRampPalette(c('black',"orange",'red',"purple"))
 col.pl <- 'black'
 ac <- 7 ## acute phase RH to use in Figure
- 
+blocks$phi <- blocks$phihi + blocks$phi.m
+
 ####################################################################################################
 ## Plot SDP in a survey year as a function of time since married
 xs <- 0:400
-for(sc in unique(blocks$bmp.sc)) {
+for(sc in 1) { #unique(blocks$bmp.sc)) {
   pdf(file.path(dir.figs,paste0('Figure X - SDP vs mardur Ac',ac,' beta.sc', sc,'.pdf')), w = 6.5, h = 5)
-  for(cc in 1:length(ds.nm)) { ## by country
+  for(cc in 15) {#1:length(ds.nm)) { ## by country
     par(mfrow = c(2,2), mar = c(3,1,2,.5), oma = c(3,3,2,0), fg = col.pl, col.axis = col.pl, 'ps' = 12,
         col.lab = col.pl, col = col.pl, col.main = col.pl)
     for(hh in 1:4) { ## for each heterogeneity sd
-      hsd <- c(0,1,2,3)[hh]
-      js <- with(blocks, which(het.gen.sd==hsd & group==cc & bmp.sc==sc)) ## simulations with that heterogeneity
-      js1 <- with(blocks, which(het.gen.sd==hsd & het.gen.cor==0 & group==cc & bmp.sc==sc)) ## the one with no correlation
-      njs <- length(js) 
-      cols <- rmp(njs)
-      cols[1] <- 'black'
-      ltys <- 1:4
+      hsd <- unique(blocks$phi)[hh]
+      js <- with(blocks, which(phi==hsd & group==cc & bmp.sc==sc)) ## simulations with that heterogeneity
+      js1 <- with(blocks, which(phi==hsd & phihi==0 & group==cc & bmp.sc==sc)) ## the one with no correlation
+      njs <- length(js)
+      cols.rmp <- rmp(length(unique(blocks$rrhi.m)))
+      cols <- cols.rmp[factor(blocks$rrhi.m[js])]
+      ltys <- blocks$rel.assort[js]
       lwds <- rep(1,njs)
-      main <- bquote(sigma[lambda]==.(hsd))
+      main <- paste0('proportion high risk = ', hsd)
       js <- js[!js %in% jtd]
       temp.mods <- wrp.serostatus.by.mardur.mods(js)
       plot(0,0, type = 'n', xlab = '', ylab = '', main = main, xlim = c(0,25), ylim = c(0,1), las = 1, yaxt = 'n', bty = 'n')
       if(hh%%2==1) axis(2, at = seq(0,1, by = .2), las = 2)
       if(hh%%2==0) axis(2, at = seq(0,1, by = .2), lab = NA)
-      if(hh==1) legend('bottomleft', leg = blocks$het.gen.cor[js], col = cols, lty = ltys, lwd = 1.5, cex = .8, title = expression(rho[lambda]), ncol=4, bty = 'n')
+      if(hh==1) legend('bottomleft', leg = with(blocks[js,], paste0(rrhi.m,'X, hihi=', rel.assort,'-fold')), col = cols,
+                                         lty = ltys, lwd = 1.5, cex = .8, title = '', ncol=4, bty = 'n')
       for(jj in 1:length(js)) { ## for each simulation, add lines to plot
         simj <- as.character(js[jj])
         ys <- predict(temp.mods[[simj]][[1]], data.frame(mardur.mon = xs, is.sd = NA), type = 'response')
