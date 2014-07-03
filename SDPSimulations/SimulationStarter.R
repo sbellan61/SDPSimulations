@@ -105,6 +105,7 @@ temp <- psrun(country = country,   # what country are we 'simulating'
               ## het.b = het.b, het.b.sd = het.b.sd, het.b.cor = het.b.cor, # pre-couple   
               ## het.e = het.e, het.e.sd = het.e.sd, het.e.cor = het.e.cor, # extra-couple 
               ## het.p = het.p, het.p.sd = het.p.sd, het.p.cor = het.p.cor, # within-couple
+              hilo = hilo, phihi = phihi, phi.m = phi.m, phi.f = phi.f, rrhi.m = rrhi.m, rrhi.f = rrhi.f, 
               ##########
               ## scale.by.sd = scale.by.sd, # adjust beta means to keep geometric mean constant with increasing heterogeneity (defaults to TRUE)
               ## scale.adj = scale.adj,   # adjust them arbitrarily
@@ -119,8 +120,11 @@ names(output)                           # list objects summarized below
 ## parameters; tmar=marriage cohort dates; each=# couples per marriage cohort
 ## 
 head(output$evout)                      # columns explained below
-with(output$evout, cor(log(m.het.gen), log(f.het.gen)))
-with(output$evout, range(log(m.het.gen), log(f.het.gen)))
+## with(output$evout, cor(log(m.het.gen), log(f.het.gen)))
+## with(output$evout, range(log(m.het.gen), log(f.het.gen)))
+## xtabs(~m.het.hilo + f.het.hilo, output$evout) / nrow(output$evout)
+## xtabs(~m.het.hilo + f.het.hilo + ser, output$evout)
+
 ## uid=unique couple identifier; ds=dat set; ser=couple serostatus (1:4::{++,+-,-+,--});
 ## tms/tfs=male/female sexual debuts (months since 1900); tmar=couple formation (i.e. marriage)
 ## date; tint=DHS interview/testing date; mardur.mon=couple duration in months; circ=circumciscion

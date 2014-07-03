@@ -47,8 +47,8 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
                   het.gen = F, het.gen.sd = 0, het.gen.cor = 0, # same for genetic heterogeneity ( same lognormal risk deviate for all three routes)
                   het.beh = F, het.beh.sd = 0, het.beh.cor = 0, # same for behavioral heterogeneity ( same lognormal risk deviate for pre- & extra-couple routes)
                   ## individual suscepbitility constant through life is either HIGH or LOW risk,
-                  ## proportion high risk (phigh) are at rrhigh times higher risk
-                  hilo = F, phigh.m = .2, phigh.f = .2, rrhigh.m = 10, rrhigh.f = 10, ## NOT USED IN THIS PROJECT
+                  ## proportion high risk (phi) are at rrhi times higher risk, do it by couple category to tune assortativity
+                  hilo = F, phihi = .2, phi.m = .2, phi.f = .2, rrhi.m = 10, rrhi.f = 10, 
                   scale.by.sd = T, # adjust beta means to keep geometric mean constant with increasing heterogeneity
                   scale.adj = 1,   # adjust betas arbitrarily
                   ## processing & visualizations
@@ -177,7 +177,7 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
                       het.p = het.p, het.p.sd = het.p.sd, het.p.cor = het.p.cor, 
                       het.gen = het.gen, het.gen.sd = het.gen.sd, het.gen.cor = het.gen.cor,
                       het.beh = het.beh, het.beh.sd = het.beh.sd, het.beh.cor = het.beh.cor,
-                      hilo = hilo, phigh.m = phigh.m, phigh.f = phigh.f, rrhigh.m = rrhigh.m, rrhigh.f = rrhigh.f,
+                      hilo = hilo, phihi = phihi, phi.m = phi.m, phi.f = phi.f, rrhi.m = rrhi.m, rrhi.f = rrhi.f, 
                       scale.by.sd = scale.by.sd, scale.adj = scale.adj,
                       browse=F)
     temptsout <- ts.fxn(evout)     ##  convert line lists to population timeseries
@@ -198,6 +198,7 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
                      het.p = het.p, het.p.sd = het.p.sd, het.p.cor = het.p.cor, 
                      het.gen = het.gen, het.gen.sd = het.gen.sd, het.gen.cor = het.gen.cor,
                      het.beh = het.beh, het.beh.sd = het.beh.sd, het.beh.cor = het.beh.cor,
+                     hilo = hilo, phihi = phihi, phi.m = phi.m, phi.f = phi.f, rrhi.m = rrhi.m, rrhi.f = rrhi.f, 
                      group.ind = group.ind, infl.fac = infl.fac, maxN = maxN,
                      psNonPar = psNonPar, last.int = F, sample.tmar = sample.tmar, tint = tint,
                      hours = hours),
@@ -237,7 +238,8 @@ event.fn <- function(pars, dat, browse = F, # transmission coefficients to use f
                      het.gen.cor = 0, # inter-partner correlation of individual risk deviate for genetic heterogeneity
                      ## next 3 are same as previous 3, but for behavioral heterogeneity (risk
                      ## deviate amplifies only pre- and extra-couple transmission susceptibility)
-                     het.beh = F, het.beh.sd = 1, het.beh.cor = 0, 
+                     het.beh = F, het.beh.sd = 1, het.beh.cor = 0,
+                     hilo = F, phihi = .2, phi.m = .2, phi.f = .2, rrhi.m = 10, rrhi.f = 10, 
                      scale.by.sd = T, # adjust beta means to keep geometric mean constant with increasing het
                      scale.adj = 1,   # adjust them arbitrarily
                      end.at.int = T, # end infections at interviews (otherwise go til first partner is 60)
@@ -254,46 +256,46 @@ event.fn <- function(pars, dat, browse = F, # transmission coefficients to use f
     mcoi <- factor(rep(NA, nrow(dat)), levels = c("b","e","p","-"))    ## route of infection
     fcoi <- factor(rep(NA, nrow(dat)), levels = c("b","e","p","-"))
     hpars <- pars                       # backup transmission coefficients
-    ##################################################################
+##################################################################
     ## For each type of heterogeneity, sample random lognormal deviates
     for(het.t in c('b','e','p','gen','beh')) {     # pre-, -extra, -within, genetic (bep), behavioral (be)
-        het.log <- get(paste('het.',het.t,sep='')) ## temporary logical indicator of whether this type of heterogeneity is being simulated
-        het.sd <- get(paste('het.',het.t,'.sd',sep='')) # corresponding standard deviation
-        het.cor <- get(paste('het.',het.t,'.cor',sep='')) # corresponding inter-partner correlation
-        if(het.log) { #  include this type of heterogeneity?
-          if(het.cor==0) {              #   uncorrelated
-            assign(paste('m.het.',het.t,sep=''), exp( rnorm(K, mean = 0, sd = het.sd) ))
-            assign(paste('f.het.',het.t,sep=''), exp( rnorm(K, mean = 0, sd = het.sd) ))            
-          }else{                        #  correlated between partners
-            b.corSig <- matrix(c(het.sd,rep(het.cor*het.sd,2),het.sd),2,2)
-            het.both <- rmvnorm(K, mean = rep(0,2), sigma = b.corSig)
-            assign(paste('m.het.',het.t,sep=''), exp(het.both[,1]))
-            assign(paste('f.het.',het.t,sep=''), exp(het.both[,2]))            
-          }
-          if(het.t %in% c('b','e','p')) { # which hazards to rescale to keep geometric mean of risk deviates = 1
-              het.hazs <- paste0('b',c('m','f'),het.t)
-          }else{
-              if(het.t=='gen') het.hazs <- hazs
-              if(het.t=='beh') het.hazs <- hazs[1:4]
-          }
-          if(scale.by.sd) { ##  keep geometric mean transmission coefficient the same
-            hpars[het.hazs] <-  hpars[het.hazs] / exp(het.sd^2 / 2)  # correct for increased geometric mean w/ hetogeneity
-          }else{
-            hpars[het.hazs] <-  hpars[het.hazs] / scale.adj # scale arbitrarily
-          }
-        }else{ ## no  pre-couple-specific heterogeneity
-          assign(paste('m.het.',het.t,sep=''), rep(1, K))
-          assign(paste('f.het.',het.t,sep=''), rep(1, K))          
+      het.log <- get(paste('het.',het.t,sep='')) ## temporary logical indicator of whether this type of heterogeneity is being simulated
+      het.sd <- get(paste('het.',het.t,'.sd',sep='')) # corresponding standard deviation
+      het.cor <- get(paste('het.',het.t,'.cor',sep='')) # corresponding inter-partner correlation
+      if(het.log) { #  include this type of heterogeneity?
+        if(het.cor==0) {              #   uncorrelated
+          assign(paste('m.het.',het.t,sep=''), exp( rnorm(K, mean = 0, sd = het.sd) ))
+          assign(paste('f.het.',het.t,sep=''), exp( rnorm(K, mean = 0, sd = het.sd) ))            
+        }else{                        #  correlated between partners
+          b.corSig <- matrix(c(het.sd,rep(het.cor*het.sd,2),het.sd),2,2)
+          het.both <- rmvnorm(K, mean = rep(0,2), sigma = b.corSig)
+          assign(paste('m.het.',het.t,sep=''), exp(het.both[,1]))
+          assign(paste('f.het.',het.t,sep=''), exp(het.both[,2]))            
         }
-        ## Discrete (binary) heterogeneity: High risk & low risk groups
-        m.het.hilo <- rep(1,K)
-        f.het.hilo <- rep(1,K)
-        if(hilo) {
-          m.high <- rbinom(K, 1, phigh.m)
-          f.high <- rbinom(K, 1, phigh.f)
-          m.het.hilo[m.high] <- rrhigh.m
-          f.het.hilo[f.high] <- rrhigh.f      
-      } # end heterogeneity risk deviate assignment loop
+        if(het.t %in% c('b','e','p')) { # which hazards to rescale to keep geometric mean of risk deviates = 1
+          het.hazs <- paste0('b',c('m','f'),het.t)
+        }else{
+          if(het.t=='gen') het.hazs <- hazs
+          if(het.t=='beh') het.hazs <- hazs[1:4]
+        }
+        if(scale.by.sd) { ##  keep geometric mean transmission coefficient the same
+          hpars[het.hazs] <-  hpars[het.hazs] / exp(het.sd^2 / 2)  # correct for increased geometric mean w/ hetogeneity
+        }else{
+          hpars[het.hazs] <-  hpars[het.hazs] / scale.adj # scale arbitrarily
+        }
+      }else{ ## no  pre-couple-specific heterogeneity
+        assign(paste('m.het.',het.t,sep=''), rep(1, K))
+        assign(paste('f.het.',het.t,sep=''), rep(1, K))          
+      }
+      ## Discrete (binary) heterogeneity: High risk & low risk groups
+      m.het.hilo <- rep(1,K)
+      f.het.hilo <- rep(1,K)
+      if(hilo) {
+        ctypes <- sample(c('hihi','hilo','lohi','lolo'), K, replace=T, prob = c(phihi, phi.m, phi.f, 1 - phihi - phi.m - phi.f)) ## how many of each couple type
+        m.het.hilo[ctypes %in% c('hihi','hilo')] <- rrhi.m ## set high risk men
+        f.het.hilo[ctypes %in% c('hihi','lohi')] <- rrhi.f ## set high risk women        
+      } 
+    }# end heterogeneity risk deviate assignment loop
     ## make data frame for storing output
     dat <- data.frame(dat, mser, fser, mdoi, fdoi, mdod, fdod, mcoi, fcoi, m.het.gen, f.het.gen, m.het.beh, f.het.beh,
                       m.het.b, f.het.b, # pre-couple   
@@ -414,8 +416,8 @@ cloop <- function(batch, dat, pars, breaks, vfreq, browse = F, death, acute.sc, 
             ## male before marriage: get bernoulli probability of infection in each month of sexual
             ## activity before marriage
             temp.haz <- bmb*dat$m.het.hilo[ii]*dat$m.het.b[ii]*dat$m.het.beh[ii]*dat$m.het.gen[ii]*epicf[dat$tms[ii]:(dat$tmar[ii]-1), epic.ind.temp]
-            m.inf.bef <- rbinom(dat$tmar[ii] - dat$tms[ii],1, # hets: b,beh,gen
-                                prob = 1 - exp(-temp.haz)
+            m.inf.bef <- rbinom(dat$tmar[ii] - dat$tms[ii], 1,
+                                prob = 1 - exp(-temp.haz))
             if(sum(m.inf.bef)>0)            ## if he gets infected in 1 or more months
               {
                 ## change serostatus to HIV+ & use earliest infection as date of infection. Then
