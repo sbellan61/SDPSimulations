@@ -49,6 +49,29 @@ jtd <- which(!blocks$jobnum %in% cfs$cframe$job)    # jobs undone
 print(paste("didn't do jobs:",paste(head(jtd,50), collapse=','))) # check to see if any jobs didn't complete
 save(jtd, file='data files/AssortJobsToDo.Rdata')
 
+## Convert hilo to mean & sd
+K <- 10^5
+blocks$mean <- NA
+blocks$sd <- NA
+blocks$cov <- NA
+for(ii in 1:nrow(blocks)) {
+    m.het.hilo <- rep(1,K)
+    f.het.hilo <- rep(1,K)
+    logrr <- with(blocks[ii,],
+                  { #browser()})
+                      ctypes <- sample(c('hihi','hilo','lohi','lolo'), K, replace=T, prob = c(phihi, phi.m, phi.f, 1 - phihi - phi.m - phi.f)) ## how many of each couple type
+                      m.het.hilo[ctypes %in% c('hihi','hilo')] <- rrhi.m ## set high risk men
+                      f.het.hilo[ctypes %in% c('hihi','lohi')] <- rrhi.f ## set high risk women
+                      out <- log(cbind(m.het.hilo, f.het.hilo))
+                      return(out)
+                  })
+    blocks$mean[ii] <- signif(mean(logrr[,1]),2)
+    blocks$sd[ii] <- signif(sd(logrr[,1]),2)
+    blocks$cov[ii] <- signif(cov(logrr)[1,2],2)
+}
+
+head(blocks[,c('phi','rel.assort','rrhi.m','mean','sd','cov')],50)
+
 ####################################################################################################
 ## Couple Serostatus Summary Functions
 sdpfx <- function(ser) sum(ser %in% 2:3) / sum(ser%in%1:3) ## serodiscordant proportion
@@ -89,9 +112,9 @@ ac <- 7 ## acute phase RH to use in Figure
 blocks$phi <- blocks$phihi + blocks$phi.m
 
 ####################################################################################################
-## Plot SDP in a survey year as a function of time since married
+## Plot SDP in a survey year as a function of time since married, HiLo legend
 xs <- 0:400
-for(sc in 1) { #unique(blocks$bmp.sc)) {
+for(sc in unique(blocks$bmp.sc)) {
   pdf(file.path(dir.figs,paste0('Figure X - SDP vs mardur Ac',ac,' beta.sc', sc,'.pdf')), w = 6.5, h = 5)
   for(cc in 15) {#1:length(ds.nm)) { ## by country
     par(mfrow = c(2,2), mar = c(3,1,2,.5), oma = c(3,3,2,0), fg = col.pl, col.axis = col.pl, 'ps' = 12,
@@ -111,8 +134,56 @@ for(sc in 1) { #unique(blocks$bmp.sc)) {
       plot(0,0, type = 'n', xlab = '', ylab = '', main = main, xlim = c(0,25), ylim = c(0,1), las = 1, yaxt = 'n', bty = 'n')
       if(hh%%2==1) axis(2, at = seq(0,1, by = .2), las = 2)
       if(hh%%2==0) axis(2, at = seq(0,1, by = .2), lab = NA)
-      if(hh==1) legend('bottomleft', leg = with(blocks[js,], paste0(rrhi.m,'X, hihi=', rel.assort,'-fold')), col = cols,
-                                         lty = ltys, lwd = 1.5, cex = .8, title = '', ncol=4, bty = 'n')
+      if(hh==1) {
+          legend('bottomleft', leg = unique(blocks$rrhi.m[js]), col = cols.rmp, lty = 1, lwd = 1.5, cex = .8,
+                 title = 'RR between Hi & Lo', ncol=4, bty = 'n')
+          legend('topright', leg = unique(blocks$rel.assor[js]), col = 'black', lty = unique(blocks$rel.assor[js]),
+                 lwd = 1.5, cex = .8, title = 'fold increase in proportion HiHi vs non-assortative', ncol=4, bty = 'n')
+      }
+      for(jj in 1:length(js)) { ## for each simulation, add lines to plot
+        simj <- as.character(js[jj])
+        ys <- predict(temp.mods[[simj]][[1]], data.frame(mardur.mon = xs, is.sd = NA), type = 'response')
+        lines(xs/12, ys, col = cols[jj], lty = ltys[jj], lwd = 1.5)
+      }
+    }
+    mtext('SDP', side = 2, line = 2, adj = .5, cex = 1, outer = T)
+    mtext(paste0('couple duration (years) '), side = 1, line = 1, outer = T)
+    mtext(ds.nm[cc], side = 3, line = 1, outer = T)
+  }
+  dev.off()
+}
+
+
+
+####################################################################################################
+## Plot SDP in a survey year as a function of time since married, sd legend
+xs <- 0:400
+rmp <- colorRamp(c('black',"orange"))
+for(sc in 1) { #unique(blocks$bmp.sc)) {
+  pdf(file.path(dir.figs,paste0('Figure X - SDP vs mardur Ac',ac,' beta.sc', sc,'HiLo by SD.pdf')), w = 6.5, h = 5)
+  for(cc in 15) {#1:length(ds.nm)) { ## by country
+    par(mfrow = c(2,2), mar = c(3,1,2,.5), oma = c(3,3,2,0), fg = col.pl, col.axis = col.pl, 'ps' = 12,
+        col.lab = col.pl, col = col.pl, col.main = col.pl)
+    for(hh in 1:3) { ## for each heterogeneity sd
+      js <- with(blocks, which(rel.assort==hh & group==cc & bmp.sc==sc)) ## simulations with that heterogeneity
+      js1 <- with(blocks, which(rel.assort==hh & phihi==0 & group==cc & bmp.sc==sc)) ## the one with no correlation
+      njs <- length(js)
+      cols <- rmp(blocks$sd[js]/max(blocks$sd))
+      cols <- apply(cols,1, function(x) rgb(x[1],x[2],x[3], max = 255))
+      ltys <- blocks$rel.assort[js]
+      lwds <- rep(1,njs)
+      main <- paste0('relative proportion HiHi = ', hh)
+      js <- js[!js %in% jtd]
+      temp.mods <- wrp.serostatus.by.mardur.mods(js)
+      plot(0,0, type = 'n', xlab = '', ylab = '', main = main, xlim = c(0,25), ylim = c(0,1), las = 1, yaxt = 'n', bty = 'n')
+      if(hh%%2==1) axis(2, at = seq(0,1, by = .2), las = 2)
+      if(hh%%2==0) axis(2, at = seq(0,1, by = .2), lab = NA)
+      ## if(hh==1) {
+      ##     legend('bottomleft', leg = unique(blocks$rrhi.m[js]), col = cols.rmp, lty = 1, lwd = 1.5, cex = .8,
+      ##            title = 'RR between Hi & Lo', ncol=4, bty = 'n')
+      ##     legend('topright', leg = unique(blocks$rel.assor[js]), col = 'black', lty = unique(blocks$rel.assor[js]),
+      ##            lwd = 1.5, cex = .8, title = 'fold increase in proportion HiHi vs non-assortative', ncol=4, bty = 'n')
+      ## }
       for(jj in 1:length(js)) { ## for each simulation, add lines to plot
         simj <- as.character(js[jj])
         ys <- predict(temp.mods[[simj]][[1]], data.frame(mardur.mon = xs, is.sd = NA), type = 'response')

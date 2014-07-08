@@ -13,184 +13,55 @@ pcalc <- function(pars, dat, browse = F, compars = NULL, # compare lprob for tru
                   trace = T) # only do certain calculations when tracing parameters (i.e. for non-thinned versions)
   {
     if(browse) browser()
-    if(low.coverage.arv)    # if assuming only 50% of those on ART are not-infectious
-      {
-        cov.scalar <- .5
-      }else{
-        cov.scalar <- 1
-      }
+    cov.scalar <- ifelse(low.coverage.arv, .5, 1) ## if assuming only 50% of those on ART are not-infectious
     K <- nrow(dat)
-    if(!sim)
-      {
-        hh.log <- dat$ser==1
-        mm.log <- dat$ser==2
-        ff.log <- dat$ser==3
-        ss.log <- dat$ser==4
-      }
-    if(sum(pars[1:5]<0)>0)                   #if any parameters are <0 then the model must be rejected so we return logprob =-Inf
-      {
-        probs <- NA
-        lprob <- -Inf
-        pop.avs <- NA
-        proj12 <- NA
-        pser.a <- NA
-        pser <- NA
-        rrs <- NA
+    ser.nms <- c('hh','mm','ff','ss')
+    if(!sim) for(nn in 1:4) assign(paste0(ser.nms[nn], '.log'), dat$ser==nn) ## hh.log, mm.log, etc...
+    if(sum(pars[1:5]<0)>0) { ## if any parameters are <0 
+          lprob <- -Inf ## then the model must be rejected so we return logprob =-Inf
+          empty.vars <- c('probs','pop.avs','proj12','pser.a','pser','rrs')
+          for(ii in 1:length(empty.vars)) assign(empty.vars[ii], NA) ## set other outputs to NA
       }else{
-        bmb <- as.numeric(pars["bmb"])
-        bfb <- as.numeric(pars["bfb"])
-        bme <- as.numeric(pars["bme"])
-        bfe <- as.numeric(pars["bfe"])
-        bmp <- as.numeric(pars["bmp"])
-        rho <- exp(as.numeric(pars["lrho"])) # feeding in log(rho)
-        bfp <- bmp * rho
-        # L stands for *L*ast iteration
-        s..L <- rep(1,K)                # s: concordant negative
-        mb.a1L <- rep(0, K)               # m: male positive
-        mb.a2L <- rep(0, K)               # m: male positive
-        mb.L <- rep(0, K)               # m: male positive        
-        me.a1L <- rep(0, K)
-        me.a2L <- rep(0, K)
-        me.L <- rep(0, K)                
-        f.ba1L <- rep(0, K)               # f: female positive
-        f.ba2L <- rep(0, K)               # f: female positive
-        f.bL <- rep(0, K)               # f: female positive        
-        f.ea1L <- rep(0, K)
-        f.ea2L <- rep(0, K)
-        f.eL <- rep(0, K)                
-        hb1b2L <- rep(0, K)               # h: concordant positive
-        hb2b1L <- rep(0, K)               # b1b2 is both inf before, but female 1st, & vice versa
-        hbeL <- rep(0, K)
-        hebL <- rep(0, K)               # 2nd & 3rd character give route of transmission for M & F, respectively
-        hbpaL <- rep(0, K)              # acute
-        hpbaL <- rep(0, K)
-        hepaL <- rep(0, K)
-        hpeaL <- rep(0, K)
-        hbpL <- rep(0, K)               # chronic
-        hpbL <- rep(0, K)        
-        hepL <- rep(0, K)        
-        hpeL <- rep(0, K)        
-        he2e1L <- rep(0, K)
-        he1e2L <- rep(0, K)
-        ## initiate vectors to update based on *L*ast state
-        s.. <- rep(1,K)                # s: concordant negative
-        mb.a1 <- rep(0, K)               # m: male positive
-        mb.a2 <- rep(0, K)               # m: male positive
-        mb. <- rep(0, K)               # m: male positive        
-        me.a1 <- rep(0, K)
-        me.a2 <- rep(0, K)
-        me. <- rep(0, K)                
-        f.ba1 <- rep(0, K)               # f: female positive
-        f.ba2 <- rep(0, K)               # f: female positive
-        f.b <- rep(0, K)               # f: female positive        
-        f.ea1 <- rep(0, K)
-        f.ea2 <- rep(0, K)
-        f.e <- rep(0, K)                
-        hb1b2 <- rep(0, K)               # h: concordant positive
-        hb2b1 <- rep(0, K)               # b1b2 is both inf before, but female 1st, & vice versa
-        hbe <- rep(0, K)
-        heb <- rep(0, K)               # 2nd & 3rd character give route of transmission for M & F, respectively
-        hbpa <- rep(0, K)
-        hpba <- rep(0, K)
-        hepa <- rep(0, K)
-        hpea <- rep(0, K)
-        hbp <- rep(0, K)         
-        hpb <- rep(0, K)        
-        hep <- rep(0, K)        
-        hpe <- rep(0, K)        
-        he2e1 <- rep(0, K)
-        he1e2 <- rep(0, K)
-        # i.e., hbpa is a ++ couple in which the male was inf *b*efore
-        # couple formation & the female by her *p*artner while he was *a*cutely infectious
-        if(survive)
-          {
-            # A stands for *A*live, i.e. joint probability of serostatus
-            # and both partners being alive at sampling
-            mb.a1AL <- rep(0, K)               # m: male positive
-            mb.a2AL <- rep(0, K)               # m: male positive
-            mb.AL <- rep(0, K)               # m: male positive        
-            me.a1AL <- rep(0, K)
-            me.a2AL <- rep(0, K)
-            me.AL <- rep(0, K)                
-            f.ba1AL <- rep(0, K)               # f: female positive
-            f.ba2AL <- rep(0, K)               # f: female positive
-            f.bAL <- rep(0, K)               # f: female positive        
-            f.ea1AL <- rep(0, K)
-            f.ea2AL <- rep(0, K)
-            f.eAL <- rep(0, K)                
-            hb1b2AL <- rep(0, K)               # h: concordant positive
-            hb2b1AL <- rep(0, K)               # b1b2 is both inf before, but female 1st, & vice versa
-            hbeAL <- rep(0, K)
-            hebAL <- rep(0, K)               # 2nd & 3rd character give route of transmission for M & F, respectively
-            hbpaAL <- rep(0, K)
-            hbpAL <- rep(0, K)         
-            hpbaAL <- rep(0, K)
-            hpbAL <- rep(0, K)        
-            hepaAL <- rep(0, K)
-            hepAL <- rep(0, K)        
-            hpeaAL <- rep(0, K)
-            hpeAL <- rep(0, K)        
-            he2e1AL <- rep(0, K)
-            he1e2AL <- rep(0, K)
-            ## initiate vectors to update based on *L*ast state
-            mb.a1A <- rep(0, K)               # m: male positive
-            mb.a2A <- rep(0, K)               # m: male positive
-            mb.A <- rep(0, K)               # m: male positive        
-            me.a1A <- rep(0, K)
-            me.a2A <- rep(0, K)
-            me.A <- rep(0, K)                
-            f.ba1A <- rep(0, K)               # f: female positive
-            f.ba2A <- rep(0, K)               # f: female positive
-            f.bA <- rep(0, K)               # f: female positive        
-            f.ea1A <- rep(0, K)
-            f.ea2A <- rep(0, K)
-            f.eA <- rep(0, K)                
-            hb1b2A <- rep(0, K)               # h: concordant positive
-            hb2b1A <- rep(0, K)               # b1b2 is both inf before, but female 1st, & vice versa
-            hbeA <- rep(0, K)
-            hebA <- rep(0, K)               # 2nd & 3rd character give route of transmission for M & F, respectively
-            hbpaA <- rep(0, K)
-            hbpA <- rep(0, K)         
-            hpbaA <- rep(0, K)
-            hpbA <- rep(0, K)        
-            hepaA <- rep(0, K)
-            hepA <- rep(0, K)        
-            hpeaA <- rep(0, K)
-            hpeA <- rep(0, K)        
-            he2e1A <- rep(0, K)
-            he1e2A <- rep(0, K)                
-          }
-        for(tt in 1:max(dat$bd))
-          {
+          for(ii in 1:length(pars)) assign(names(pars)[ii], as.numeric(pars[ii])) ## get pars from pars: bmb, bfb, bme, bfe, bmp, lrho
+          rho <- exp(lrho) # feeding in log(rho) log(m->f / f->m) transmission rates
+          bfp <- bmp * rho
+          ## Assign state variable names
+          state.var.nms <- c('s..',
+                             'mb.a1', 'mb.a2', 'mb.', 'me.a1', 'me.a2', 'me.', #M+F- by routes & acute phase (a)
+                             'f.ba1', 'f.ba2', 'f.b', 'f.ea1', 'f.ea2', 'f.e', #M-F+ by routes & acute phase (a)
+                             'hb1b2', 'hb2b1', 'hbe', 'heb', ## rest are all M+F+
+                             'hbpa', 'hpba', 'hepa', 'hpea', ## acute infected by partner
+                             'hbp', 'hpb', 'hep', 'hpe', ## chronic infected by partner
+                             'he2e1', 'he1e2') ## both extra-couply infected, different orders
+          state.var.nms <- c(paste0(state.var.nms, rep(c('','L'), each = length(state.var.nms))), ## *L*ast
+                             paste0(state.var.nms[-1], rep(c('A','AL'), each = length(state.var.nms)-1))) ## will be *A*live at sampling
+          ## #####################################################################################          
+          ## i.e., hbpa is a ++ couple in which the male was inf *b*efore
+          ## couple formation & the female by her *p*artner while he was *a*cutely infectious
+          ## #####################################################################################
+          ## state.vars change as a function of parameters and their values at the last iteration
+          ## Set all other state.variable probability mass to 0 for all couples. Alive means the
+          ## probability the couple is in this state & alive at the time of sampling.
+          ## 
+          ## state.var <- matrix(0, nr = K, nc = length(state.var.nms)) ## set up a matrix
+          ## state.var[,c('s..','s..L')] <- 1 ## all probability mass at M-F-
+          zros <- rep(0, K)
+          for(ii in 1:length(state.var.nms)) assign(state.var.nms[ii], zros)
+          s.. <- rep(1, K)
+          s..L <- s..
+        for(tt in 1:max(dat$bd)) { ## for each month in the before-couple duration (bd)
             ## probabilities are non-zero only for times after started having sex and before couple formation
             m.sex <- dat$tmar-dat$bd+tt-1 >= dat$tms & dat$tmar-dat$bd+tt-1 < dat$tmar
             f.sex <- dat$tmar-dat$bd+tt-1 >= dat$tfs & dat$tmar-dat$bd+tt-1 < dat$tmar
             e.sex <- m.sex|f.sex           # either are active
-            ## probability infected in month tt
+            m.haz <- bmb * epicf[cbind(dat$tmar[m.sex]-dat$bd[m.sex]+tt-1, dat$epic.ind[m.sex])]
+            f.haz <- bfb * epicm[cbind(dat$tmar[f.sex]-dat$bd[f.sex]+tt-1, dat$epic.ind[f.sex])]
             p.m.bef <- rep(0,K)
             p.f.bef <- rep(0,K)
-            ## spar
-            if(spar.log)
-              {
-                m.spar <- rep(1, K)
-                f.spar <- rep(1, K)
-              }else{
-                m.spar <- rep(1, K)
-                f.spar <- rep(1, K)
-              }
-            if(heter)
-              {
-                m.het <- exp( rnorm(K, mean = 0, sd = 1) )
-                f.het <- exp( rnorm(K, mean = 0, sd = 1) )
-              }else{
-                m.het <- rep(1, K)
-                f.het <- rep(1, K)
-              }
-            p.m.bef[m.sex] <- (1 - exp(-bmb * m.spar[m.sex] * m.het[m.sex] *epicf[cbind(dat$tmar[m.sex]-dat$bd[m.sex]+tt-1, dat$epic.ind[m.sex])]))
-            p.f.bef[f.sex] <- (1 - exp(-bfb * f.spar[f.sex] * f.het[f.sex] *epicm[cbind(dat$tmar[f.sex]-dat$bd[f.sex]+tt-1, dat$epic.ind[f.sex])]))
+            p.m.bef[m.sex] <- 1 - exp(-m.haz)
+            p.f.bef[f.sex] <- 1 - exp(-f.haz)
             ## probability infected in month tt and alive at sampling
-            if(survive)
-              {
+            if(survive) {
                 p.m.bef.a <- rep(0,K)
                 p.f.bef.a <- rep(0,K)
                 ## csurv[time til interview, age in months in this month]
@@ -214,12 +85,11 @@ pcalc <- function(pars, dat, browse = F, compars = NULL, # compare lprob for tru
             p.mfirst[is.na(p.mfirst)] <- 0
             p.ffirst[is.na(p.ffirst)] <- 0                
             hb1b2[e.sex] <- hb1b2L[e.sex] + p.mfirst * s..L[e.sex]*p.m.bef[e.sex]*p.f.bef[e.sex] +
-                                            (mb.a1L[e.sex] + mb.a2L[e.sex] + mb.L[e.sex]) * p.f.bef[e.sex]
+                (mb.a1L[e.sex] + mb.a2L[e.sex] + mb.L[e.sex]) * p.f.bef[e.sex]
             hb2b1[e.sex] <- hb2b1L[e.sex] + p.ffirst * s..L[e.sex]*p.m.bef[e.sex]*p.f.bef[e.sex] +
-                                            (f.ba1L[e.sex] + f.ba2L[e.sex] + f.bL[e.sex]) * p.m.bef[e.sex]
+                (f.ba1L[e.sex] + f.ba2L[e.sex] + f.bL[e.sex]) * p.m.bef[e.sex]
             ## iterate joint probabilities with survival
-            if(survive)
-              {
+            if(survive) {
                 mb.a1A[e.sex] <- s..L[e.sex]*p.m.bef.a[e.sex]*(1-p.f.bef[e.sex])
                 mb.a2A[e.sex] <- mb.a1AL[e.sex]*(1 - p.f.bef[e.sex])
                 mb.A[e.sex]   <- mb.a2AL[e.sex]*(1 - p.f.bef[e.sex]) + mb.AL[e.sex]*(1 - p.f.bef[e.sex])
@@ -266,9 +136,7 @@ pcalc <- function(pars, dat, browse = F, compars = NULL, # compare lprob for tru
             p.m.part.ac <- 1 - exp(-acute.sc * bmp)
             p.f.part.ac <- 1 - exp(-acute.sc * bfp)
         ## Now loop through marriage
-        for(tt in 1:max(dat$cd-1))
-          {
-            # browser()
+        for(tt in 1:max(dat$cd-1)) {
             ## are partners formed in a couple?
             fmd <- dat$cd >= tt              
             ######################################################################
@@ -277,16 +145,14 @@ pcalc <- function(pars, dat, browse = F, compars = NULL, # compare lprob for tru
             p.m.exc <- (1 - exp(-bme * m.spar[fmd] * m.het[fmd] *epicf[cbind(dat$tmar[fmd]+(tt-1), dat$epic.ind[fmd])]))
             p.f.exc <- (1 - exp(-bfe * f.spar[fmd] * f.het[fmd] *epicm[cbind(dat$tmar[fmd]+(tt-1), dat$epic.ind[fmd])]))
             ## adjust probability of being infected by partner by probability partner is infectious (i.e. not on ART)
-            if(partner.arv)
-              {
+            if(partner.arv) {
                 p.m.part <- 1 - exp(-bmp * (1 - cov.scalar * art.prev[cbind(dat$tmar[fmd]+(tt-1), dat$epic.ind[fmd])]))
                 p.f.part <- 1 - exp(-bfp * (1 - cov.scalar * art.prev[cbind(dat$tmar[fmd]+(tt-1), dat$epic.ind[fmd])]))
                 ## acute
                 p.m.part.ac <- 1 - exp(-acute.sc * bmp * (1 - cov.scalar * art.prev[cbind(dat$tmar[fmd]+(tt-1), dat$epic.ind[fmd])]))
                 p.f.part.ac <- 1 - exp(-acute.sc * bfp * (1 - cov.scalar * art.prev[cbind(dat$tmar[fmd]+(tt-1), dat$epic.ind[fmd])]))
               }
-            if(survive)
-              {
+            if(survive) {
                 ## Survival probabilities
                 s.p.m <- csurv[cbind(dat$mage[fmd]-dat$cd[fmd]+tt-1, dat$tint[fmd] - (dat$tmar[fmd] + tt - 1))]
                 s.p.f <- csurv[cbind(dat$fage[fmd]-dat$cd[fmd]+tt-1, dat$tint[fmd] - (dat$tmar[fmd] + tt - 1))]
@@ -798,8 +664,7 @@ pcalc <- function(pars, dat, browse = F, compars = NULL, # compare lprob for tru
                               rr.mf.bef = rr.mf.bef, rr.mf.exc = rr.mf.exc,
                               rr.mf.bef.cont = rr.mf.bef.cont, rr.mf.exc.cont = rr.mf.exc.cont)
           }
-        if(sim) # if simulating data
-          {
+        if(sim) {# if simulating data
             probs <- NA
             lprob <- NA
             ## create couple state probability *A*live & *D*ead
@@ -830,24 +695,19 @@ pcalc <- function(pars, dat, browse = F, compars = NULL, # compare lprob for tru
                                     hpbA,   hpbD   =  hpb - hpbA,
                                     he1e2A, he1e2D = he1e2 - he1e2A,
                                     he2e1A, he2e1D = he2e1 - he2e1A)
-            for(ii in 1:nrow(dat))
-              {
-                        dat$cat[ii] <- which(rmultinom(1, 1, sim.probs[ii,])==1)
-              }
+            for(ii in 1:nrow(dat)) dat$cat[ii] <- which(rmultinom(1, 1, sim.probs[ii,])==1)
             dat$cat.nm <- names(sim.probs)[dat$cat]
             dat$cat.nm <- factor(dat$cat.nm, levels = names(sim.probs))
             K <- nrow(dat)
             if(!survive) pser.a <- NA
           }else{ ## if not simulating data calculate likelihood p(data|pars)
-            if(survive)
-              {                         # must NORMALIZE probabilities to 1 for likelihood!
+            if(survive) {                         # must NORMALIZE probabilities to 1 for likelihood!
                 probs <- pser.a[cbind(1:K,dat$ser)] / rowSums(pser.a) # accounting for survival
               }else{
                 probs <- pser[cbind(1:K,dat$ser)] # if not accounting for survival
                 pser.a <- NA
               }
-            if(sum(probs==0)==0) # if non of the serotatuses occur with 0 probability in the current model
-              {
+            if(sum(probs==0)==0) { # if non of the serotatuses occur with 0 probability in the current model
                 lprob <- sum(log(probs)) + dnorm(log(rho), log(trans.ratio), lrho.sd, log = T)
                 if(length(compars)>0) clprob <- sum(log(cprobs)) + dnorm(as.numeric(compars["lrho"]),
                                                                          log(trans.ratio), lrho.sd, log = T)
@@ -856,17 +716,13 @@ pcalc <- function(pars, dat, browse = F, compars = NULL, # compare lprob for tru
               }
           }
       }
-    if(length(compars)==0)
-      {
+    if(length(compars)==0) {
         clprob <- NA
         cprobs <- NA
       }
-    if(sim)
-      {
-        if(trace)
-          {
-            if(give.pis)
-              {
+    if(sim) {
+        if(trace) {
+            if(give.pis) {
                 return(list(lprob = lprob,pop.avs = pop.avs, proj12 = proj12, sim.probs, allstates = allstates,
                             pser.a = pser.a, pser = pser, dat = dat, clprob = clprob, probs = probs, cprobs = cprobs, m.het = m.het, f.het = f.het))
               }else{ 
@@ -878,10 +734,8 @@ pcalc <- function(pars, dat, browse = F, compars = NULL, # compare lprob for tru
                         clprob = clprob, probs = probs, cprobs = cprobs, m.het = m.het, f.het = f.het))
           }
       }else{                            # if not simulating
-        if(trace)
-          {
-            if(give.pis)
-              {
+        if(trace) {
+            if(give.pis) {
                 return(list(lprob = lprob,pop.avs = pop.avs, rrs = rrs,  proj12=proj12, pis = pis, allstates = allstates,
                             pser.a = pser.a, pser = pser, probs = probs))
               }else{ 
