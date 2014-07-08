@@ -10,15 +10,20 @@
 ####################################################################################################
 rm(list=ls())
 
-setwd('/home1/02413/sbellan/DHSFitting/')    # set working directory
+## setwd('/home1/02413/sbellan/DHSProject/DHSFitting/')
 ## This script must be called by R CMD BATCH with a set of arguments. See DHSFitMK.R which makes
 ## DHSFitControlFile.txt, the latter has one line with a set of arguments to be sent to a cluster.
 args <- commandArgs(TRUE)
 ## args is now a list of character vectors, we cycle through each element of the list and evaluate the expressions.
 if(length(args)>0) { for(ii in 1:length(args))  eval(parse(text=args[[ii]])) }
-source('/home1/02413/sbellan/SDPSimulations/SimulationFunctions.R') # simulating functions (from other project folder)
-load("/home1/02413/sbellan/SDPSimulations/data files/copula sigmas.Rdata")
+source('../SDPSimulations/SimulationFunctions.R') # simulating functions (from other project folder)
+load("data files/copula sigmas.Rdata")
 source('DHSFitFunctions.R') # fitting functions
+
+pcalc(simpars, dat, browse=T)
+    
+
+
 ##load("data files/alldhs.Rdata")         # DHS data
 load("data files/allDHSAIS.Rdata")         # DHS data
 load("data files/ds.nm.all.Rdata") # country names
