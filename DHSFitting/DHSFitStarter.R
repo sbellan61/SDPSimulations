@@ -10,6 +10,8 @@
 ####################################################################################################
 rm(list=ls())
 
+jobnum=1;group.ind=1;s.epic=1;s.demog=1;s.bmb=1;s.bfb=1;s.bme=1;s.bfe=1;s.bmp=1;s.bfp=1;acute.sc=1;bmp.sc=1;bfp.sc=1;late.sc=1;aids.sc=1;new.folder=TRUE;simul=FALSE;maxN=1000;seed.bump=1;sigma.ad=TRUE;batchdirnm="results/DHSFits/BurundiRealAc";psNonPar=TRUE;infl.fac=50;death=TRUE;bmb.sc=1;bfb.sc=1;bme.sc=1;bfe.sc=1;het.b=FALSE;het.b.sd=0;het.b.cor=0;het.e=FALSE;het.e.sd=0;het.e.cor=0;het.p=FALSE;het.p.sd=0;het.p.cor=0;het.gen=FALSE;het.gen.sd=0;het.gen.cor=0;het.beh=FALSE;het.beh.sd=0;het.beh.cor=0;scale.by.sd=TRUE;scale.adj=1;sample.tmar=FALSE;tmar=(65*12):(111*12);each=200;tint=111*12;short.test=F;all.cores=T;nc=6;adapt=TRUE;d.nburn=400;d.nthin=3;d.niter=1200;nburn=500;nthin=1;niter=8000;survive=T;tell=100;low.coverage.arv=F;partner.arv=F;fsd.sens=F
+
 ## setwd('/home1/02413/sbellan/DHSProject/DHSFitting/')
 ## This script must be called by R CMD BATCH with a set of arguments. See DHSFitMK.R which makes
 ## DHSFitControlFile.txt, the latter has one line with a set of arguments to be sent to a cluster.
@@ -18,11 +20,31 @@ args <- commandArgs(TRUE)
 if(length(args)>0) { for(ii in 1:length(args))  eval(parse(text=args[[ii]])) }
 source('../SDPSimulations/SimulationFunctions.R') # simulating functions (from other project folder)
 load("data files/copula sigmas.Rdata")
+
+test <- dat
+pre.prepout <- pre.prep(test)
+within.prepout <- within.prep(test)
+for(nm in names(pre.prepout)) assign(nm, pre.prepout[[nm]]) ## make each of these global for easier access
+for(nm in names(within.prepout)) assign(nm, within.prepout[[nm]])
+
+library(compiler)
 source('DHSFitFunctions.R') # fitting functions
+source('OldPcalc.R') # fitting functions
+pcalc.cmp <- cmpfun(pcalc)
+system.time(print(pcalc(simpars, test, browse=F)))
+system.time(print(pcalc.cmp(simpars, test, browse=F)))
 
-pcalc(simpars, dat, browse=T)
-    
+oldpcalc.cmp <- cmpfun(oldpcalc)
+system.time(print(oldpcalc(simpars, test, browse=F)$lprob))
+system.time(print(oldpcalc.cmp(simpars, test, browse=F)$lprob))
 
+debug(pre.couple)
+undebug(pre.couple)
+
+debug(within.couple)
+undebug(within.couple)
+
+test <- dat[sample(1:nrow(dat),10),]
 
 ##load("data files/alldhs.Rdata")         # DHS data
 load("data files/allDHSAIS.Rdata")         # DHS data
