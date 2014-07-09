@@ -1,752 +1,665 @@
-pcalc <- function(pars, dat, browse = F, compars = NULL, # compare lprob for true pars with other pars (fitted)
-                  give.pis = F,              # return individual pi values for couples (for outside mcmc)
-                  acute.sc = 26,                # acute phase infectiousness
-                  sim = F,                   # just use this to simulate data given parameters? (outputs pser.a)
-                  spar.log = F,                  # use sexual partner acquisition rate
-                  heter = F,                     # individual heterogeneity; simulation only
+
+pre.couple <- function(seros.active, pmb, pfb, pmb.a, pfb.a) {
+    if(class(seros.active)=='numeric')  seros.active <- t(as.matrix(seros.active))
+    tp <- seros.active ## old temporary array to update from
+    seros.active[,'s..']   <- tp[,'s..'] * (1-pmb) * (1-pfb)
+    ## transmission and alive, these states are used for fitting
+    seros.active[,'mb.a1A'] <- tp[,'s..'] * pmb.a * (1-pfb)
+    seros.active[,'mb.a2A'] <- tp[,'mb.a1A']*(1-pfb)
+    seros.active[,'mb.A'] <- tp[,'mb.a2A']*(1-pfb) + tp[,'mb.A']*(1 - pfb)
+    seros.active[,'f.ba1A'] <- tp[,'s..']* pfb.a *(1-pmb)
+    seros.active[,'f.ba2A'] <- tp[,'f.ba1A']*(1 - pmb)
+    seros.active[,'f.bA'] <- tp[,'f.ba2A']*(1 - pmb) + tp[,'f.bA']*(1 - pmb)
+    p.mfirst.a <- pmb.a / (pmb.a+pfb.a)
+    p.ffirst.a <- 1-p.mfirst.a
+    p.mfirst.a[is.na(p.mfirst.a)] <- 0
+    p.ffirst.a[is.na(p.ffirst.a)] <- 0                
+    seros.active[,'hb1b2A'] <- tp[,'hb1b2A'] + p.mfirst.a * tp[,'s..']* pmb.a * pfb.a + (tp[,'mb.a1A'] + tp[,'mb.a2A'] + tp[,'mb.A']) * pfb.a
+    seros.active[,'hb2b1A'] <- tp[,'hb2b1A'] + p.ffirst.a * tp[,'s..']* pmb.a * pfb.a + (tp[,'f.ba1A'] + tp[,'f.ba2A'] + tp[,'f.bA']) * pmb.a
+    ## if(!fast) { ## if calculating probabilities of transmission with or without death (not used for fitting)
+    ##     seros.active[,'mb.a1'] <- tp[,'s..'] * pmb * (1-pfb)
+    ##     seros.active[,'mb.a2'] <- tp[,'mb.a1'] * (1 - pfb)
+    ##     seros.active[,'mb.'] <- tp[,'mb.a2'] * (1 - pfb) + tp[,'mb.'] * (1 - pfb)
+    ##     seros.active[,'f.ba1'] <- tp[,'s..'] * pfb * (1-pmb)
+    ##     seros.active[,'f.ba2'] <- tp[,'f.ba1'] * (1 - pmb)
+    ##     seros.active[,'f.b'] <- tp[,'f.ba2'] * (1 - pmb) + tp[,'f.b'] * (1 - pmb)
+    ##     p.mfirst <- pmb / (pmb+pfb)
+    ##     p.ffirst <- 1-p.mfirst
+    ##     p.mfirst[is.na(p.mfirst)] <- 0
+    ##     p.ffirst[is.na(p.ffirst)] <- 0                
+    ##     seros.active[,'hb1b2'] <- tp[,'hb1b2'] + p.mfirst  *  tp[,'s..'] * pmb * pfb + (tp[,'mb.a1'] + tp[,'mb.a2'] + tp[,'mb.'])  *  pfb
+    ##     seros.active[,'hb2b1'] <- tp[,'hb2b1'] + p.ffirst  *  tp[,'s..'] * pmb * pfb + (tp[,'f.ba1'] + tp[,'f.ba2'] + tp[,'f.b'])  *  pmb
+    ## }
+    if(sum(is.na(seros.active))>0) browser()
+    return(seros.active)
+}
+
+within.couple <- function(seros.active, pme, pfe, pmp, pfp, pmp.ac, pfp.ac, pme.a, pfe.a, pmp.a, pfp.a, pmp.a.ac, pfp.a.ac) {
+    if(class(seros.active)=='numeric')  seros.active <- t(as.matrix(seros.active))
+    tp <- seros.active
+    seros.active[,'s..'] <- tp[,'s..']*(1-pme)*(1-pfe)
+    ## ##################################################
+    ## Joint with survival
+    seros.active[,'mb.a1A'] <- 0
+    seros.active[,'mb.a2A'] <- tp[,'mb.a1A']*(1-pfe)*(1-pfp.ac)
+    seros.active[,'mb.A']  <- tp[,'mb.a2A']*(1-pfe)*(1-pfp.ac) + tp[,'mb.A']*(1-pfe)*(1-pfp) 
+    seros.active[,'me.a1A'] <- tp[,'s..']*pme.a*(1-pfe)
+    seros.active[,'me.a2A'] <- tp[,'me.a1A']*(1-pfe)*(1-pfp.ac)
+    seros.active[,'me.A']  <- tp[,'me.a2A']*(1-pfe)*(1-pfp.ac) + tp[,'me.A']*(1-pfe)*(1-pfp)
+    seros.active[,'f.ba1A'] <- 0
+    seros.active[,'f.ba2A'] <- tp[,'f.ba1A']*(1-pme)*(1-pmp.ac)
+    seros.active[,'f.bA']  <- tp[,'f.ba2A']*(1-pme)*(1-pmp.ac) + tp[,'f.bA']*(1-pme)*(1-pmp)
+    seros.active[,'f.ea1A'] <- tp[,'s..']*pfe.a*(1-pme)
+    seros.active[,'f.ea2A'] <- tp[,'f.ea1A']*(1-pme)*(1-pmp.ac)
+    seros.active[,'f.eA']  <- tp[,'f.ea2A']*(1-pme)*(1-pmp.ac) + tp[,'f.eA']*(1-pme)*(1-pmp)
+    ##              hb1b2A'] <- hb1b2A'] # Doesn't change during couple duration
+    ##              hb2b1A'] <- hb2b1A'] # Doesn't change during couple duration                
+    seros.active[,'hbeA'] <- tp[,'hbeA']  + (tp[,'mb.a1A'] + tp[,'mb.a2A'])*(1-pfp.ac)*pfe.a + tp[,'mb.A']*(1-pfp)*pfe.a
+    seros.active[,'hebA'] <- tp[,'hebA']  + (tp[,'f.ba1A'] + tp[,'f.ba2A'])*(1-pmp.ac)*pme.a + tp[,'f.bA']*(1-pmp)*pme.a
+    seros.active[,'hbpaA'] <- tp[,'hbpaA'] + (tp[,'mb.a1A'] + tp[,'mb.a2A'])*pfp.a.ac
+    seros.active[,'hbpA'] <- tp[,'hbpA']  + tp[,'mb.A']*pfp.a                
+    seros.active[,'hpbaA'] <- tp[,'hpbaA'] + (tp[,'f.ba1A'] + tp[,'f.ba2A'])*pmp.a.ac
+    seros.active[,'hpbA'] <- tp[,'hpbA']  + tp[,'f.bA']*pmp.a                
+    seros.active[,'hepaA'] <- tp[,'hepaA'] + (tp[,'me.a1A'] + tp[,'me.a2A'])*pfp.a.ac
+    seros.active[,'hepA'] <- tp[,'hepA']  + tp[,'me.A']*pfp.a                
+    seros.active[,'hpeaA'] <- tp[,'hpeaA'] + (tp[,'f.ea1A'] + tp[,'f.ea2A'])*pmp.a.ac
+    seros.active[,'hpeA'] <- tp[,'hpeA']  + tp[,'f.eA']*pmp.a                
+    ## for individuals infected in the same month, assign
+    ## the order of infection based on competing risks
+    ## formula, but if the denominator is 0, replace both
+    ## with 0 to avoid errors.
+    p.mfirst.a <- pme.a / (pme.a+pfe.a)
+    p.ffirst.a <- 1-p.mfirst.a
+    p.mfirst.a[is.na(p.mfirst.a)] <- 0
+    p.ffirst.a[is.na(p.ffirst.a)] <- 0                
+    seros.active[,'he1e2A'] <- tp[,'he1e2A'] + p.mfirst.a * tp[,'s..']*pme.a*pfe.a + (tp[,'me.a1A'] + tp[,'me.a2A'])*(1-pfp.ac)*pfe.a + tp[,'me.A']*(1-pfp)*pfe.a
+    seros.active[,'he2e1A'] <- tp[,'he2e1A'] + p.ffirst.a * tp[,'s..']*pme.a*pfe.a + (tp[,'f.ea1A'] + tp[,'f.ea2A'])*(1-pmp.ac)*pme.a + tp[,'f.eA']*(1-pmp)*pme.a
+    ## if(!fast) { ## if calculating probabilities of transmission with or without death (not used for fitting)
+    ##     seros.active[,'mb.a1'] <- 0 
+    ##     seros.active[,'mb.a2'] <- tp[,'mb.a1'] * (1-pfe)*(1-pfp.ac)
+    ##     seros.active[,'mb.']   <- tp[,'mb.a2'] * (1-pfe)*(1-pfp.ac) + tp[,'mb.'] * (1-pfe)*(1-pfp)            
+    ##     seros.active[,'me.a1'] <- tp[,'s..'] * pme*(1-pfe)
+    ##     seros.active[,'me.a2'] <- tp[,'me.a1']*(1-pfe)*(1-pfp.ac) 
+    ##     seros.active[,'me.']   <- tp[,'me.a2']*(1-pfe)*(1-pfp.ac) + tp[,'me.']*(1-pfe)*(1-pfp) 
+    ##     seros.active[,'f.ba1'] <- 0
+    ##     seros.active[,'f.ba2'] <- tp[,'f.ba1']*(1-pme)*(1-pmp.ac)
+    ##     seros.active[,'f.b']   <- tp[,'f.ba2']*(1-pme)*(1-pmp.ac) + tp[,'f.b']*(1-pme)*(1-pmp)            
+    ##     seros.active[,'f.ea1'] <- tp[,'s..']*pfe*(1-pme)
+    ##     seros.active[,'f.ea2'] <- tp[,'f.ea1']*(1-pme)*(1-pmp.ac)
+    ##     seros.active[,'f.e']   <- tp[,'f.ea2']*(1-pme)*(1-pmp.ac) + tp[,'f.e']*(1-pme)*(1-pmp)
+    ##     ##          hb1b2'] <- hb1b2'] # Doesn't change during couple duration
+    ##     ##          hb2b1'] <- hb2b1'] # Doesn't change during couple duration                
+    ##     seros.active[,'hbe']  <- tp[,'hbe'] + (tp[,'mb.a1']+ tp[,'mb.a2'])*(1-pfp.ac)*pfe + tp[,'mb.']*(1-pfp)*pfe
+    ##     seros.active[,'heb']  <- tp[,'heb'] + (tp[,'f.ba1']+ tp[,'f.ba2'])*(1-pmp.ac)*pme + tp[,'f.b']*(1-pmp)*pme
+    ##     seros.active[,'hbpa'] <- tp[,'hbpa']+ (tp[,'mb.a1']+ tp[,'mb.a2'])*pfp.ac
+    ##     seros.active[,'hbp']  <- tp[,'hbp'] + tp[,'mb.']*pfp            
+    ##     seros.active[,'hpba'] <- tp[,'hpba']+ (tp[,'f.ba1']+ tp[,'f.ba2'])*pmp.ac
+    ##     seros.active[,'hpb']  <- tp[,'hpb'] + tp[,'f.b']*pmp
+    ##     seros.active[,'hepa'] <- tp[,'hepa']+ (tp[,'me.a1']+ tp[,'me.a2'])*pfp.ac
+    ##     seros.active[,'hep']  <- tp[,'hep'] + tp[,'me.']*pfp            
+    ##     seros.active[,'hpea'] <- tp[,'hpea']+ (tp[,'f.ea1']+ tp[,'f.ea2'])*pmp.ac
+    ##     seros.active[,'hpe']  <- tp[,'hpe'] + tp[,'f.e']*pmp            
+    ##     ## for individuals infected in the same month, assign
+    ##     ## the order of infection based on competing risks
+    ##     ## formula, but if the denominator is 0, replace both
+    ##     ## with 0 to avoid errors.
+    ##     p.mfirst <- pme / (pme+pfe)
+    ##     p.ffirst <- 1-p.mfirst
+    ##     p.mfirst[is.na(p.mfirst)] <- 0
+    ##     p.ffirst[is.na(p.ffirst)] <- 0                
+    ##     seros.active[,'he1e2'] <- tp[,'he1e2'] + p.mfirst * tp[,'s..']*pme*pfe + (tp[,'me.a1'] + tp[,'me.a2'])*(1-pfp.ac)*pfe + tp[,'me.']*(1-pfp)*pfe
+    ##     seros.active[,'he2e1'] <- tp[,'he2e1'] + p.ffirst * tp[,'s..']*pme*pfe + (tp[,'f.ea1'] + tp[,'f.ea2'])*(1-pmp.ac)*pme + tp[,'f.e']*(1-pmp)*pme
+    ## }
+    return(seros.active)
+}
+
+## get logical matrices for whether male, female, or either partner is sexually active for each
+## month and country-level prevalence for each couple's tt-th month of before-couple duration. For
+## use in pre-couple transmission function.
+pre.prep <- function(dat) {
+    out.names <- c('m.sex','f.sex','e.sex','pre.fprev','pre.mprev','pre.msurv','pre.fsurv')
+    for(ob in out.names[1:3]) assign(ob, matrix(NA, nrow(dat), max(dat$bd)))
+    for(ob in out.names[4:length(out.names)]) assign(ob, matrix(0, nrow(dat), max(dat$bd))) ## no transmission occurs by default when they aren't sexually active
+    for(tt in 1:max(dat$bd)) { ## for each month in the before-couple duration (bd)
+        m.sex[,tt] <- dat$tmar-dat$bd+tt-1 >= dat$tms & dat$tmar-dat$bd+tt-1 < dat$tmar
+        f.sex[,tt] <- dat$tmar-dat$bd+tt-1 >= dat$tfs & dat$tmar-dat$bd+tt-1 < dat$tmar
+        e.sex[,tt] <- m.sex[,tt] |f.sex[,tt] ## either are active 
+        ## opposite gender population prevalence in month tt of bd
+        pre.fprev[m.sex[,tt],tt] <- epicf[cbind(dat$tmar[m.sex[,tt]]-dat$bd[m.sex[,tt]]+tt-1, dat$epic.ind[m.sex[,tt]])]
+        pre.mprev[f.sex[,tt],tt] <- epicm[cbind(dat$tmar[f.sex[,tt]]-dat$bd[f.sex[,tt]]+tt-1, dat$epic.ind[f.sex[,tt]])]
+        ## probability each partner survives to interview date given they are infected in month tt of bd
+        pre.msurv[m.sex[,tt],tt] <- csurv[cbind(dat$mage[m.sex[,tt]]-dat$cd[m.sex[,tt]]-dat$bd[m.sex[,tt]]+tt-1, dat$cd[m.sex[,tt]]+dat$bd[m.sex[,tt]]-tt+1)]
+        pre.fsurv[f.sex[,tt],tt] <- csurv[cbind(dat$fage[f.sex[,tt]]-dat$cd[f.sex[,tt]]-dat$bd[f.sex[,tt]]+tt-1, dat$cd[f.sex[,tt]]+dat$bd[f.sex[,tt]]-tt+1)]
+    }
+    pre.prepout <- list(m.sex, f.sex, e.sex, pre.fprev, pre.mprev, pre.msurv, pre.fsurv)
+    names(pre.prepout) <- out.names
+    return(pre.prepout)
+}
+## get logical matrices for whether the couple is formed yet and country-level prevalence for each
+## couple's tt-th month of couple duration. Also survival & ART coverage. For use in within-couple
+## transmission function.
+within.prep <- function(dat) {
+    out.names <- c('fmd','within.fprev','within.mprev', 'within.art.cov', 'within.msurv', 'within.fsurv')
+    for(ob in out.names) assign(ob, matrix(NA, nrow(dat), max(dat$cd)))
+    for(tt in 1:max(dat$cd-1)) { ## Loop through marital duration from 1st month to last month of longest marriage
+        ff <- dat$cd >= tt ## are partners formed in a couple?
+        within.fprev[ff,tt] <- epicf[cbind(dat$tmar[ff]+(tt-1), dat$epic.ind[ff])]
+        within.mprev[ff,tt] <- epicm[cbind(dat$tmar[ff]+(tt-1), dat$epic.ind[ff])]
+        within.art.cov[ff,tt] <- art.cov[cbind(dat$tmar[ff]+(tt-1), dat$epic.ind[ff])]
+        within.msurv[ff,tt] <- csurv[cbind(dat$mage[ff]-dat$cd[ff]+tt-1, dat$tint[ff] - (dat$tmar[ff] + tt - 1))]
+        within.fsurv[ff,tt] <- csurv[cbind(dat$fage[ff]-dat$cd[ff]+tt-1, dat$tint[ff] - (dat$tmar[ff] + tt - 1))]
+        fmd[,tt] <- ff        
+    }
+    within.prepout <- list(fmd,within.fprev,within.mprev, within.art.cov, within.msurv, within.fsurv)
+    names(within.prepout) <- out.names
+    return(within.prepout)
+}
+
+pcalc <- function(pars, dat, browse = F, 
+                  give.ser = F, ## return serostatus probability matrix
+                  acute.sc = 7, ## acute phase infectiousness
                   ## using global variables for these
-#                  partner.arv = F,               # ART coverage affects within-partnership transmission?
-#                  low.coverage.arv = F,          # if T, only 50% of those on ART are not infectious
-                  survive = T,               # account for survival in analysis
-                  cond.sim = F,              # only simulate individuals that will live
-                  lrho.sd = 1/2,             # sd on lrho prior
-                  trace = T) # only do certain calculations when tracing parameters (i.e. for non-thinned versions)
-  {
-    if(browse) browser()
-    cov.scalar <- ifelse(low.coverage.arv, .5, 1) ## if assuming only 50% of those on ART are not-infectious
-    K <- nrow(dat)
-    ser.nms <- c('hh','mm','ff','ss')
-    if(!sim) for(nn in 1:4) assign(paste0(ser.nms[nn], '.log'), dat$ser==nn) ## hh.log, mm.log, etc...
-    if(sum(pars[1:5]<0)>0) { ## if any parameters are <0 
-          lprob <- -Inf ## then the model must be rejected so we return logprob =-Inf
-          empty.vars <- c('probs','pop.avs','proj12','pser.a','pser','rrs')
-          for(ii in 1:length(empty.vars)) assign(empty.vars[ii], NA) ## set other outputs to NA
-      }else{
-          for(ii in 1:length(pars)) assign(names(pars)[ii], as.numeric(pars[ii])) ## get pars from pars: bmb, bfb, bme, bfe, bmp, lrho
-          rho <- exp(lrho) # feeding in log(rho) log(m->f / f->m) transmission rates
-          bfp <- bmp * rho
-          ## Assign state variable names
-          state.var.nms <- c('s..',
-                             'mb.a1', 'mb.a2', 'mb.', 'me.a1', 'me.a2', 'me.', #M+F- by routes & acute phase (a)
-                             'f.ba1', 'f.ba2', 'f.b', 'f.ea1', 'f.ea2', 'f.e', #M-F+ by routes & acute phase (a)
-                             'hb1b2', 'hb2b1', 'hbe', 'heb', ## rest are all M+F+
-                             'hbpa', 'hpba', 'hepa', 'hpea', ## acute infected by partner
-                             'hbp', 'hpb', 'hep', 'hpe', ## chronic infected by partner
-                             'he2e1', 'he1e2') ## both extra-couply infected, different orders
-          state.var.nms <- c(paste0(state.var.nms, rep(c('','L'), each = length(state.var.nms))), ## *L*ast
-                             paste0(state.var.nms[-1], rep(c('A','AL'), each = length(state.var.nms)-1))) ## will be *A*live at sampling
-          ## #####################################################################################          
-          ## i.e., hbpa is a ++ couple in which the male was inf *b*efore
-          ## couple formation & the female by her *p*artner while he was *a*cutely infectious
-          ## #####################################################################################
-          ## state.vars change as a function of parameters and their values at the last iteration
-          ## Set all other state.variable probability mass to 0 for all couples. Alive means the
-          ## probability the couple is in this state & alive at the time of sampling.
-          ## 
-          ## state.var <- matrix(0, nr = K, nc = length(state.var.nms)) ## set up a matrix
-          ## state.var[,c('s..','s..L')] <- 1 ## all probability mass at M-F-
-          zros <- rep(0, K)
-          for(ii in 1:length(state.var.nms)) assign(state.var.nms[ii], zros)
-          s.. <- rep(1, K)
-          s..L <- s..
-        for(tt in 1:max(dat$bd)) { ## for each month in the before-couple duration (bd)
-            ## probabilities are non-zero only for times after started having sex and before couple formation
-            m.sex <- dat$tmar-dat$bd+tt-1 >= dat$tms & dat$tmar-dat$bd+tt-1 < dat$tmar
-            f.sex <- dat$tmar-dat$bd+tt-1 >= dat$tfs & dat$tmar-dat$bd+tt-1 < dat$tmar
-            e.sex <- m.sex|f.sex           # either are active
-            m.haz <- bmb * epicf[cbind(dat$tmar[m.sex]-dat$bd[m.sex]+tt-1, dat$epic.ind[m.sex])]
-            f.haz <- bfb * epicm[cbind(dat$tmar[f.sex]-dat$bd[f.sex]+tt-1, dat$epic.ind[f.sex])]
-            p.m.bef <- rep(0,K)
-            p.f.bef <- rep(0,K)
-            p.m.bef[m.sex] <- 1 - exp(-m.haz)
-            p.f.bef[f.sex] <- 1 - exp(-f.haz)
-            ## probability infected in month tt and alive at sampling
-            if(survive) {
-                p.m.bef.a <- rep(0,K)
-                p.f.bef.a <- rep(0,K)
-                ## csurv[time til interview, age in months in this month]
-                p.m.bef.a[m.sex] <- p.m.bef[m.sex] * csurv[cbind(dat$mage[m.sex]-dat$cd[m.sex]-dat$bd[m.sex]+tt-1, dat$cd[m.sex]+dat$bd[m.sex]-tt+1)]
-                p.f.bef.a[f.sex] <- p.f.bef[f.sex] * csurv[cbind(dat$fage[f.sex]-dat$cd[f.sex]-dat$bd[f.sex]+tt-1, dat$cd[f.sex]+dat$bd[f.sex]-tt+1)]
-              }
-            ## iterate probabilities based on previous values for only cases where it needs updating
-            s..[e.sex]   <- s..L[e.sex]*(1-p.m.bef[e.sex])*(1-p.f.bef[e.sex])
-            mb.a1[e.sex] <- s..L[e.sex]*p.m.bef[e.sex]*(1-p.f.bef[e.sex])
-            mb.a2[e.sex] <- mb.a1L[e.sex]*(1 - p.f.bef[e.sex])
-            mb.[e.sex]   <- mb.a2L[e.sex]*(1 - p.f.bef[e.sex]) + mb.L[e.sex]*(1 - p.f.bef[e.sex])
-            f.ba1[e.sex] <- s..L[e.sex]*p.f.bef[e.sex]*(1-p.m.bef[e.sex])
-            f.ba2[e.sex] <- f.ba1L[e.sex]*(1 - p.m.bef[e.sex])
-            f.b[e.sex]   <- f.ba2L[e.sex]*(1 - p.m.bef[e.sex]) + f.bL[e.sex]*(1 - p.m.bef[e.sex])
-            ## for individuals infected in the same month, assign
-            ## the order of infection based on competing risks
-            ## formula, but if the denominator is 0, replace both
-            ## with 0 to avoid errors.
-            p.mfirst <- p.m.bef[e.sex] / (p.m.bef[e.sex]+p.f.bef[e.sex])
-            p.ffirst <- 1-p.mfirst
-            p.mfirst[is.na(p.mfirst)] <- 0
-            p.ffirst[is.na(p.ffirst)] <- 0                
-            hb1b2[e.sex] <- hb1b2L[e.sex] + p.mfirst * s..L[e.sex]*p.m.bef[e.sex]*p.f.bef[e.sex] +
-                (mb.a1L[e.sex] + mb.a2L[e.sex] + mb.L[e.sex]) * p.f.bef[e.sex]
-            hb2b1[e.sex] <- hb2b1L[e.sex] + p.ffirst * s..L[e.sex]*p.m.bef[e.sex]*p.f.bef[e.sex] +
-                (f.ba1L[e.sex] + f.ba2L[e.sex] + f.bL[e.sex]) * p.m.bef[e.sex]
-            ## iterate joint probabilities with survival
-            if(survive) {
-                mb.a1A[e.sex] <- s..L[e.sex]*p.m.bef.a[e.sex]*(1-p.f.bef[e.sex])
-                mb.a2A[e.sex] <- mb.a1AL[e.sex]*(1 - p.f.bef[e.sex])
-                mb.A[e.sex]   <- mb.a2AL[e.sex]*(1 - p.f.bef[e.sex]) + mb.AL[e.sex]*(1 - p.f.bef[e.sex])
-                f.ba1A[e.sex] <- s..L[e.sex]*p.f.bef.a[e.sex]*(1-p.m.bef[e.sex])
-                f.ba2A[e.sex] <- f.ba1AL[e.sex]*(1 - p.m.bef[e.sex])
-                f.bA[e.sex]   <- f.ba2AL[e.sex]*(1 - p.m.bef[e.sex]) + f.bAL[e.sex]*(1 - p.m.bef[e.sex])
-                ## for individuals infected in the same month, assign
-                ## the order of infection based on competing risks
-                ## formula, but if the denominator is 0, replace both
-                ## with 0 to avoid errors.
-                p.mfirst.a <- p.m.bef.a[e.sex] / (p.m.bef.a[e.sex]+p.f.bef.a[e.sex])
-                p.ffirst.a <- 1-p.mfirst.a
-                p.mfirst.a[is.na(p.mfirst.a)] <- 0
-                p.ffirst.a[is.na(p.ffirst.a)] <- 0                
-                hb1b2A[e.sex] <- hb1b2AL[e.sex] + p.mfirst.a * s..L[e.sex]*p.m.bef.a[e.sex]*p.f.bef.a[e.sex] +
-                                                  (mb.a1AL[e.sex] + mb.a2AL[e.sex] + mb.AL[e.sex]) * p.f.bef.a[e.sex]
-                hb2b1A[e.sex] <- hb2b1AL[e.sex] + p.ffirst.a * s..L[e.sex]*p.m.bef.a[e.sex]*p.f.bef.a[e.sex] +
-                                                  (f.ba1AL[e.sex] + f.ba2AL[e.sex] + f.bAL[e.sex]) * p.m.bef.a[e.sex]
-                ## Update *A*live *L*ast states
-                mb.a1AL[e.sex] <- mb.a1A[e.sex]
-                mb.a2AL[e.sex] <- mb.a2A[e.sex]
-                mb.AL[e.sex]   <- mb.A[e.sex]                
-                f.ba1AL[e.sex] <- f.ba1A[e.sex]
-                f.ba2AL[e.sex] <- f.ba2A[e.sex]
-                f.bAL[e.sex]   <- f.bA[e.sex]                
-                hb1b2AL[e.sex] <- hb1b2A[e.sex]
-                hb2b1AL[e.sex] <- hb2b1A[e.sex]                
-              }
-            ## Update other *L*ast states
-            s..L[e.sex]   <- s..[e.sex]
-            mb.a1L[e.sex] <- mb.a1[e.sex]
-            mb.a2L[e.sex] <- mb.a2[e.sex]
-            mb.L[e.sex]   <- mb.[e.sex]            
-            f.ba1L[e.sex] <- f.ba1[e.sex]
-            f.ba2L[e.sex] <- f.ba2[e.sex]
-            f.bL[e.sex]   <- f.b[e.sex]            
-            hb1b2L[e.sex] <- hb1b2[e.sex]
-            hb2b1L[e.sex] <- hb2b1[e.sex]                        
-          }
+                  ## partner.arv = F, ## ART coverage affects within-partnership transmission?
+                  ## low.coverage.arv = F, ## if T, only 50% of those on ART are not infectious
+                  lrho.sd = 1/2) ## sd on lrho prior
+    {
+        if(browse) browser()
+        cov.scalar <- ifelse(low.coverage.arv, .5, 1) ## if assuming only 50% of those on ART are not-infectious
+        K <- nrow(dat)
+        ser.nms <- c('hh','mm','ff','ss')
+        if(sum(pars[1:5]<0)>0) { ## if any parameters are <0 
+            lprob <- -Inf ## then the model must be rejected so we return logprob =-Inf
+            empty.vars <- c('probs','pop.avs','proj12','pser.a','pser','rrs')
+            for(ii in 1:length(empty.vars)) assign(empty.vars[ii], NA) ## set other outputs to NA
+        }else{
+            for(ii in 1:length(pars)) assign(names(pars)[ii], as.numeric(pars[ii])) ## get pars from pars: bmb, bfb, bme, bfe, bmp, lrho
+            rho <- exp(lrho) # feeding in log(rho) log(m->f / f->m) transmission rates
+            bfp <- bmp * rho
+            ## Assign state variable names
+            state.var.nms <- c('s..',
+                               'mb.a1', 'mb.a2', 'mb.', 'me.a1', 'me.a2', 'me.', #M+F- by routes & acute phase (a)
+                               'f.ba1', 'f.ba2', 'f.b', 'f.ea1', 'f.ea2', 'f.e', #M-F+ by routes & acute phase (a)
+                               'hb1b2', 'hb2b1', 'hbe', 'heb', ## rest are all M+F+
+                               'hbpa', 'hpba', 'hepa', 'hpea', ## acute infected by partner
+                               'hbp', 'hpb', 'hep', 'hpe', ## chronic infected by partner
+                               'he2e1', 'he1e2') ## both extra-couply infected, different orders
+            state.var.nms <- c(state.var.nms, paste0(state.var.nms[-1],'A')) ## joint with alive at the end
+            ## #####################################################################################          
+            ## i.e., hbpa is a ++ couple in which the male was inf *b*efore
+            ## couple formation & the female by her *p*artner while he was *a*cutely infectious
+            ## #####################################################################################
+            seros <- matrix(0, K, length(state.var.nms), dimnames = list(NULL,state.var.nms))
+            seros[,'s..'] <- 1
+            for(tt in 1:max(dat$bd)) { ## for each month in the before-couple duration (bd)
+                ## probabilities are non-zero only for times after started having sex and before couple formation
+                active <- e.sex[,tt]
+                m.haz <- bmb * pre.fprev[active,tt] ## hazards to sexually active men
+                f.haz <- bfb * pre.mprev[active,tt] ## hazards to sexually active women
+                pmb <- 1 - exp(-m.haz)              ## transmission probabilities
+                pfb <- 1 - exp(-f.haz)
+                pmb.a <- pmb * pre.msurv[active,tt] ## joint transmission & survival probabilities 
+                pfb.a <- pfb * pre.fsurv[active,tt]
+                seros[active,] <- pre.couple(seros[active,], pmb=pmb, pfb=pfb, pmb.a=pmb.a, pfb.a=pfb.a) ## update serostates
+            }
             ## probability of being infected by partner (constant, used inside loop)
-            p.m.part <- 1 - exp(-bmp)
-            p.f.part <- 1 - exp(-bfp)
-        ##  during acute
-            p.m.part.ac <- 1 - exp(-acute.sc * bmp)
-            p.f.part.ac <- 1 - exp(-acute.sc * bfp)
-        ## Now loop through marriage
-        for(tt in 1:max(dat$cd-1)) {
-            ## are partners formed in a couple?
-            fmd <- dat$cd >= tt              
-            ######################################################################
-            ## everything below is automatically sum(fmd) length except p.m/f.part which are length 1
-            ## probability infected extracouply in the ttc-th month of couple
-            p.m.exc <- (1 - exp(-bme * m.spar[fmd] * m.het[fmd] *epicf[cbind(dat$tmar[fmd]+(tt-1), dat$epic.ind[fmd])]))
-            p.f.exc <- (1 - exp(-bfe * f.spar[fmd] * f.het[fmd] *epicm[cbind(dat$tmar[fmd]+(tt-1), dat$epic.ind[fmd])]))
-            ## adjust probability of being infected by partner by probability partner is infectious (i.e. not on ART)
-            if(partner.arv) {
-                p.m.part <- 1 - exp(-bmp * (1 - cov.scalar * art.prev[cbind(dat$tmar[fmd]+(tt-1), dat$epic.ind[fmd])]))
-                p.f.part <- 1 - exp(-bfp * (1 - cov.scalar * art.prev[cbind(dat$tmar[fmd]+(tt-1), dat$epic.ind[fmd])]))
-                ## acute
-                p.m.part.ac <- 1 - exp(-acute.sc * bmp * (1 - cov.scalar * art.prev[cbind(dat$tmar[fmd]+(tt-1), dat$epic.ind[fmd])]))
-                p.f.part.ac <- 1 - exp(-acute.sc * bfp * (1 - cov.scalar * art.prev[cbind(dat$tmar[fmd]+(tt-1), dat$epic.ind[fmd])]))
-              }
-            if(survive) {
+            pmp <- 1 - exp(-bmp)
+            pfp <- 1 - exp(-bfp)
+            pmp.ac <- 1 - exp(-acute.sc * bmp)        ##  during acute
+            pfp.ac <- 1 - exp(-acute.sc * bfp)
+            ## ##################################################
+            for(tt in 1:max(dat$cd-1)) {## Now loop through marriage
+                ff <- fmd[,tt]
+                m.haz <- bme * within.fprev[ff,tt] ## these vectors are length of active couples (sum(fmd))
+                f.haz <- bfe * within.mprev[ff,tt]
+                pme <- 1 - exp(-m.haz)
+                pfe <- 1 - exp(-f.haz)
+                ## adjust probability of being infected by partner by probability partner is infectious (i.e. not on ART)
+                if(partner.arv) {
+                    within.art.scalar <- (1 - cov.scalar * within.art.cov[ff,tt])
+                    pmp <- 1 - exp(-bmp * within.art.scalar)
+                    pfp <- 1 - exp(-bfp * within.art.scalar)
+                    pmp.ac <- 1 - exp(-acute.sc * bmp * within.art.scalar) ## acute
+                    pfp.ac <- 1 - exp(-acute.sc * bfp * within.art.scalar)
+                }
                 ## Survival probabilities
-                s.p.m <- csurv[cbind(dat$mage[fmd]-dat$cd[fmd]+tt-1, dat$tint[fmd] - (dat$tmar[fmd] + tt - 1))]
-                s.p.f <- csurv[cbind(dat$fage[fmd]-dat$cd[fmd]+tt-1, dat$tint[fmd] - (dat$tmar[fmd] + tt - 1))]
-                ## Transmission probabilities from partner (jointly with survival)
-                p.m.part.a <- p.m.part * s.p.m
-                p.f.part.a <- p.f.part * s.p.f
-                ## acute from partner (jointly with survival)
-                p.m.part.a.ac <- p.m.part.ac * s.p.m
-                p.f.part.a.ac <- p.f.part.ac * s.p.f
-                ## extra-couple
-                p.m.exc.a <- p.m.exc * s.p.m
-                p.f.exc.a <- p.f.exc * s.p.f
-              }
-            ######################################################################
-            ## iterate probabilities
-            s..[fmd]   <- s..L[fmd]*(1-p.m.exc)*(1-p.f.exc)
-            # the first month of marriage a male infected before marriage must be in stage a2 or later (note that if a male is infected in the month befor marriage, his partner still is exposed to 2 months of acute phase because all infection probabilitie depend on infection status in the last month)
-            mb.a1[fmd] <- 0 
-            mb.a2[fmd] <- mb.a1L[fmd]*(1-p.f.exc)*(1-p.f.part.ac)
-            mb.[fmd]   <- mb.a2L[fmd]*(1-p.f.exc)*(1-p.f.part.ac) + mb.L[fmd]*(1-p.f.exc)*(1-p.f.part)            
-            me.a1[fmd] <- s..L[fmd]*p.m.exc*(1-p.f.exc)
-            me.a2[fmd] <- me.a1L[fmd]*(1-p.f.exc)*(1-p.f.part.ac) 
-            me.[fmd]   <- me.a2L[fmd]*(1-p.f.exc)*(1-p.f.part.ac) + me.L[fmd]*(1-p.f.exc)*(1-p.f.part) 
-            f.ba1[fmd] <- 0
-            f.ba2[fmd] <- f.ba1L[fmd]*(1-p.m.exc)*(1-p.m.part.ac)
-            f.b[fmd]   <- f.ba2L[fmd]*(1-p.m.exc)*(1-p.m.part.ac) + f.bL[fmd]*(1-p.m.exc)*(1-p.m.part)            
-            f.ea1[fmd] <- s..L[fmd]*p.f.exc*(1-p.m.exc)
-            f.ea2[fmd] <- f.ea1L[fmd]*(1-p.m.exc)*(1-p.m.part.ac)
-            f.e[fmd]   <- f.ea2L[fmd]*(1-p.m.exc)*(1-p.m.part.ac) + f.eL[fmd]*(1-p.m.exc)*(1-p.m.part)
-##          hb1b2[fmd] <- hb1b2L[fmd] # Doesn't change during couple duration
-##          hb2b1[fmd] <- hb2b1L[fmd] # Doesn't change during couple duration                
-            hbe[fmd]  <- hbeL[fmd]  + (mb.a1L[fmd] + mb.a2L[fmd])*(1-p.f.part.ac)*p.f.exc + mb.L[fmd]*(1-p.f.part)*p.f.exc
-            heb[fmd]  <- hebL[fmd]  + (f.ba1L[fmd] + f.ba2L[fmd])*(1-p.m.part.ac)*p.m.exc + f.bL[fmd]*(1-p.m.part)*p.m.exc
-            hbpa[fmd] <- hbpaL[fmd] + (mb.a1L[fmd] + mb.a2L[fmd])*p.f.part.ac
-            hbp[fmd]  <- hbpL[fmd]  + mb.L[fmd]*p.f.part            
-            hpba[fmd] <- hpbaL[fmd] + (f.ba1L[fmd] + f.ba2L[fmd])*p.m.part.ac
-            hpb[fmd]  <- hpbL[fmd]  + f.bL[fmd]*p.m.part
-            hepa[fmd] <- hepaL[fmd] + (me.a1L[fmd] + me.a2L[fmd])*p.f.part.ac
-            hep[fmd]  <- hepL[fmd]  + me.L[fmd]*p.f.part            
-            hpea[fmd] <- hpeaL[fmd] + (f.ea1L[fmd] + f.ea2L[fmd])*p.m.part.ac
-            hpe[fmd]  <- hpeL[fmd]  + f.eL[fmd]*p.m.part            
-            ## for individuals infected in the same month, assign
-            ## the order of infection based on competing risks
-            ## formula, but if the denominator is 0, replace both
-            ## with 0 to avoid errors.
-            p.mfirst <- p.m.exc / (p.m.exc+p.f.exc)
-            p.ffirst <- 1-p.mfirst
-            p.mfirst[is.na(p.mfirst)] <- 0
-            p.ffirst[is.na(p.ffirst)] <- 0                
-            he1e2[fmd] <- he1e2L[fmd] + p.mfirst * s..L[fmd]*p.m.exc*p.f.exc +
-                                        (me.a1L[fmd] + me.a2L[fmd])*(1-p.f.part.ac)*p.f.exc +
-                                        me.L[fmd]*(1-p.f.part)*p.f.exc
-            he2e1[fmd] <- he2e1L[fmd] + p.ffirst * s..L[fmd]*p.m.exc*p.f.exc +
-                                        (f.ea1L[fmd] + f.ea2L[fmd])*(1-p.m.part.ac)*p.m.exc +
-                                        f.eL[fmd]*(1-p.m.part)*p.m.exc
-            ######################################################################
-            ## Iterate probabilities jointly with survival until survey.
-            ## Note for probabilities of not being infected, we don't
-            ## use the joint probability with being alive at sampling.
-            if(survive)
-              {
-                mb.a1A[fmd] <- 0
-                mb.a2A[fmd] <- mb.a1AL[fmd]*(1-p.f.exc)*(1-p.f.part.ac)
-                mb.A[fmd]   <- mb.a2AL[fmd]*(1-p.f.exc)*(1-p.f.part.ac) + mb.AL[fmd]*(1-p.f.exc)*(1-p.f.part) 
-                me.a1A[fmd] <- s..L[fmd]*p.m.exc.a*(1-p.f.exc)
-                me.a2A[fmd] <- me.a1AL[fmd]*(1-p.f.exc)*(1-p.f.part.ac)
-                me.A[fmd]   <- me.a2AL[fmd]*(1-p.f.exc)*(1-p.f.part.ac) + me.AL[fmd]*(1-p.f.exc)*(1-p.f.part)
-                f.ba1A[fmd] <- 0
-                f.ba2A[fmd] <- f.ba1AL[fmd]*(1-p.m.exc)*(1-p.m.part.ac)
-                f.bA[fmd]   <- f.ba2AL[fmd]*(1-p.m.exc)*(1-p.m.part.ac) + f.bAL[fmd]*(1-p.m.exc)*(1-p.m.part)
-                f.ea1A[fmd] <- s..L[fmd]*p.f.exc.a*(1-p.m.exc)
-                f.ea2A[fmd] <- f.ea1AL[fmd]*(1-p.m.exc)*(1-p.m.part.ac)
-                f.eA[fmd]   <- f.ea2AL[fmd]*(1-p.m.exc)*(1-p.m.part.ac) + f.eAL[fmd]*(1-p.m.exc)*(1-p.m.part)
-##              hb1b2A[fmd] <- hb1b2AL[fmd] # Doesn't change during couple duration
-##              hb2b1A[fmd] <- hb2b1AL[fmd] # Doesn't change during couple duration                
-                hbeA[fmd]  <- hbeAL[fmd]  + (mb.a1AL[fmd] + mb.a2AL[fmd])*(1-p.f.part.ac)*p.f.exc.a + mb.AL[fmd]*(1-p.f.part)*p.f.exc.a
-                hebA[fmd]  <- hebAL[fmd]  + (f.ba1AL[fmd] + f.ba2AL[fmd])*(1-p.m.part.ac)*p.m.exc.a + f.bAL[fmd]*(1-p.m.part)*p.m.exc.a
-                hbpaA[fmd] <- hbpaAL[fmd] + (mb.a1AL[fmd] + mb.a2AL[fmd])*p.f.part.a.ac
-                hbpA[fmd]  <- hbpAL[fmd]  + mb.AL[fmd]*p.f.part.a                
-                hpbaA[fmd] <- hpbaAL[fmd] + (f.ba1AL[fmd] + f.ba2AL[fmd])*p.m.part.a.ac
-                hpbA[fmd]  <- hpbAL[fmd]  + f.bAL[fmd]*p.m.part.a                
-                hepaA[fmd] <- hepaAL[fmd] + (me.a1AL[fmd] + me.a2AL[fmd])*p.f.part.a.ac
-                hepA[fmd]  <- hepAL[fmd]  + me.AL[fmd]*p.f.part.a                
-                hpeaA[fmd] <- hpeaAL[fmd] + (f.ea1AL[fmd] + f.ea2AL[fmd])*p.m.part.a.ac
-                hpeA[fmd]  <- hpeAL[fmd]  + f.eAL[fmd]*p.m.part.a                
-                ## for individuals infected in the same month, assign
-                ## the order of infection based on competing risks
-                ## formula, but if the denominator is 0, replace both
-                ## with 0 to avoid errors.
-                p.mfirst.a <- p.m.exc.a / (p.m.exc.a+p.f.exc.a)
-                p.ffirst.a <- 1-p.mfirst.a
-                p.mfirst.a[is.na(p.mfirst.a)] <- 0
-                p.ffirst.a[is.na(p.ffirst.a)] <- 0                
-                he1e2A[fmd] <- he1e2AL[fmd] + p.mfirst.a * s..L[fmd]*p.m.exc.a*p.f.exc.a +
-                                          (me.a1AL[fmd] + me.a2AL[fmd])*(1-p.f.part.ac)*p.f.exc.a +
-                                          me.AL[fmd]*(1-p.f.part)*p.f.exc.a
-                he2e1A[fmd] <- he2e1AL[fmd] + p.ffirst.a * s..L[fmd]*p.m.exc.a*p.f.exc.a +
-                                          (f.ea1AL[fmd] + f.ea2AL[fmd])*(1-p.m.part.ac)*p.m.exc.a +
-                                          f.eAL[fmd]*(1-p.m.part)*p.m.exc.a
-                ## update *L*ast month states for *A*live states
-                mb.a1AL[fmd] <- mb.a1A[fmd]
-                mb.a2AL[fmd] <- mb.a2A[fmd]
-                mb.AL[fmd]   <- mb.A[fmd]                
-                me.a1AL[fmd] <- me.a1A[fmd]
-                me.a2AL[fmd] <- me.a2A[fmd]
-                me.AL[fmd]   <- me.A[fmd]                
-                f.ba1AL[fmd] <- f.ba1A[fmd]
-                f.ba2AL[fmd] <- f.ba2A[fmd]
-                f.bAL[fmd]   <- f.bA[fmd]                
-                f.ea1AL[fmd] <- f.ea1A[fmd]
-                f.ea2AL[fmd] <- f.ea2A[fmd]
-                f.eAL[fmd]   <- f.eA[fmd]                
-##              hb1b2AL[fmd] <- hb1b2A[fmd]
-##              hb2b1AL[fmd] <- hb2b1A[fmd]                
-                hbeAL[fmd] <- hbeA[fmd]
-                hebAL[fmd] <- hebA[fmd]
-                hbpaAL[fmd] <- hbpaA[fmd]
-                hbpAL[fmd] <- hbpA[fmd]                
-                hpbaAL[fmd] <- hpbaA[fmd]
-                hpbAL[fmd] <- hpbA[fmd]                
-                hepaAL[fmd] <- hepaA[fmd]
-                hepAL[fmd] <- hepA[fmd]                
-                hpeaAL[fmd] <- hpeaA[fmd]
-                hpeAL[fmd] <- hpeA[fmd]                              
-                he1e2AL[fmd] <- he1e2A[fmd]
-                he2e1AL[fmd] <- he2e1A[fmd]                              
-              }
-            ## update other *L*ast month states
-            s..L[fmd]   <-  s..[fmd]
-            mb.a1L[fmd] <-  mb.a1[fmd]
-            mb.a2L[fmd] <-  mb.a2[fmd]
-            mb.L[fmd]   <-  mb.[fmd]            
-            me.a1L[fmd] <-  me.a1[fmd]
-            me.a2L[fmd] <-  me.a2[fmd]
-            me.L[fmd]   <-  me.[fmd]            
-            f.ba1L[fmd] <-  f.ba1[fmd]
-            f.ba2L[fmd] <-  f.ba2[fmd]
-            f.bL[fmd]   <-  f.b[fmd]            
-            f.ea1L[fmd] <-  f.ea1[fmd]
-            f.ea2L[fmd] <-  f.ea2[fmd]
-            f.eL[fmd]   <-  f.e[fmd]            
-##          hb1b2L[fmd] <-  hb1b2[fmd]
-##          hb2b1L[fmd] <-  hb2b1[fmd]            
-            hbeL[fmd] <-  hbe[fmd]
-            hebL[fmd] <-  heb[fmd]
-            hbpaL[fmd] <-  hbpa[fmd]
-            hbpL[fmd] <-  hbp[fmd]            
-            hpbaL[fmd] <-  hpba[fmd]
-            hpbL[fmd] <-  hpb[fmd]            
-            hepaL[fmd] <-  hepa[fmd]
-            hepL[fmd] <-  hep[fmd]            
-            hpeaL[fmd] <-  hpea[fmd]
-            hpeL[fmd] <-  hpe[fmd]                     
-            he1e2L[fmd] <-  he1e2[fmd]
-            he2e1L[fmd] <-  he2e1[fmd]                     
-          }
-######################################################################         
-        allstates <- data.frame(s..,mb.a1,mb.a2,mb.,me.a1,me.a2,me.,f.ba1,f.ba2,f.b,f.ea1,f.ea2,f.e,
-                                hb1b2,hb2b1,hbe,heb,
-                                hbpa,hbp,
-                                hpba,hpb,
-                                hepa,hep,
-                                hpea,hpe,
-                                he1e2,he2e1,
-                                mb.a1A,mb.a2A,mb.A,me.a1A,me.a2A,me.A,f.ba1A,f.ba2A,f.bA,f.ea1A,f.ea2A,f.eA,
-                                hb1b2A,hb2b1A,hbeA,hebA,
-                                hbpaA,hbpA,hpbaA,hpbA,hepaA,hepA,hpeaA,hpeA,
-                                he1e2A,he2e1A)
-        
-        ss <- s..
-        mm <- mb.a1 + me.a1 + mb.a2 + me.a2 + mb. + me.
-        ff <- f.ba1 + f.ea1 + f.ba2 + f.ea2 + f.b + f.e
-        hh <- hb1b2 + hb2b1 + hbe + heb + hbpa + hpba + hepa + hpea + hbp + hpb + hep + hpe + he1e2 + he2e1
-        ## Calculate probability of data given parameters * priors of paramters
-        if(survive)
-          {
-            mmA <- mb.a1A + me.a1A + mb.a2A + me.a2A + mb.A + me.A
-            ffA <- f.ba1A + f.ea1A + f.ba2A + f.ea2A + f.bA + f.eA
-            hhA <- hb1b2A + hb2b1A + hbeA + hebA + hbpaA + hpbaA + hepaA + hpeaA + hbpA + hpbA + hepA + hpeA + he1e2A + he2e1A
-            pser.a <- cbind(hhA, mmA, ffA, ss)
-          }
-        pser <- cbind(hh, mm, ff, ss)
-        if(trace & sim) # calculate expected route of transmission breakdowns for couples with unknown (or simulated serostatus)
-          {
-######################################################################
-            ## Route of transmission breakdowns for observed couples
-            ## (conditional on survival)
-######################################################################
-            ## male breakdown amongst observed M+F- couples, partner *N*egative
-            pibNA <- mean((mb.a1A + mb.a2A + mb.A) / mmA, na.rm = T) 
-            pieNA <- mean((me.a1A + me.a2A + me.A) / mmA, na.rm = T) 
-            ## female breakdown amongst observed M-F+ couples, partner *N*egative
-            piNbA <- mean((f.ba1A + f.ba2A + f.bA) / ffA, na.rm = T)
-            piNeA <- mean((f.ea1A + f.ea2A + f.eA) / ffA, na.rm = T)
-            ## male breakdown amongst observed M+F+ couples,  partner *P*ositive
-            pibPA <- mean((hb1b2A + hb2b1A + hbeA + hbpaA + hbpA) / hhA, na.rm = T) 
-            piePA <- mean((hebA + hepaA + hepA + he1e2A + he2e1A) / hhA, na.rm = T) 
-            pipPA <- mean((hpbaA + hpeaA + hpbA + hpeA) / hhA, na.rm = T)
-            pipPaA <- mean((hpbaA + hpeaA) / hhA, na.rm = T) # males infected by their partner in M+F+ couples during her acute phase.
-            pipPcA <- mean((hpbA + hpeA) / hhA, na.rm = T) # chronic phase
-            ## female breakdown amongst observed M+F+ couples,  partner *P*ositive
-            piPbA <- mean((hb1b2A + hb2b1A + hebA + hpbaA + hpbA) / hhA, na.rm = T) 
-            piPeA <- mean((hbeA + hpeaA + hpeA + he1e2A + he2e1A) / hhA, na.rm = T) 
-            piPpA <- mean((hbpaA + hepaA + hbpA + hepA) / hhA, na.rm = T)
-            piPpaA <- mean((hbpaA + hepaA) / hhA, na.rm = T) # acute phase
-            piPpcA <- mean((hbpA + hepA) / hhA, na.rm = T) # chronic
-            ## male breakdown amongst infected males in any observed couples,  partner *U*nknown (bc could be either)
-            pibUA <- mean((mb.a1A + mb.a2A + mb.A + hb1b2A + hb2b1A + hbeA + hbpaA + hbpA) / (mmA + hhA), na.rm = T)
-            pieUA <- mean((me.a1A + me.a2A + me.A + hebA + hepaA + hepA + he1e2A + he2e1A) / (mmA + hhA), na.rm = T)
-            pipUA <- mean((hpbaA + hpeaA + hpbA + hpeA) / (mmA + hhA), na.rm = T)
-            pipUaA <- mean((hpbaA + hpeaA) / (mmA + hhA), na.rm = T) #acute
-            pipUcA <- mean((hpbA + hpeA) / (mmA + hhA), na.rm = T) #chronic
-            ## female breakdown amongst infected females in any observed couples,  partner *U*nknown (bc could be either)
-            piUbA <- mean((f.ba1A + f.ba2A + f.bA + hb1b2A + hb2b1A + hebA + hpbaA + hpbA) / (ffA + hhA), na.rm = T)
-            piUeA <- mean((f.ea1A + f.ea2A + f.eA + hbeA + hpeaA + hpeA + he1e2A + he2e1A) / (ffA + hhA), na.rm = T)
-            piUpA <- mean((hbpaA + hepaA + hbpA + hepA) / (ffA + hhA), na.rm = T)
-            piUpaA <- mean((hbpaA + hepaA) / (ffA + hhA), na.rm = T) #acute
-            piUpcA <- mean((hbpA + hepA) / (ffA + hhA), na.rm = T) #chronic
-######################################################################
-            pop.avs <- data.frame(
-                                  ## conditional on survival
-                                  pibNA, pieNA, # b/e in +- given A
-                                  piNbA, piNeA, # b/e in -+ given A
-                                  pibPA, piePA, pipPA, pipPaA, pipPcA, # b/e/p in male in ++ given A
-                                  piPbA, piPeA, piPpA, piPpaA, piPpcA, # b/e/p in female in ++ given A
-                                  pibUA, pieUA, pipUA, pipUaA, pipUcA, # b/e/p in male in any given A
-                                  piUbA, piUeA, piUpA, piUpaA, piUpcA) # b/e/p in female in any given A
-          }
-        if(trace & !sim)
-          {
-            ######################################################################
-            ## Route of transmission breakdowns for observed couples
-            ## (conditional on survival)
-            ######################################################################
-            ## male breakdown amongst observed M+F- couples, partner *N*egative
-            pibNA <- sum((mb.a1A[mm.log] + mb.a2A[mm.log] + mb.A[mm.log]) / mmA[mm.log]) / sum(mm.log)
-            pieNA <- sum((me.a1A[mm.log] + me.a2A[mm.log] + me.A[mm.log]) / mmA[mm.log]) / sum(mm.log)
-            ## female breakdown amongst observed M-F+ couples, partner *N*egative
-            piNbA <- sum((f.ba1A[ff.log] + f.ba2A[ff.log] + f.bA[ff.log]) / ffA[ff.log]) / sum(ff.log)
-            piNeA <- sum((f.ea1A[ff.log] + f.ea2A[ff.log] + f.eA[ff.log]) / ffA[ff.log]) / sum(ff.log)
-            ## male breakdown amongst observed M+F+ couples,  partner *P*ositive
-            pibPA <- sum((hb1b2A[hh.log] + hb2b1A[hh.log] + hbeA[hh.log] + hbpaA[hh.log] + hbpA[hh.log]) / hhA[hh.log]) / sum(hh.log)
-            piePA <- sum((hebA[hh.log] + hepaA[hh.log] + hepA[hh.log] + he1e2A[hh.log] + he2e1A[hh.log]) / hhA[hh.log]) / sum(hh.log)
-            pipPA <- sum((hpbaA[hh.log] + hpeaA[hh.log] + hpbA[hh.log] + hpeA[hh.log]) / hhA[hh.log]) / sum(hh.log)
-            pipPaA <- sum((hpbaA[hh.log] + hpeaA[hh.log]) / hhA[hh.log]) / sum(hh.log) #acute
-            pipPcA <- sum((hpbA[hh.log] + hpeA[hh.log]) / hhA[hh.log]) / sum(hh.log) #chronic
-            ## female breakdown amongst observed M+F+ couples,  partner *P*ositive
-            piPbA <- sum((hb1b2A[hh.log] + hb2b1A[hh.log] + hebA[hh.log] + hpbaA[hh.log] + hpbA[hh.log]) / hhA[hh.log]) / sum(hh.log)
-            piPeA <- sum((hbeA[hh.log] + hpeaA[hh.log] + hpeA[hh.log] + he1e2A[hh.log] + he2e1A[hh.log]) / hhA[hh.log]) / sum(hh.log)
-            piPpA <- sum((hbpaA[hh.log] + hepaA[hh.log] + hbpA[hh.log] + hepA[hh.log]) / hhA[hh.log]) / sum(hh.log)
-            piPpaA <- sum((hbpaA[hh.log] + hepaA[hh.log]) / hhA[hh.log]) / sum(hh.log) #acute
-            piPpcA <- sum((hbpA[hh.log] + hepA[hh.log]) / hhA[hh.log]) / sum(hh.log) #chronic
-            ## male breakdown amongst infected males in any observed couples,  partner *U*nknown (bc could be either)
-            pibUA <- (pibNA*sum(mm.log) + pibPA*sum(hh.log)) / (sum(mm.log) + sum(hh.log))
-            pieUA <- (pieNA*sum(mm.log) + piePA*sum(hh.log)) / (sum(mm.log) + sum(hh.log))
-            pipUA <- (pipPA*sum(hh.log)) / (sum(mm.log) + sum(hh.log))
-            pipUaA <- (pipPaA*sum(hh.log)) / (sum(mm.log) + sum(hh.log)) #acute, keep in mind this is only proportion of all M+ acutely infected by their *current* partner
-            pipUcA <- (pipPcA*sum(hh.log)) / (sum(mm.log) + sum(hh.log)) #chronic, ditto above
-            ## female breakdown amongst infected females in any observed couples,  partner *U*nknown (bc could be either)
-            piUbA <- (piNbA*sum(ff.log) + piPbA*sum(hh.log)) / (sum(ff.log) + sum(hh.log))
-            piUeA <- (piNeA*sum(ff.log) + piPeA*sum(hh.log)) / (sum(ff.log) + sum(hh.log))
-            piUpA <- (piPpA*sum(hh.log)) / (sum(ff.log) + sum(hh.log))
-            piUpaA <- (piPpaA*sum(hh.log)) / (sum(ff.log) + sum(hh.log)) #acute, see notes aboe
-            piUpcA <- (piPpcA*sum(hh.log)) / (sum(ff.log) + sum(hh.log)) #chronic
-            ######################################################################
-            ## Give pieNA, piNeA, piePA, piPeA, for each couple
-            if(give.pis)
-              {
-                ## probability infection was extracouple given ser
-                piCe.A <- rep(NA, K)
-                piC.eA <- rep(NA, K)
-                piCe.A[mm.log] <- (me.a1A[mm.log] + me.a2A[mm.log] + me.A[mm.log]) / mmA[mm.log]
-                piCe.A[hh.log] <- (hebA[hh.log] + hepaA[hh.log] + hepA[hh.log] + he1e2A[hh.log] + he2e1A[hh.log]) / hhA[hh.log]
-                piC.eA[ff.log] <- (f.ea1A[ff.log] + f.ea2A[ff.log] + f.eA[ff.log]) / ffA[ff.log]
-                piC.eA[hh.log] <- (hbeA[hh.log] + hpeaA[hh.log] + hpeA[hh.log] + he1e2A[hh.log] + he2e1A[hh.log]) / hhA[hh.log]
-                pis <- data.frame(piCe.A, piC.eA)
-              }
-            ######################################################################
-            ## Route of transmission breakdowns for inferred
-            ## pseudopopulation (unconditional on survival)
-            ######################################################################
-            ######################################################################
-            ## Index infections, do with estimators summing over all
-            ## infected couples and over all couples
-            ## version 1 - all infected couples
-            mb1. <- rowSums(allstates[!ss.log, c("mb.a1","mb.a2","mb.","hb1b2","hbe","hbpa","hbp")])
-            me1. <- rowSums(allstates[!ss.log, c("me.a1","me.a2","me.","he1e2","hepa","hep")])
-            ## female
-            f.b1 <- rowSums(allstates[!ss.log, c("f.ba1","f.ba2","f.b","hb2b1","heb","hpba","hpb")])
-            f.e1 <- rowSums(allstates[!ss.log, c("f.ea1","f.ea2","f.e","he2e1","hpea","hpe")])
-            all.infA <- rowSums(allstates[!ss.log,names(allstates)[(grepl("m", names(allstates)) | grepl("f", names(allstates)) | grepl("h", names(allstates))) & grepl("A", names(allstates))]])
-            ## number of inflated male before-couple index infections (in any couple)
-            mb1.Infl <- sum( mb1. / all.infA)
-            ## number of inflated male extra-couple index infections (in any couple)
-            me1.Infl <- sum( me1. / all.infA)
-            ## nufber of inflated male before-couple index infections (in any couple)
-            f.b1Infl <- sum( f.b1 / all.infA)
-            ## number of inflated male extra-couple index infections (in any couple)
-            f.e1Infl <- sum( f.e1 / all.infA)
-            ## number of inflated index infections (1 in each couple with an infection)
-            IndInfl <- mb1.Infl + me1.Infl + f.b1Infl + f.e1Infl # note this includes h-classes..
-            ######################################################################
-            ## Proportion of index infections pooling across gender
-            piGb1.sumI <- mb1.Infl / IndInfl
-            piGe1.sumI <- me1.Infl / IndInfl
-            piG.b1sumI <- f.b1Infl / IndInfl
-            piG.e1sumI <- f.e1Infl / IndInfl
-            ## ## version 2 - sum over all couples
-            mb1. <- rowSums(allstates[, c("mb.a1","mb.a2","mb.","hb1b2","hbe","hbpa","hbp")])
-            me1. <- rowSums(allstates[, c("me.a1","me.a2","me.","he1e2","hepa","hep")])
-            ## female
-            f.b1 <- rowSums(allstates[, c("f.ba1","f.ba2","f.b","hb2b1","heb","hpba","hpb")])
-            f.e1 <- rowSums(allstates[, c("f.ea1","f.ea2","f.e","he2e1","hpea","hpe")])
-            all.infA <- rowSums(allstates[,c("s..", names(allstates)[(grepl("m", names(allstates)) | grepl("f", names(allstates)) | grepl("h", names(allstates))) & grepl("A", names(allstates))])])
-            ## number of inflated male before-couple index infections (in any couple)
-            mb1.Infl <- sum( mb1. / all.infA)
-            ## number of inflated male extra-couple index infections (in any couple)
-            me1.Infl <- sum( me1. / all.infA)
-            ## nufber of inflated male before-couple index infections (in any couple)
-            f.b1Infl <- sum( f.b1 / all.infA)
-            ## number of inflated male extra-couple index infections (in any couple)
-            f.e1Infl <- sum( f.e1 / all.infA)
-            ## number of inflated index infections (1 in each couple with an infection)
-            IndInfl <- mb1.Infl + me1.Infl + f.b1Infl + f.e1Infl
-######################################################################
-            ## Proportion of index infections pooling across gender
-            piGb1.sumIS <- mb1.Infl / IndInfl
-            piGe1.sumIS <- me1.Infl / IndInfl
-            piG.b1sumIS <- f.b1Infl / IndInfl
-            piG.e1sumIS <- f.e1Infl / IndInfl
-            ## put them all in a dataframe
-            pop.avs <- data.frame(
-                                  ## conditional on survival
-                                  pibNA, pieNA, # b/e in +- given A
-                                  piNbA, piNeA, # b/e in -+ given A
-                                  pibPA, piePA, pipPA, pipPaA, pipPcA, # b/e/p in male in ++ given A
-                                  piPbA, piPeA, piPpA, piPpaA, piPpcA, # b/e/p in female in ++ given A
-                                  pibUA, pieUA, pipUA, pipUaA, pipUcA, # b/e/p in male in any given A
-                                  piUbA, piUeA, piUpA, piUpaA, piUpcA, # b/e/p in female in any given A
-                                  ## unconditional on survival version 1
-                                  piGb1.sumI, piGe1.sumI, # b/e index in males amongst all infected 
-                                  piG.b1sumI, piG.e1sumI, # b/e index in females amongst all infected
-                                  piGb1.sumIS, piGe1.sumIS, # b/e index in males amongst all infected 
-                                  piG.b1sumIS, piG.e1sumIS) # b/e index in females amongst all infected
-            ######################################################################
-            ## Project incidence forward 12 months for each of the 3
-            ## couple types (ss, mm, ff) for each country in the data
-            ## set (because they have different population prevalences
-            num.country <- length(unique(dat$epic.ind))
-            cc.inds <- unique(dat$epic.ind)
-            ## concordant negative
-            ss12.ssL <- rep(1, num.country)
-            mm12a1.ssL <- rep(0, num.country)
-            mm12a2.ssL <- rep(0, num.country)
-            mm12.ssL <- rep(0, num.country)            
-            ff12a1.ssL <- rep(0, num.country)
-            ff12a2.ssL <- rep(0, num.country)
-            ff12.ssL <- rep(0, num.country)            
-            hh12.ssL <- rep(0, num.country)            
-            ## male positive discordant
-            mm12a1.mmL <- rep(1, num.country)
-            mm12a2.mmL <- rep(1, num.country)
-            mm12.mmL <- rep(1, num.country)            
-            hh12.mmL <- rep(0, num.country)            
-            ## female positive discordant
-            ff12a1.ffL <- rep(1, num.country)
-            ff12a2.ffL <- rep(1, num.country)
-            ff12.ffL <- rep(1, num.country)            
-            hh12.ffL <- rep(0, num.country)
-            ## initialize pis
-            pi.m.part12.ss.ac <- 0      #acute
-            pi.f.part12.ss.ac <- 0      #acute
-            pi.m.part12.ss <- 0
-            pi.f.part12.ss <- 0
-            pi.m.exc12.ss <- 0
-            pi.f.exc12.ss <- 0
-            pi.f.part12.mm.ac <- 0      #acute
-            pi.f.part12.mm <- 0            
-            pi.f.exc12.mm <- 0            
-            pi.m.part12.ff.ac <- 0      #acute
-            pi.m.part12.ff <- 0            
-            pi.m.exc12.ff <- 0            
-            for(tt in 1:12)
-              {
-                if(partner.arv)         # put partner's on ART with some probability assigned related to ART coverage
-                  {
-                    p.m.part <- 1 - exp(-bmp * (1 - cov.scalar * art.prev[1332+tt-1, cc.inds]))
-                    p.f.part <- 1 - exp(-bfp * (1 - cov.scalar * art.prev[1332+tt-1, cc.inds]))
-                    p.m.part.ac <- 1 - exp(-acute.sc * bmp * (1 - cov.scalar * art.prev[1332+tt-1, cc.inds])) # acute
-                    p.f.part.ac <- 1 - exp(-acute.sc * bfp * (1 - cov.scalar * art.prev[1332+tt-1, cc.inds])) # acute
-                  }
-                ######################################################################
-                ## Transmission probabilities
-                ## probability infected extracouply in various months of 2011
-                p.m.exc <- 1 - exp(-bme*epicf[1332+tt-1, cc.inds])
-                p.f.exc <- 1 - exp(-bfe*epicm[1332+tt-1, cc.inds])
-                ## concordant negative couples
-                ss12.ss   <- ss12.ssL*(1-p.m.exc)*(1-p.f.exc)
-                mm12a1.ss <- ss12.ssL*p.m.exc*(1-p.f.exc)
-                mm12a2.ss <- mm12a1.ssL*(1-p.f.exc)*(1-p.f.part.ac)
-                mm12.ss   <- mm12a2.ssL*(1-p.f.exc)*(1-p.f.part.ac) + mm12.ssL*(1-p.f.exc)*(1-p.f.part)
-                ff12a1.ss <- ss12.ssL*p.f.exc*(1-p.m.exc)
-                ff12a2.ss <- ff12a1.ssL*(1-p.m.exc)*(1-p.m.part.ac)
-                ff12.ss   <- ff12a2.ssL*(1-p.m.exc)*(1-p.m.part.ac) + ff12.ssL*(1-p.m.exc)*(1-p.m.part)
-                hh12.ss <- hh12.ssL + ss12.ssL* p.m.exc*p.f.exc +
-                    (mm12a1.ssL + mm12a2.ssL)*(p.f.part.ac + (1-p.f.part.ac)*p.f.exc) + mm12.ssL*(p.f.part + (1-p.f.part)*p.f.exc) +
-                    (ff12a1.ssL + ff12a2.ssL)*(p.m.part.ac + (1-p.m.part.ac)*p.m.exc) + ff12.ssL*(p.m.part + (1-p.m.part)*p.m.exc)
-                pi.m.part12.ss <- pi.m.part12.ss + (ff12a1.ssL + ff12a2.ssL)*p.m.part.ac + ff12.ssL*p.m.part
-                pi.f.part12.ss <- pi.f.part12.ss + (mm12a1.ssL + mm12a2.ssL)*p.f.part.ac + mm12.ssL*p.f.part        
-                pi.m.part12.ss.ac <- pi.m.part12.ss.ac + (ff12a1.ssL + ff12a2.ssL)*p.m.part.ac  # acute
-                pi.f.part12.ss.ac <- pi.f.part12.ss.ac + (mm12a1.ssL + mm12a2.ssL)*p.f.part.ac  # acute
-                pi.m.exc12.ss <- pi.m.exc12.ss + (ss12.ssL + (ff12a1.ssL + ff12a2.ssL)*(1-p.m.part.ac) + ff12.ssL*(1-p.m.part))*p.m.exc
-                pi.f.exc12.ss <- pi.f.exc12.ss + (ss12.ssL + (mm12a1.ssL + mm12a2.ssL)*(1-p.f.part.ac) + mm12.ssL*(1-p.f.part))*p.f.exc
-                ## male positive couples & female seroconversion,
-                ##  assume there are no prevalent serodiscordant couples with individuals in acute stage at DHS ****
-                mm12a1.mm <- 0          # all M+ couples  are already M+ at start of 12 month projection
-                mm12a2.mm <- 0
-                mm12.mm   <- mm12.mmL*(1-p.f.exc)*(1-p.f.part)                
-                hh12.mm   <- hh12.mmL + mm12.mmL*(p.f.part + (1-p.f.part)*p.f.exc) 
-                pi.f.part12.mm <- pi.f.part12.mm + mm12.mmL*p.f.part        
-                pi.f.exc12.mm <- pi.f.exc12.mm + mm12.mmL*(1-p.f.part)*p.f.exc
-                ## female positive couples & male seroconversion                  
-                ff12a1.ff <- 0
-                ff12a2.ff <- 0
-                ff12.ff   <- ff12.ffL*(1-p.m.exc)*(1-p.m.part)                
-                hh12.ff   <- hh12.ffL + ff12.ffL*(p.m.part + (1-p.m.part)*p.m.exc)
-                pi.m.part12.ff <- pi.m.part12.ff + ff12.ffL*p.m.part
-                pi.m.exc12.ff <- pi.m.exc12.ff + ff12.ffL*(1-p.m.part)*p.m.exc
-                ss12.ssL   <- ss12.ss
-                mm12a1.ssL <- mm12a1.ss
-                mm12a2.ssL <- mm12a2.ss
-                mm12.ssL   <- mm12.ss                
-                ff12a1.ssL <- ff12a1.ss
-                ff12a2.ssL <- ff12a2.ss
-                ff12.ssL   <- ff12.ss                
-                hh12.ssL   <- hh12.ss
-                ## male positive discordant
-                mm12a1.mmL <- mm12a1.mm
-                mm12a2.mmL <- mm12a2.mm
-                mm12.mmL   <- mm12.mm
-                hh12.mmL   <- hh12.mm
-                ## female positive discordant
-                ff12a1.ffL <- ff12a1.ff
-                ff12a2.ffL <- ff12a2.ff
-                ff12.ffL   <- ff12.ff                
-                hh12.ffL   <- hh12.ff
-              }
-            n.m.part.dc <- 0
-            n.m.part.cc.ac <- 0
-            n.m.part.cc <- 0            
-            n.f.part.dc <- 0
-            n.f.part.cc.ac <- 0
-            n.f.part.cc <- 0            
-            n.m.exc.dc <- 0
-            n.m.exc.cc <- 0
-            n.f.exc.dc <- 0
-            n.f.exc.cc <- 0
-            ## add all the different countries incidence by scaling by serotype
-            for(cc in 1:num.country)
-              {
-                n.m.part.dc <- n.m.part.dc + pi.m.part12.ff[cc]*sum(ff.log & dat$epic.ind == cc.inds[cc])
-                n.f.part.dc <- n.f.part.dc + pi.f.part12.mm[cc]*sum(mm.log & dat$epic.ind == cc.inds[cc])                
-                n.m.part.cc <- n.m.part.cc + pi.m.part12.ss[cc]*sum(ss.log & dat$epic.ind == cc.inds[cc])
-                n.f.part.cc <- n.f.part.cc + pi.f.part12.ss[cc]*sum(ss.log & dat$epic.ind == cc.inds[cc])                
-                n.m.part.cc.ac <- n.m.part.cc.ac + pi.m.part12.ss.ac[cc]*sum(ss.log & dat$epic.ind == cc.inds[cc])
-                n.f.part.cc.ac <- n.f.part.cc.ac + pi.f.part12.ss.ac[cc]*sum(ss.log & dat$epic.ind == cc.inds[cc])                
-                n.m.exc.dc <- n.m.exc.dc + pi.m.exc12.ff[cc]*sum(ff.log & dat$epic.ind == cc.inds[cc])
-                n.f.exc.dc <- n.f.exc.dc + pi.f.exc12.mm[cc]*sum(mm.log & dat$epic.ind == cc.inds[cc])                
-                n.m.exc.cc <- n.m.exc.cc + pi.m.exc12.ss[cc]*sum(ss.log & dat$epic.ind == cc.inds[cc])
-                n.f.exc.cc <- n.f.exc.cc + pi.f.exc12.ss[cc]*sum(ss.log & dat$epic.ind == cc.inds[cc])                
-              }
-            n.m.dc <- n.m.part.dc + n.m.exc.dc
-            n.f.dc <- n.f.part.dc + n.f.exc.dc
-            n.m.part.tot <- n.m.part.dc + n.m.part.cc
-            n.f.part.tot <- n.f.part.dc + n.f.part.cc            
-            n.m.exc.tot <- n.m.exc.dc + n.m.exc.cc
-            n.f.exc.tot <- n.f.exc.dc + n.f.exc.cc
-            proj12 <- data.frame(n.m.part.dc, n.f.part.dc, # incidence per 1000
-                                 n.m.part.cc, n.f.part.cc,
-                                 n.m.part.cc.ac, n.f.part.cc.ac,
-                                 n.m.exc.dc, n.f.exc.dc,
-                                 n.m.exc.cc, n.f.exc.cc,
-                                 n.m.part.tot, n.f.part.tot,
-                                 n.m.exc.tot, n.f.exc.tot) / sum(!hh.log) * 1000
-            prop.exc.m <- n.m.exc.tot / (n.m.exc.tot + n.m.part.tot)
-            prop.exc.f <- n.f.exc.tot / (n.f.exc.tot + n.f.part.tot)
-            prop.exc.m.dc <- n.m.exc.dc / n.m.dc
-            prop.exc.f.dc <- n.f.exc.dc / n.f.dc
-            proj12 <- data.frame(proj12, prop.exc.m, prop.exc.f, prop.exc.m.dc, prop.exc.f.dc) 
-            ## relative rate of transmission coefficient extracouply vs before relationship
-            rr.m.eb <- bme/bmb
-            rr.f.eb <- bfe/bfb
-            rr.m.pe <- bmp/bme
-            rr.f.pe <- bfp/bfe
-            rr.m.pb <- bmp/bmb        #partner to before
-            rr.f.pb <- bfp/bfb
-            ## relative rate of transmission coefficient extracouply and before relationship between males and females
-            rr.mf.bef <- bmb/bfb
-            rr.mf.exc <- bme/bfe
-            ## rho is the last one
-            ## relative rate of contact/risk paramter (i.e. accounting
-            ## for difference in per coital act probability as estimated
-            ## from within partnership transmission.
-            rr.mf.bef.cont <- rr.mf.bef * rho
-            rr.mf.exc.cont <- rr.mf.exc * rho
-            rrs <- data.frame(rr.m.eb = rr.m.eb, rr.f.eb = rr.f.eb,
-                              rr.m.pe = rr.m.pe, rr.f.pe = rr.f.pe,
-                              rr.m.pb = rr.m.pb, rr.f.pb = rr.f.pb,
-                              rr.mf.bef = rr.mf.bef, rr.mf.exc = rr.mf.exc,
-                              rr.mf.bef.cont = rr.mf.bef.cont, rr.mf.exc.cont = rr.mf.exc.cont)
-          }
-        if(sim) {# if simulating data
-            probs <- NA
-            lprob <- NA
-            ## create couple state probability *A*live & *D*ead
-            sim.probs <- data.frame(s..A = s..,
-                                    mb.a1A,   mb.a1D   =  mb.a1 - mb.a1A,
-                                    me.a1A,   me.a1D   =  me.a1 - me.a1A,
-                                    f.ba1A,   f.ba1D   =  f.ba1 - f.ba1A,
-                                    f.ea1A,   f.ea1D   =  f.ea1 - f.ea1A,
-                                    mb.a2A,   mb.a2D   =  mb.a2 - mb.a2A,
-                                    me.a2A,   me.a2D   =  me.a2 - me.a2A,
-                                    f.ba2A,   f.ba2D   =  f.ba2 - f.ba2A,
-                                    f.ea2A,   f.ea2D   =  f.ea2 - f.ea2A,
-                                    mb.A,   mb.D   =  mb.- mb.A,
-                                    me.A,   me.D   =  me. - me.A,
-                                    f.bA,   f.bD   =  f.b - f.bA,
-                                    f.eA,   f.eD   =  f.e - f.eA,
-                                    hb1b2A, hb1b2D = hb1b2 - hb1b2A, # note some of the dead cases were infected by dead partners, so can only use the index cases in any h couple
-                                    hb2b1A, hb2b1D = hb2b1 - hb2b1A,
-                                    hbeA,   hbeD   =  hbe - hbeA,
-                                    hebA,   hebD   =  heb - hebA,
-                                    hepaA,   hepaD   =  hepa - hepaA,
-                                    hpeaA,   hpeaD   =  hpea - hpeaA,
-                                    hbpaA,   hbpaD   =  hbpa - hbpaA,
-                                    hpbaA,   hpbaD   =  hpba - hpbaA,
-                                    hepA,   hepD   =  hep - hepA,
-                                    hpeA,   hpeD   =  hpe - hpeA,
-                                    hbpA,   hbpD   =  hbp - hbpA,
-                                    hpbA,   hpbD   =  hpb - hpbA,
-                                    he1e2A, he1e2D = he1e2 - he1e2A,
-                                    he2e1A, he2e1D = he2e1 - he2e1A)
-            for(ii in 1:nrow(dat)) dat$cat[ii] <- which(rmultinom(1, 1, sim.probs[ii,])==1)
-            dat$cat.nm <- names(sim.probs)[dat$cat]
-            dat$cat.nm <- factor(dat$cat.nm, levels = names(sim.probs))
-            K <- nrow(dat)
-            if(!survive) pser.a <- NA
-          }else{ ## if not simulating data calculate likelihood p(data|pars)
-            if(survive) {                         # must NORMALIZE probabilities to 1 for likelihood!
-                probs <- pser.a[cbind(1:K,dat$ser)] / rowSums(pser.a) # accounting for survival
-              }else{
-                probs <- pser[cbind(1:K,dat$ser)] # if not accounting for survival
-                pser.a <- NA
-              }
+                s.p.m <- within.msurv[ff,tt]
+                s.p.f <- within.msurv[ff,tt]
+                pmp.a <- pmp * s.p.m                ## Transmission probabilities from partner (jointly with survival)
+                pfp.a <- pfp * s.p.f
+                pmp.a.ac <- pmp.ac * s.p.m                ## acute from partner (jointly with survival)
+                pfp.a.ac <- pfp.ac * s.p.f
+                pme.a <- pme * s.p.m                ## extra-couple
+                pfe.a <- pfe * s.p.f
+                ## Update serostates for active couples
+                seros[ff,] <- within.couple(seros[ff,], pme=pme, pfe=pfe, pmp=pmp, pfp=pfp, pmp.ac=pmp.ac, pfp.ac = pfp.ac,
+                                            pme.a = pme.a, pfe.a = pfe.a, pmp.a = pmp.a, pfp.a = pfp.a, pmp.a.ac = pmp.a.ac, pfp.a.ac = pfp.a.ac)
+            }
+            ## sum.nms <- c('ss','mm','ff','hh','mmA','ffA','hhA') ## summary serostatuses (observable) unconditional on survival
+            sum.nms <- c('ss','mmA','ffA','hhA') ## summary serostatuses (observable)
+            sero.sums <- matrix(NA, K, length(sum.nms), dimnames = list(NULL,sum.nms))
+            sero.sums[,'ss'] <- seros[,'s..']
+            ## sero.sums[,'mm'] <- rowSums(seros[,c('mb.a1', 'me.a1', 'mb.a2', 'me.a2', 'mb.', 'me.')])
+            ## sero.sums[,'ff'] <- rowSums(seros[,c('f.ba1', 'f.ea1', 'f.ba2', 'f.ea2', 'f.b', 'f.e')])
+            ## sero.sums[,'hh'] <- rowSums(seros[,c('hb1b2', 'hb2b1', 'hbe', 'heb', 'hbpa', 'hpba', 'hepa', 'hpea', 'hbp', 'hpb', 'hep', 'hpe', 'he1e2', 'he2e1')])
+            sero.sums[,'mmA'] <- rowSums(seros[,c('mb.a1A', 'me.a1A', 'mb.a2A', 'me.a2A', 'mb.A', 'me.A')])
+            sero.sums[,'ffA'] <- rowSums(seros[,c('f.ba1A', 'f.ea1A', 'f.ba2A', 'f.ea2A', 'f.bA', 'f.eA')])
+            sero.sums[,'hhA'] <- rowSums(seros[,c('hb1b2A', 'hb2b1A', 'hbeA', 'hebA', 'hbpaA', 'hpbaA', 'hepaA', 'hpeaA', 'hbpA', 'hpbA', 'hepA', 'hpeA', 'he1e2A', 'he2e1A')])
+            ## if(survive) { ## must NORMALIZE probabilities to 1 for likelihood!
+            pser.a <- sero.sums[,c('hhA', 'mmA', 'ffA', 'ss')]
+            probs <- pser.a[cbind(1:K,dat$ser)] / rowSums(pser.a) # accounting for survival
+            ## }else{
+            ##     pser <- sero.sums[,c('hh', 'mm', 'ff', 'ss')]
+            ##     probs <- pser[cbind(1:K,dat$ser)] ## if not accounting for survival
+            ## }
             if(sum(probs==0)==0) { # if non of the serotatuses occur with 0 probability in the current model
-                lprob <- sum(log(probs)) + dnorm(log(rho), log(trans.ratio), lrho.sd, log = T)
-                if(length(compars)>0) clprob <- sum(log(cprobs)) + dnorm(as.numeric(compars["lrho"]),
-                                                                         log(trans.ratio), lrho.sd, log = T)
-              }else{ # if some of the serostatuses are 0, then the current parameters have 0 probability
+                lprob <- sum(log(probs)) + dnorm(log(rho), log(trans.ratio), lrho.sd, log = T) ## add llikelihood and lprior
+            }else{ # if some of the serostatuses are 0, then the current parameters have 0 probability
                 lprob <- -Inf
-              }
-          }
-      }
-    if(length(compars)==0) {
-        clprob <- NA
-        cprobs <- NA
-      }
-    if(sim) {
-        if(trace) {
-            if(give.pis) {
-                return(list(lprob = lprob,pop.avs = pop.avs, proj12 = proj12, sim.probs, allstates = allstates,
-                            pser.a = pser.a, pser = pser, dat = dat, clprob = clprob, probs = probs, cprobs = cprobs, m.het = m.het, f.het = f.het))
-              }else{ 
-                return(list(lprob = lprob,pop.avs = pop.avs, rrs = rrs, proj12=proj12, sim.probs, allstates = allstates,
-                            pser.a = pser.a, pser = pser, dat = dat, clprob = clprob, probs = probs, cprobs = cprobs, m.het = m.het, f.het = f.het))
-              }
-          }else{
-            return(list(lprob = lprob, pser.a = pser.a, pser = pser, dat = dat, sim.probs, allstates = allstates,
-                        clprob = clprob, probs = probs, cprobs = cprobs, m.het = m.het, f.het = f.het))
-          }
-      }else{                            # if not simulating
-        if(trace) {
-            if(give.pis) {
-                return(list(lprob = lprob,pop.avs = pop.avs, rrs = rrs,  proj12=proj12, pis = pis, allstates = allstates,
-                            pser.a = pser.a, pser = pser, probs = probs))
-              }else{ 
-                return(list(lprob = lprob,pop.avs = pop.avs, rrs = rrs, proj12=proj12,
-                            pser.a = pser.a, pser = pser, probs = probs))
-              }
-          }else{
-            return(list(lprob = lprob, pser.a = pser.a, pser = pser))
-          }
-      }
-  }
+            }
+        }
+        return(lprob)
+    }
+
+
+##         if(trace & sim) # calculate expected route of transmission breakdowns for couples with unknown (or simulated serostatus)
+##           {
+## ######################################################################
+##             ## Route of transmission breakdowns for observed couples
+##             ## (conditional on survival)
+## ######################################################################
+##             ## male breakdown amongst observed M+F- couples, partner *N*egative
+##             pibNA <- mean((mb.a1A + mb.a2A + mb.A) / mmA, na.rm = T) 
+##             pieNA <- mean((me.a1A + me.a2A + me.A) / mmA, na.rm = T) 
+##             ## female breakdown amongst observed M-F+ couples, partner *N*egative
+##             piNbA <- mean((f.ba1A + f.ba2A + f.bA) / ffA, na.rm = T)
+##             piNeA <- mean((f.ea1A + f.ea2A + f.eA) / ffA, na.rm = T)
+##             ## male breakdown amongst observed M+F+ couples,  partner *P*ositive
+##             pibPA <- mean((hb1b2A + hb2b1A + hbeA + hbpaA + hbpA) / hhA, na.rm = T) 
+##             piePA <- mean((hebA + hepaA + hepA + he1e2A + he2e1A) / hhA, na.rm = T) 
+##             pipPA <- mean((hpbaA + hpeaA + hpbA + hpeA) / hhA, na.rm = T)
+##             pipPaA <- mean((hpbaA + hpeaA) / hhA, na.rm = T) # males infected by their partner in M+F+ couples during her acute phase.
+##             pipPcA <- mean((hpbA + hpeA) / hhA, na.rm = T) # chronic phase
+##             ## female breakdown amongst observed M+F+ couples,  partner *P*ositive
+##             piPbA <- mean((hb1b2A + hb2b1A + hebA + hpbaA + hpbA) / hhA, na.rm = T) 
+##             piPeA <- mean((hbeA + hpeaA + hpeA + he1e2A + he2e1A) / hhA, na.rm = T) 
+##             piPpA <- mean((hbpaA + hepaA + hbpA + hepA) / hhA, na.rm = T)
+##             piPpaA <- mean((hbpaA + hepaA) / hhA, na.rm = T) # acute phase
+##             piPpcA <- mean((hbpA + hepA) / hhA, na.rm = T) # chronic
+##             ## male breakdown amongst infected males in any observed couples,  partner *U*nknown (bc could be either)
+##             pibUA <- mean((mb.a1A + mb.a2A + mb.A + hb1b2A + hb2b1A + hbeA + hbpaA + hbpA) / (mmA + hhA), na.rm = T)
+##             pieUA <- mean((me.a1A + me.a2A + me.A + hebA + hepaA + hepA + he1e2A + he2e1A) / (mmA + hhA), na.rm = T)
+##             pipUA <- mean((hpbaA + hpeaA + hpbA + hpeA) / (mmA + hhA), na.rm = T)
+##             pipUaA <- mean((hpbaA + hpeaA) / (mmA + hhA), na.rm = T) #acute
+##             pipUcA <- mean((hpbA + hpeA) / (mmA + hhA), na.rm = T) #chronic
+##             ## female breakdown amongst infected females in any observed couples,  partner *U*nknown (bc could be either)
+##             piUbA <- mean((f.ba1A + f.ba2A + f.bA + hb1b2A + hb2b1A + hebA + hpbaA + hpbA) / (ffA + hhA), na.rm = T)
+##             piUeA <- mean((f.ea1A + f.ea2A + f.eA + hbeA + hpeaA + hpeA + he1e2A + he2e1A) / (ffA + hhA), na.rm = T)
+##             piUpA <- mean((hbpaA + hepaA + hbpA + hepA) / (ffA + hhA), na.rm = T)
+##             piUpaA <- mean((hbpaA + hepaA) / (ffA + hhA), na.rm = T) #acute
+##             piUpcA <- mean((hbpA + hepA) / (ffA + hhA), na.rm = T) #chronic
+## ######################################################################
+##             pop.avs <- data.frame(
+##                                   ## conditional on survival
+##                                   pibNA, pieNA, # b/e in +- given A
+##                                   piNbA, piNeA, # b/e in -+ given A
+##                                   pibPA, piePA, pipPA, pipPaA, pipPcA, # b/e/p in male in ++ given A
+##                                   piPbA, piPeA, piPpA, piPpaA, piPpcA, # b/e/p in female in ++ given A
+##                                   pibUA, pieUA, pipUA, pipUaA, pipUcA, # b/e/p in male in any given A
+##                                   piUbA, piUeA, piUpA, piUpaA, piUpcA) # b/e/p in female in any given A
+##           }
+##         if(trace & !sim)
+##           {
+##             ######################################################################
+##             ## Route of transmission breakdowns for observed couples
+##             ## (conditional on survival)
+##             ######################################################################
+##             ## male breakdown amongst observed M+F- couples, partner *N*egative
+##             pibNA <- sum((mb.a1A[mm.log] + mb.a2A[mm.log] + mb.A[mm.log]) / mmA[mm.log]) / sum(mm.log)
+##             pieNA <- sum((me.a1A[mm.log] + me.a2A[mm.log] + me.A[mm.log]) / mmA[mm.log]) / sum(mm.log)
+##             ## female breakdown amongst observed M-F+ couples, partner *N*egative
+##             piNbA <- sum((f.ba1A[ff.log] + f.ba2A[ff.log] + f.bA[ff.log]) / ffA[ff.log]) / sum(ff.log)
+##             piNeA <- sum((f.ea1A[ff.log] + f.ea2A[ff.log] + f.eA[ff.log]) / ffA[ff.log]) / sum(ff.log)
+##             ## male breakdown amongst observed M+F+ couples,  partner *P*ositive
+##             pibPA <- sum((hb1b2A[hh.log] + hb2b1A[hh.log] + hbeA[hh.log] + hbpaA[hh.log] + hbpA[hh.log]) / hhA[hh.log]) / sum(hh.log)
+##             piePA <- sum((hebA[hh.log] + hepaA[hh.log] + hepA[hh.log] + he1e2A[hh.log] + he2e1A[hh.log]) / hhA[hh.log]) / sum(hh.log)
+##             pipPA <- sum((hpbaA[hh.log] + hpeaA[hh.log] + hpbA[hh.log] + hpeA[hh.log]) / hhA[hh.log]) / sum(hh.log)
+##             pipPaA <- sum((hpbaA[hh.log] + hpeaA[hh.log]) / hhA[hh.log]) / sum(hh.log) #acute
+##             pipPcA <- sum((hpbA[hh.log] + hpeA[hh.log]) / hhA[hh.log]) / sum(hh.log) #chronic
+##             ## female breakdown amongst observed M+F+ couples,  partner *P*ositive
+##             piPbA <- sum((hb1b2A[hh.log] + hb2b1A[hh.log] + hebA[hh.log] + hpbaA[hh.log] + hpbA[hh.log]) / hhA[hh.log]) / sum(hh.log)
+##             piPeA <- sum((hbeA[hh.log] + hpeaA[hh.log] + hpeA[hh.log] + he1e2A[hh.log] + he2e1A[hh.log]) / hhA[hh.log]) / sum(hh.log)
+##             piPpA <- sum((hbpaA[hh.log] + hepaA[hh.log] + hbpA[hh.log] + hepA[hh.log]) / hhA[hh.log]) / sum(hh.log)
+##             piPpaA <- sum((hbpaA[hh.log] + hepaA[hh.log]) / hhA[hh.log]) / sum(hh.log) #acute
+##             piPpcA <- sum((hbpA[hh.log] + hepA[hh.log]) / hhA[hh.log]) / sum(hh.log) #chronic
+##             ## male breakdown amongst infected males in any observed couples,  partner *U*nknown (bc could be either)
+##             pibUA <- (pibNA*sum(mm.log) + pibPA*sum(hh.log)) / (sum(mm.log) + sum(hh.log))
+##             pieUA <- (pieNA*sum(mm.log) + piePA*sum(hh.log)) / (sum(mm.log) + sum(hh.log))
+##             pipUA <- (pipPA*sum(hh.log)) / (sum(mm.log) + sum(hh.log))
+##             pipUaA <- (pipPaA*sum(hh.log)) / (sum(mm.log) + sum(hh.log)) #acute, keep in mind this is only proportion of all M+ acutely infected by their *current* partner
+##             pipUcA <- (pipPcA*sum(hh.log)) / (sum(mm.log) + sum(hh.log)) #chronic, ditto above
+##             ## female breakdown amongst infected females in any observed couples,  partner *U*nknown (bc could be either)
+##             piUbA <- (piNbA*sum(ff.log) + piPbA*sum(hh.log)) / (sum(ff.log) + sum(hh.log))
+##             piUeA <- (piNeA*sum(ff.log) + piPeA*sum(hh.log)) / (sum(ff.log) + sum(hh.log))
+##             piUpA <- (piPpA*sum(hh.log)) / (sum(ff.log) + sum(hh.log))
+##             piUpaA <- (piPpaA*sum(hh.log)) / (sum(ff.log) + sum(hh.log)) #acute, see notes aboe
+##             piUpcA <- (piPpcA*sum(hh.log)) / (sum(ff.log) + sum(hh.log)) #chronic
+##             ######################################################################
+##             ## Give pieNA, piNeA, piePA, piPeA, for each couple
+##             if(give.pis)
+##               {
+##                 ## probability infection was extracouple given ser
+##                 piCe.A <- rep(NA, K)
+##                 piC.eA <- rep(NA, K)
+##                 piCe.A[mm.log] <- (me.a1A[mm.log] + me.a2A[mm.log] + me.A[mm.log]) / mmA[mm.log]
+##                 piCe.A[hh.log] <- (hebA[hh.log] + hepaA[hh.log] + hepA[hh.log] + he1e2A[hh.log] + he2e1A[hh.log]) / hhA[hh.log]
+##                 piC.eA[ff.log] <- (f.ea1A[ff.log] + f.ea2A[ff.log] + f.eA[ff.log]) / ffA[ff.log]
+##                 piC.eA[hh.log] <- (hbeA[hh.log] + hpeaA[hh.log] + hpeA[hh.log] + he1e2A[hh.log] + he2e1A[hh.log]) / hhA[hh.log]
+##                 pis <- data.frame(piCe.A, piC.eA)
+##               }
+##             ######################################################################
+##             ## Route of transmission breakdowns for inferred
+##             ## pseudopopulation (unconditional on survival)
+##             ######################################################################
+##             ######################################################################
+##             ## Index infections, do with estimators summing over all
+##             ## infected couples and over all couples
+##             ## version 1 - all infected couples
+##             mb1. <- rowSums(allstates[!ss.log, c("mb.a1","mb.a2","mb.","hb1b2","hbe","hbpa","hbp")])
+##             me1. <- rowSums(allstates[!ss.log, c("me.a1","me.a2","me.","he1e2","hepa","hep")])
+##             ## female
+##             f.b1 <- rowSums(allstates[!ss.log, c("f.ba1","f.ba2","f.b","hb2b1","heb","hpba","hpb")])
+##             f.e1 <- rowSums(allstates[!ss.log, c("f.ea1","f.ea2","f.e","he2e1","hpea","hpe")])
+##             all.infA <- rowSums(allstates[!ss.log,names(allstates)[(grepl("m", names(allstates)) | grepl("f", names(allstates)) | grepl("h", names(allstates))) & grepl("A", names(allstates))]])
+##             ## number of inflated male before-couple index infections (in any couple)
+##             mb1.Infl <- sum( mb1. / all.infA)
+##             ## number of inflated male extra-couple index infections (in any couple)
+##             me1.Infl <- sum( me1. / all.infA)
+##             ## nufber of inflated male before-couple index infections (in any couple)
+##             f.b1Infl <- sum( f.b1 / all.infA)
+##             ## number of inflated male extra-couple index infections (in any couple)
+##             f.e1Infl <- sum( f.e1 / all.infA)
+##             ## number of inflated index infections (1 in each couple with an infection)
+##             IndInfl <- mb1.Infl + me1.Infl + f.b1Infl + f.e1Infl # note this includes h-classes..
+##             ######################################################################
+##             ## Proportion of index infections pooling across gender
+##             piGb1.sumI <- mb1.Infl / IndInfl
+##             piGe1.sumI <- me1.Infl / IndInfl
+##             piG.b1sumI <- f.b1Infl / IndInfl
+##             piG.e1sumI <- f.e1Infl / IndInfl
+##             ## ## version 2 - sum over all couples
+##             mb1. <- rowSums(allstates[, c("mb.a1","mb.a2","mb.","hb1b2","hbe","hbpa","hbp")])
+##             me1. <- rowSums(allstates[, c("me.a1","me.a2","me.","he1e2","hepa","hep")])
+##             ## female
+##             f.b1 <- rowSums(allstates[, c("f.ba1","f.ba2","f.b","hb2b1","heb","hpba","hpb")])
+##             f.e1 <- rowSums(allstates[, c("f.ea1","f.ea2","f.e","he2e1","hpea","hpe")])
+##             all.infA <- rowSums(allstates[,c("s..", names(allstates)[(grepl("m", names(allstates)) | grepl("f", names(allstates)) | grepl("h", names(allstates))) & grepl("A", names(allstates))])])
+##             ## number of inflated male before-couple index infections (in any couple)
+##             mb1.Infl <- sum( mb1. / all.infA)
+##             ## number of inflated male extra-couple index infections (in any couple)
+##             me1.Infl <- sum( me1. / all.infA)
+##             ## nufber of inflated male before-couple index infections (in any couple)
+##             f.b1Infl <- sum( f.b1 / all.infA)
+##             ## number of inflated male extra-couple index infections (in any couple)
+##             f.e1Infl <- sum( f.e1 / all.infA)
+##             ## number of inflated index infections (1 in each couple with an infection)
+##             IndInfl <- mb1.Infl + me1.Infl + f.b1Infl + f.e1Infl
+## ######################################################################
+##             ## Proportion of index infections pooling across gender
+##             piGb1.sumIS <- mb1.Infl / IndInfl
+##             piGe1.sumIS <- me1.Infl / IndInfl
+##             piG.b1sumIS <- f.b1Infl / IndInfl
+##             piG.e1sumIS <- f.e1Infl / IndInfl
+##             ## put them all in a dataframe
+##             pop.avs <- data.frame(
+##                                   ## conditional on survival
+##                                   pibNA, pieNA, # b/e in +- given A
+##                                   piNbA, piNeA, # b/e in -+ given A
+##                                   pibPA, piePA, pipPA, pipPaA, pipPcA, # b/e/p in male in ++ given A
+##                                   piPbA, piPeA, piPpA, piPpaA, piPpcA, # b/e/p in female in ++ given A
+##                                   pibUA, pieUA, pipUA, pipUaA, pipUcA, # b/e/p in male in any given A
+##                                   piUbA, piUeA, piUpA, piUpaA, piUpcA, # b/e/p in female in any given A
+##                                   ## unconditional on survival version 1
+##                                   piGb1.sumI, piGe1.sumI, # b/e index in males amongst all infected 
+##                                   piG.b1sumI, piG.e1sumI, # b/e index in females amongst all infected
+##                                   piGb1.sumIS, piGe1.sumIS, # b/e index in males amongst all infected 
+##                                   piG.b1sumIS, piG.e1sumIS) # b/e index in females amongst all infected
+##             ######################################################################
+##             ## Project incidence forward 12 months for each of the 3
+##             ## couple types (ss, mm, ff) for each country in the data
+##             ## set (because they have different population prevalences
+##             num.country <- length(unique(dat$epic.ind))
+##             cc.inds <- unique(dat$epic.ind)
+##             ## concordant negative
+##             ss12.ssL <- rep(1, num.country)
+##             mm12a1.ssL <- rep(0, num.country)
+##             mm12a2.ssL <- rep(0, num.country)
+##             mm12.ssL <- rep(0, num.country)            
+##             ff12a1.ssL <- rep(0, num.country)
+##             ff12a2.ssL <- rep(0, num.country)
+##             ff12.ssL <- rep(0, num.country)            
+##             hh12.ssL <- rep(0, num.country)            
+##             ## male positive discordant
+##             mm12a1.mmL <- rep(1, num.country)
+##             mm12a2.mmL <- rep(1, num.country)
+##             mm12.mmL <- rep(1, num.country)            
+##             hh12.mmL <- rep(0, num.country)            
+##             ## female positive discordant
+##             ff12a1.ffL <- rep(1, num.country)
+##             ff12a2.ffL <- rep(1, num.country)
+##             ff12.ffL <- rep(1, num.country)            
+##             hh12.ffL <- rep(0, num.country)
+##             ## initialize pis
+##             pi.m.part12.ss.ac <- 0      #acute
+##             pi.f.part12.ss.ac <- 0      #acute
+##             pi.m.part12.ss <- 0
+##             pi.f.part12.ss <- 0
+##             pi.m.exc12.ss <- 0
+##             pi.f.exc12.ss <- 0
+##             pi.f.part12.mm.ac <- 0      #acute
+##             pi.f.part12.mm <- 0            
+##             pi.f.exc12.mm <- 0            
+##             pi.m.part12.ff.ac <- 0      #acute
+##             pi.m.part12.ff <- 0            
+##             pi.m.exc12.ff <- 0            
+##             for(tt in 1:12)
+##               {
+##                 if(partner.arv)         # put partner's on ART with some probability assigned related to ART coverage
+##                   {
+##                     p.m.part <- 1 - exp(-bmp * (1 - cov.scalar * art.prev[1332+tt-1, cc.inds]))
+##                     p.f.part <- 1 - exp(-bfp * (1 - cov.scalar * art.prev[1332+tt-1, cc.inds]))
+##                     p.m.part.ac <- 1 - exp(-acute.sc * bmp * (1 - cov.scalar * art.prev[1332+tt-1, cc.inds])) # acute
+##                     p.f.part.ac <- 1 - exp(-acute.sc * bfp * (1 - cov.scalar * art.prev[1332+tt-1, cc.inds])) # acute
+##                   }
+##                 ######################################################################
+##                 ## Transmission probabilities
+##                 ## probability infected extracouply in various months of 2011
+##                 p.m.exc <- 1 - exp(-bme*epicf[1332+tt-1, cc.inds])
+##                 p.f.exc <- 1 - exp(-bfe*epicm[1332+tt-1, cc.inds])
+##                 ## concordant negative couples
+##                 ss12.ss   <- ss12.ssL*(1-p.m.exc)*(1-p.f.exc)
+##                 mm12a1.ss <- ss12.ssL*p.m.exc*(1-p.f.exc)
+##                 mm12a2.ss <- mm12a1.ssL*(1-p.f.exc)*(1-p.f.part.ac)
+##                 mm12.ss   <- mm12a2.ssL*(1-p.f.exc)*(1-p.f.part.ac) + mm12.ssL*(1-p.f.exc)*(1-p.f.part)
+##                 ff12a1.ss <- ss12.ssL*p.f.exc*(1-p.m.exc)
+##                 ff12a2.ss <- ff12a1.ssL*(1-p.m.exc)*(1-p.m.part.ac)
+##                 ff12.ss   <- ff12a2.ssL*(1-p.m.exc)*(1-p.m.part.ac) + ff12.ssL*(1-p.m.exc)*(1-p.m.part)
+##                 hh12.ss <- hh12.ssL + ss12.ssL* p.m.exc*p.f.exc +
+##                     (mm12a1.ssL + mm12a2.ssL)*(p.f.part.ac + (1-p.f.part.ac)*p.f.exc) + mm12.ssL*(p.f.part + (1-p.f.part)*p.f.exc) +
+##                     (ff12a1.ssL + ff12a2.ssL)*(p.m.part.ac + (1-p.m.part.ac)*p.m.exc) + ff12.ssL*(p.m.part + (1-p.m.part)*p.m.exc)
+##                 pi.m.part12.ss <- pi.m.part12.ss + (ff12a1.ssL + ff12a2.ssL)*p.m.part.ac + ff12.ssL*p.m.part
+##                 pi.f.part12.ss <- pi.f.part12.ss + (mm12a1.ssL + mm12a2.ssL)*p.f.part.ac + mm12.ssL*p.f.part        
+##                 pi.m.part12.ss.ac <- pi.m.part12.ss.ac + (ff12a1.ssL + ff12a2.ssL)*p.m.part.ac  # acute
+##                 pi.f.part12.ss.ac <- pi.f.part12.ss.ac + (mm12a1.ssL + mm12a2.ssL)*p.f.part.ac  # acute
+##                 pi.m.exc12.ss <- pi.m.exc12.ss + (ss12.ssL + (ff12a1.ssL + ff12a2.ssL)*(1-p.m.part.ac) + ff12.ssL*(1-p.m.part))*p.m.exc
+##                 pi.f.exc12.ss <- pi.f.exc12.ss + (ss12.ssL + (mm12a1.ssL + mm12a2.ssL)*(1-p.f.part.ac) + mm12.ssL*(1-p.f.part))*p.f.exc
+##                 ## male positive couples & female seroconversion,
+##                 ##  assume there are no prevalent serodiscordant couples with individuals in acute stage at DHS ****
+##                 mm12a1.mm <- 0          # all M+ couples  are already M+ at start of 12 month projection
+##                 mm12a2.mm <- 0
+##                 mm12.mm   <- mm12.mmL*(1-p.f.exc)*(1-p.f.part)                
+##                 hh12.mm   <- hh12.mmL + mm12.mmL*(p.f.part + (1-p.f.part)*p.f.exc) 
+##                 pi.f.part12.mm <- pi.f.part12.mm + mm12.mmL*p.f.part        
+##                 pi.f.exc12.mm <- pi.f.exc12.mm + mm12.mmL*(1-p.f.part)*p.f.exc
+##                 ## female positive couples & male seroconversion                  
+##                 ff12a1.ff <- 0
+##                 ff12a2.ff <- 0
+##                 ff12.ff   <- ff12.ffL*(1-p.m.exc)*(1-p.m.part)                
+##                 hh12.ff   <- hh12.ffL + ff12.ffL*(p.m.part + (1-p.m.part)*p.m.exc)
+##                 pi.m.part12.ff <- pi.m.part12.ff + ff12.ffL*p.m.part
+##                 pi.m.exc12.ff <- pi.m.exc12.ff + ff12.ffL*(1-p.m.part)*p.m.exc
+##                 ss12.ssL   <- ss12.ss
+##                 mm12a1.ssL <- mm12a1.ss
+##                 mm12a2.ssL <- mm12a2.ss
+##                 mm12.ssL   <- mm12.ss                
+##                 ff12a1.ssL <- ff12a1.ss
+##                 ff12a2.ssL <- ff12a2.ss
+##                 ff12.ssL   <- ff12.ss                
+##                 hh12.ssL   <- hh12.ss
+##                 ## male positive discordant
+##                 mm12a1.mmL <- mm12a1.mm
+##                 mm12a2.mmL <- mm12a2.mm
+##                 mm12.mmL   <- mm12.mm
+##                 hh12.mmL   <- hh12.mm
+##                 ## female positive discordant
+##                 ff12a1.ffL <- ff12a1.ff
+##                 ff12a2.ffL <- ff12a2.ff
+##                 ff12.ffL   <- ff12.ff                
+##                 hh12.ffL   <- hh12.ff
+##               }
+##             n.m.part.dc <- 0
+##             n.m.part.cc.ac <- 0
+##             n.m.part.cc <- 0            
+##             n.f.part.dc <- 0
+##             n.f.part.cc.ac <- 0
+##             n.f.part.cc <- 0            
+##             n.m.exc.dc <- 0
+##             n.m.exc.cc <- 0
+##             n.f.exc.dc <- 0
+##             n.f.exc.cc <- 0
+##             ## add all the different countries incidence by scaling by serotype
+##             for(cc in 1:num.country)
+##               {
+##                 n.m.part.dc <- n.m.part.dc + pi.m.part12.ff[cc]*sum(ff.log & dat$epic.ind == cc.inds[cc])
+##                 n.f.part.dc <- n.f.part.dc + pi.f.part12.mm[cc]*sum(mm.log & dat$epic.ind == cc.inds[cc])                
+##                 n.m.part.cc <- n.m.part.cc + pi.m.part12.ss[cc]*sum(ss.log & dat$epic.ind == cc.inds[cc])
+##                 n.f.part.cc <- n.f.part.cc + pi.f.part12.ss[cc]*sum(ss.log & dat$epic.ind == cc.inds[cc])                
+##                 n.m.part.cc.ac <- n.m.part.cc.ac + pi.m.part12.ss.ac[cc]*sum(ss.log & dat$epic.ind == cc.inds[cc])
+##                 n.f.part.cc.ac <- n.f.part.cc.ac + pi.f.part12.ss.ac[cc]*sum(ss.log & dat$epic.ind == cc.inds[cc])                
+##                 n.m.exc.dc <- n.m.exc.dc + pi.m.exc12.ff[cc]*sum(ff.log & dat$epic.ind == cc.inds[cc])
+##                 n.f.exc.dc <- n.f.exc.dc + pi.f.exc12.mm[cc]*sum(mm.log & dat$epic.ind == cc.inds[cc])                
+##                 n.m.exc.cc <- n.m.exc.cc + pi.m.exc12.ss[cc]*sum(ss.log & dat$epic.ind == cc.inds[cc])
+##                 n.f.exc.cc <- n.f.exc.cc + pi.f.exc12.ss[cc]*sum(ss.log & dat$epic.ind == cc.inds[cc])                
+##               }
+##             n.m.dc <- n.m.part.dc + n.m.exc.dc
+##             n.f.dc <- n.f.part.dc + n.f.exc.dc
+##             n.m.part.tot <- n.m.part.dc + n.m.part.cc
+##             n.f.part.tot <- n.f.part.dc + n.f.part.cc            
+##             n.m.exc.tot <- n.m.exc.dc + n.m.exc.cc
+##             n.f.exc.tot <- n.f.exc.dc + n.f.exc.cc
+##             proj12 <- data.frame(n.m.part.dc, n.f.part.dc, # incidence per 1000
+##                                  n.m.part.cc, n.f.part.cc,
+##                                  n.m.part.cc.ac, n.f.part.cc.ac,
+##                                  n.m.exc.dc, n.f.exc.dc,
+##                                  n.m.exc.cc, n.f.exc.cc,
+##                                  n.m.part.tot, n.f.part.tot,
+##                                  n.m.exc.tot, n.f.exc.tot) / sum(!hh.log) * 1000
+##             prop.exc.m <- n.m.exc.tot / (n.m.exc.tot + n.m.part.tot)
+##             prop.exc.f <- n.f.exc.tot / (n.f.exc.tot + n.f.part.tot)
+##             prop.exc.m.dc <- n.m.exc.dc / n.m.dc
+##             prop.exc.f.dc <- n.f.exc.dc / n.f.dc
+##             proj12 <- data.frame(proj12, prop.exc.m, prop.exc.f, prop.exc.m.dc, prop.exc.f.dc) 
+##             ## relative rate of transmission coefficient extracouply vs before relationship
+##             rr.m.eb <- bme/bmb
+##             rr.f.eb <- bfe/bfb
+##             rr.m.pe <- bmp/bme
+##             rr.f.pe <- bfp/bfe
+##             rr.m.pb <- bmp/bmb        #partner to before
+##             rr.f.pb <- bfp/bfb
+##             ## relative rate of transmission coefficient extracouply and before relationship between males and females
+##             rr.mf.bef <- bmb/bfb
+##             rr.mf.exc <- bme/bfe
+##             ## rho is the last one
+##             ## relative rate of contact/risk paramter (i.e. accounting
+##             ## for difference in per coital act probability as estimated
+##             ## from within partnership transmission.
+##             rr.mf.bef.cont <- rr.mf.bef * rho
+##             rr.mf.exc.cont <- rr.mf.exc * rho
+##             rrs <- data.frame(rr.m.eb = rr.m.eb, rr.f.eb = rr.f.eb,
+##                               rr.m.pe = rr.m.pe, rr.f.pe = rr.f.pe,
+##                               rr.m.pb = rr.m.pb, rr.f.pb = rr.f.pb,
+##                               rr.mf.bef = rr.mf.bef, rr.mf.exc = rr.mf.exc,
+##                               rr.mf.bef.cont = rr.mf.bef.cont, rr.mf.exc.cont = rr.mf.exc.cont)
+##           }
+##         if(sim) {# if simulating data
+##             probs <- NA
+##             lprob <- NA
+##             ## create couple state probability *A*live & *D*ead
+##             sim.probs <- data.frame(s..A = s..,
+##                                     mb.a1A,   mb.a1D   =  mb.a1 - mb.a1A,
+##                                     me.a1A,   me.a1D   =  me.a1 - me.a1A,
+##                                     f.ba1A,   f.ba1D   =  f.ba1 - f.ba1A,
+##                                     f.ea1A,   f.ea1D   =  f.ea1 - f.ea1A,
+##                                     mb.a2A,   mb.a2D   =  mb.a2 - mb.a2A,
+##                                     me.a2A,   me.a2D   =  me.a2 - me.a2A,
+##                                     f.ba2A,   f.ba2D   =  f.ba2 - f.ba2A,
+##                                     f.ea2A,   f.ea2D   =  f.ea2 - f.ea2A,
+##                                     mb.A,   mb.D   =  mb.- mb.A,
+##                                     me.A,   me.D   =  me. - me.A,
+##                                     f.bA,   f.bD   =  f.b - f.bA,
+##                                     f.eA,   f.eD   =  f.e - f.eA,
+##                                     hb1b2A, hb1b2D = hb1b2 - hb1b2A, # note some of the dead cases were infected by dead partners, so can only use the index cases in any h couple
+##                                     hb2b1A, hb2b1D = hb2b1 - hb2b1A,
+##                                     hbeA,   hbeD   =  hbe - hbeA,
+##                                     hebA,   hebD   =  heb - hebA,
+##                                     hepaA,   hepaD   =  hepa - hepaA,
+##                                     hpeaA,   hpeaD   =  hpea - hpeaA,
+##                                     hbpaA,   hbpaD   =  hbpa - hbpaA,
+##                                     hpbaA,   hpbaD   =  hpba - hpbaA,
+##                                     hepA,   hepD   =  hep - hepA,
+##                                     hpeA,   hpeD   =  hpe - hpeA,
+##                                     hbpA,   hbpD   =  hbp - hbpA,
+##                                     hpbA,   hpbD   =  hpb - hpbA,
+##                                     he1e2A, he1e2D = he1e2 - he1e2A,
+##                                     he2e1A, he2e1D = he2e1 - he2e1A)
+##             for(ii in 1:nrow(dat)) dat$cat[ii] <- which(rmultinom(1, 1, sim.probs[ii,])==1)
+##             dat$cat.nm <- names(sim.probs)[dat$cat]
+##             dat$cat.nm <- factor(dat$cat.nm, levels = names(sim.probs))
+##             K <- nrow(dat)
+##             if(!survive) pser.a <- NA
+##           }else{ ## if not simulating data calculate likelihood p(data|pars)
+##           }
+##       }
+##     if(length(compars)==0) {
+##         clprob <- NA
+##         cprobs <- NA
+##       }
+##     if(sim) {
+##         if(trace) {
+##             if(give.pis) {
+##                 return(list(lprob = lprob,pop.avs = pop.avs, proj12 = proj12, sim.probs, allstates = allstates,
+##                             pser.a = pser.a, pser = pser, dat = dat, clprob = clprob, probs = probs, cprobs = cprobs, m.het = m.het, f.het = f.het))
+##               }else{ 
+##                 return(list(lprob = lprob,pop.avs = pop.avs, rrs = rrs, proj12=proj12, sim.probs, allstates = allstates,
+##                             pser.a = pser.a, pser = pser, dat = dat, clprob = clprob, probs = probs, cprobs = cprobs, m.het = m.het, f.het = f.het))
+##               }
+##           }else{
+##             return(list(lprob = lprob, pser.a = pser.a, pser = pser, dat = dat, sim.probs, allstates = allstates,
+##                         clprob = clprob, probs = probs, cprobs = cprobs, m.het = m.het, f.het = f.het))
+##           }
+##       }else{                            # if not simulating
+##         if(trace) {
+##             if(give.pis) {
+##                 return(list(lprob = lprob,pop.avs = pop.avs, rrs = rrs,  proj12=proj12, pis = pis, allstates = allstates,
+##                             pser.a = pser.a, pser = pser, probs = probs))
+##               }else{ 
+##                 return(list(lprob = lprob,pop.avs = pop.avs, rrs = rrs, proj12=proj12,
+##                             pser.a = pser.a, pser = pser, probs = probs))
+##               }
+##           }else{
+##             return(list(lprob = lprob, pser.a = pser.a, pser = pser))
+##           }
+##       }
+##   }
 
 
 
