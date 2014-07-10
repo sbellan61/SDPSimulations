@@ -30,7 +30,7 @@ pre.couple <- function(seros.active, pmb, pfb, pmb.a, pfb.a) {
     ##     seros.active[,'hb1b2'] <- tp[,'hb1b2'] + p.mfirst  *  tp[,'s..'] * pmb * pfb + (tp[,'mb.a1'] + tp[,'mb.a2'] + tp[,'mb.'])  *  pfb
     ##     seros.active[,'hb2b1'] <- tp[,'hb2b1'] + p.ffirst  *  tp[,'s..'] * pmb * pfb + (tp[,'f.ba1'] + tp[,'f.ba2'] + tp[,'f.b'])  *  pmb
     ## }
-    if(sum(is.na(seros.active))>0) browser()
+    ## if(sum(is.na(seros.active))>0) browser() ## uncond.mort==F breaks this
     return(seros.active)
 }
 
@@ -110,6 +110,7 @@ within.couple <- function(seros.active, pme, pfe, pmp, pfp, pmp.ac, pfp.ac, pme.
     ##     seros.active[,'he1e2'] <- tp[,'he1e2'] + p.mfirst * tp[,'s..']*pme*pfe + (tp[,'me.a1'] + tp[,'me.a2'])*(1-pfp.ac)*pfe + tp[,'me.']*(1-pfp)*pfe
     ##     seros.active[,'he2e1'] <- tp[,'he2e1'] + p.ffirst * tp[,'s..']*pme*pfe + (tp[,'f.ea1'] + tp[,'f.ea2'])*(1-pmp.ac)*pme + tp[,'f.e']*(1-pmp)*pme
     ## }
+    ## if(sum(is.na(seros.active))>0) browser() ## uncond.mort==F breaks this
     return(seros.active)
 }
 
@@ -161,9 +162,9 @@ pcalc <- function(pars, dat, browse = F,
                   ## using global variables for these
                   ## partner.arv = F, ## ART coverage affects within-partnership transmission?
                   ## low.coverage.arv = F, ## if T, only 50% of those on ART are not infectious
+                  uncond.mortality = F, ## track serostate probabilities unconditional on mortality (not currently working)
                   lrho.sd = 1/2) ## sd on lrho prior
     {
-        if(browse) browser()
         cov.scalar <- ifelse(low.coverage.arv, .5, 1) ## if assuming only 50% of those on ART are not-infectious
         K <- nrow(dat)
         ser.nms <- c('hh','mm','ff','ss')
@@ -176,19 +177,21 @@ pcalc <- function(pars, dat, browse = F,
             rho <- exp(lrho) # feeding in log(rho) log(m->f / f->m) transmission rates
             bfp <- bmp * rho
             ## Assign state variable names
-            state.var.nms <- c('s..',
-                               'mb.a1', 'mb.a2', 'mb.', 'me.a1', 'me.a2', 'me.', #M+F- by routes & acute phase (a)
-                               'f.ba1', 'f.ba2', 'f.b', 'f.ea1', 'f.ea2', 'f.e', #M-F+ by routes & acute phase (a)
-                               'hb1b2', 'hb2b1', 'hbe', 'heb', ## rest are all M+F+
-                               'hbpa', 'hpba', 'hepa', 'hpea', ## acute infected by partner
-                               'hbp', 'hpb', 'hep', 'hpe', ## chronic infected by partner
-                               'he2e1', 'he1e2') ## both extra-couply infected, different orders
-            state.var.nms <- c(state.var.nms, paste0(state.var.nms[-1],'A')) ## joint with alive at the end
+            state.var.nms.uncond <- c('s..',
+                                      'mb.a1', 'mb.a2', 'mb.', 'me.a1', 'me.a2', 'me.', #M+F- by routes & acute phase (a)
+                                      'f.ba1', 'f.ba2', 'f.b', 'f.ea1', 'f.ea2', 'f.e', #M-F+ by routes & acute phase (a)
+                                      'hb1b2', 'hb2b1', 'hbe', 'heb', ## rest are all M+F+
+                                      'hbpa', 'hpba', 'hepa', 'hpea', ## acute infected by partner
+                                      'hbp', 'hpb', 'hep', 'hpe', ## chronic infected by partner
+                                      'he2e1', 'he1e2') ## both extra-couply infected, different orders
+            state.var.nms <- c(state.var.nms.uncond, paste0(state.var.nms.uncond[-1],'A')) ## joint with alive at the end
             ## #####################################################################################          
             ## i.e., hbpa is a ++ couple in which the male was inf *b*efore
             ## couple formation & the female by her *p*artner while he was *a*cutely infectious
             ## #####################################################################################
+            if(browse) browser()
             seros <- matrix(0, K, length(state.var.nms), dimnames = list(NULL,state.var.nms))
+            if(!uncond.mortality) seros[,state.var.nms.uncond[-1]] <- NA ## 
             seros[,'s..'] <- 1
             for(tt in 1:max(dat$bd)) { ## for each month in the before-couple duration (bd)
                 ## probabilities are non-zero only for times after started having sex and before couple formation
@@ -201,12 +204,14 @@ pcalc <- function(pars, dat, browse = F,
                 pfb.a <- pfb * pre.fsurv[active,tt]
                 seros[active,] <- pre.couple(seros[active,], pmb=pmb, pfb=pfb, pmb.a=pmb.a, pfb.a=pfb.a) ## update serostates
             }
+            seros.pre.new <<- seros
             ## probability of being infected by partner (constant, used inside loop)
             pmp <- 1 - exp(-bmp)
             pfp <- 1 - exp(-bfp)
             pmp.ac <- 1 - exp(-acute.sc * bmp)        ##  during acute
             pfp.ac <- 1 - exp(-acute.sc * bfp)
             ## ##################################################
+            if(browse) browser()
             for(tt in 1:max(dat$cd-1)) {## Now loop through marriage
                 ff <- fmd[,tt]
                 m.haz <- bme * within.fprev[ff,tt] ## these vectors are length of active couples (sum(fmd))
@@ -223,7 +228,7 @@ pcalc <- function(pars, dat, browse = F,
                 }
                 ## Survival probabilities
                 s.p.m <- within.msurv[ff,tt]
-                s.p.f <- within.msurv[ff,tt]
+                s.p.f <- within.fsurv[ff,tt]
                 pmp.a <- pmp * s.p.m                ## Transmission probabilities from partner (jointly with survival)
                 pfp.a <- pfp * s.p.f
                 pmp.a.ac <- pmp.ac * s.p.m                ## acute from partner (jointly with survival)
@@ -233,19 +238,31 @@ pcalc <- function(pars, dat, browse = F,
                 ## Update serostates for active couples
                 seros[ff,] <- within.couple(seros[ff,], pme=pme, pfe=pfe, pmp=pmp, pfp=pfp, pmp.ac=pmp.ac, pfp.ac = pfp.ac,
                                             pme.a = pme.a, pfe.a = pfe.a, pmp.a = pmp.a, pfp.a = pfp.a, pmp.a.ac = pmp.a.ac, pfp.a.ac = pfp.a.ac)
+                if(tt == 1) {
+                    ## temp.pars <- c(pme=pme, pfe=pfe, pmp=pmp, pfp=pfp, pmp.ac=pmp.ac, pfp.ac = pfp.ac,
+                    ##                         pme.a = pme.a, pfe.a = pfe.a, pmp.a = pmp.a, pfp.a = pfp.a, pmp.a.ac = pmp.a.ac, pfp.a.ac = pfp.a.ac)
+                    ## print(temp.pars)
+                    ## print(seros)
+                    seros1 <<- seros
+                    print(pfe.a)
+                }
             }
-            ## sum.nms <- c('ss','mm','ff','hh','mmA','ffA','hhA') ## summary serostatuses (observable) unconditional on survival
+            seros.post.new <<- seros
             sum.nms <- c('ss','mmA','ffA','hhA') ## summary serostatuses (observable)
+            if(uncond.mortality)        sum.nms <- c('ss','mm','ff','hh','mmA','ffA','hhA')
             sero.sums <- matrix(NA, K, length(sum.nms), dimnames = list(NULL,sum.nms))
             sero.sums[,'ss'] <- seros[,'s..']
-            ## sero.sums[,'mm'] <- rowSums(seros[,c('mb.a1', 'me.a1', 'mb.a2', 'me.a2', 'mb.', 'me.')])
-            ## sero.sums[,'ff'] <- rowSums(seros[,c('f.ba1', 'f.ea1', 'f.ba2', 'f.ea2', 'f.b', 'f.e')])
-            ## sero.sums[,'hh'] <- rowSums(seros[,c('hb1b2', 'hb2b1', 'hbe', 'heb', 'hbpa', 'hpba', 'hepa', 'hpea', 'hbp', 'hpb', 'hep', 'hpe', 'he1e2', 'he2e1')])
+            if(uncond.mortality) {
+                sero.sums[,'mm'] <- rowSums(seros[,c('mb.a1', 'me.a1', 'mb.a2', 'me.a2', 'mb.', 'me.')])
+                sero.sums[,'ff'] <- rowSums(seros[,c('f.ba1', 'f.ea1', 'f.ba2', 'f.ea2', 'f.b', 'f.e')])
+                sero.sums[,'hh'] <- rowSums(seros[,c('hb1b2', 'hb2b1', 'hbe', 'heb', 'hbpa', 'hpba', 'hepa', 'hpea', 'hbp', 'hpb', 'hep', 'hpe', 'he1e2', 'he2e1')])
+            }
             sero.sums[,'mmA'] <- rowSums(seros[,c('mb.a1A', 'me.a1A', 'mb.a2A', 'me.a2A', 'mb.A', 'me.A')])
             sero.sums[,'ffA'] <- rowSums(seros[,c('f.ba1A', 'f.ea1A', 'f.ba2A', 'f.ea2A', 'f.bA', 'f.eA')])
             sero.sums[,'hhA'] <- rowSums(seros[,c('hb1b2A', 'hb2b1A', 'hbeA', 'hebA', 'hbpaA', 'hpbaA', 'hepaA', 'hpeaA', 'hbpA', 'hpbA', 'hepA', 'hpeA', 'he1e2A', 'he2e1A')])
             ## if(survive) { ## must NORMALIZE probabilities to 1 for likelihood!
             pser.a <- sero.sums[,c('hhA', 'mmA', 'ffA', 'ss')]
+            pser.a.new <<- pser.a
             probs <- pser.a[cbind(1:K,dat$ser)] / rowSums(pser.a) # accounting for survival
             ## }else{
             ##     pser <- sero.sums[,c('hh', 'mm', 'ff', 'ss')]

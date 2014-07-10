@@ -1,6 +1,6 @@
 oldpcalc <- function(pars, dat, browse = F, compars = NULL, # compare lprob for true pars with other pars (fitted)
                   give.pis = F,              # return individual pi values for couples (for outside mcmc)
-                  acute.sc = 26,                # acute phase infectiousness
+                  acute.sc = 7,                # acute phase infectiousness
                   sim = F,                   # just use this to simulate data given parameters? (outputs pser.a)
                   spar.log = F,                  # use sexual partner acquisition rate
                   heter = F,                     # individual heterogeneity; simulation only
@@ -12,7 +12,6 @@ oldpcalc <- function(pars, dat, browse = F, compars = NULL, # compare lprob for 
                   lrho.sd = 1/2,             # sd on lrho prior
                   trace = T) # only do certain calculations when tracing parameters (i.e. for non-thinned versions)
   {
-    if(browse) browser()
     if(low.coverage.arv)    # if assuming only 50% of those on ART are not-infectious
       {
         cov.scalar <- .5
@@ -160,6 +159,7 @@ oldpcalc <- function(pars, dat, browse = F, compars = NULL, # compare lprob for 
             he2e1A <- rep(0, K)
             he1e2A <- rep(0, K)                
           }
+        if(browse) browser()
         for(tt in 1:max(dat$bd))
           {
             ## probabilities are non-zero only for times after started having sex and before couple formation
@@ -265,6 +265,20 @@ oldpcalc <- function(pars, dat, browse = F, compars = NULL, # compare lprob for 
         ##  during acute
             p.m.part.ac <- 1 - exp(-acute.sc * bmp)
             p.f.part.ac <- 1 - exp(-acute.sc * bfp)
+
+        allstates <- data.frame(s..,mb.a1,mb.a2,mb.,me.a1,me.a2,me.,f.ba1,f.ba2,f.b,f.ea1,f.ea2,f.e,
+                                hb1b2,hb2b1,hbe,heb,
+                                hbpa,hbp,
+                                hpba,hpb,
+                                hepa,hep,
+                                hpea,hpe,
+                                he1e2,he2e1,
+                                mb.a1A,mb.a2A,mb.A,me.a1A,me.a2A,me.A,f.ba1A,f.ba2A,f.bA,f.ea1A,f.ea2A,f.eA,
+                                hb1b2A,hb2b1A,hbeA,hebA,
+                                hbpaA,hbpA,hpbaA,hpbA,hepaA,hepA,hpeaA,hpeA,
+                                he1e2A,he2e1A)
+        seros.pre.old <<- allstates
+
         ## Now loop through marriage
         for(tt in 1:max(dat$cd-1))
           {
@@ -441,7 +455,21 @@ oldpcalc <- function(pars, dat, browse = F, compars = NULL, # compare lprob for 
             hpeaL[fmd] <-  hpea[fmd]
             hpeL[fmd] <-  hpe[fmd]                     
             he1e2L[fmd] <-  he1e2[fmd]
-            he2e1L[fmd] <-  he2e1[fmd]                     
+            he2e1L[fmd] <-  he2e1[fmd]
+
+            allstates <- data.frame(s..,mb.a1,mb.a2,mb.,me.a1,me.a2,me.,f.ba1,f.ba2,f.b,f.ea1,f.ea2,f.e,
+                                hb1b2,hb2b1,hbe,heb,
+                                hbpa,hbp,
+                                hpba,hpb,
+                                hepa,hep,
+                                hpea,hpe,
+                                he1e2,he2e1,
+                                mb.a1A,mb.a2A,mb.A,me.a1A,me.a2A,me.A,f.ba1A,f.ba2A,f.bA,f.ea1A,f.ea2A,f.eA,
+                                hb1b2A,hb2b1A,hbeA,hebA,
+                                hbpaA,hbpA,hpbaA,hpbA,hepaA,hepA,hpeaA,hpeA,
+                                he1e2A,he2e1A)
+            if(tt == 1) print(p.f.exc.a)
+            if(tt==1) seros1.old <<- allstates
           }
 ######################################################################         
         allstates <- data.frame(s..,mb.a1,mb.a2,mb.,me.a1,me.a2,me.,f.ba1,f.ba2,f.b,f.ea1,f.ea2,f.e,
@@ -455,6 +483,7 @@ oldpcalc <- function(pars, dat, browse = F, compars = NULL, # compare lprob for 
                                 hb1b2A,hb2b1A,hbeA,hebA,
                                 hbpaA,hbpA,hpbaA,hpbA,hepaA,hepA,hpeaA,hpeA,
                                 he1e2A,he2e1A)
+        seros.post.old <<- allstates
         
         ss <- s..
         mm <- mb.a1 + me.a1 + mb.a2 + me.a2 + mb. + me.
@@ -467,6 +496,7 @@ oldpcalc <- function(pars, dat, browse = F, compars = NULL, # compare lprob for 
             ffA <- f.ba1A + f.ea1A + f.ba2A + f.ea2A + f.bA + f.eA
             hhA <- hb1b2A + hb2b1A + hbeA + hebA + hbpaA + hpbaA + hepaA + hpeaA + hbpA + hpbA + hepA + hpeA + he1e2A + he2e1A
             pser.a <- cbind(hhA, mmA, ffA, ss)
+            pser.a.old <<- pser.a
           }
         pser <- cbind(hh, mm, ff, ss)
         if(trace & sim) # calculate expected route of transmission breakdowns for couples with unknown (or simulated serostatus)
