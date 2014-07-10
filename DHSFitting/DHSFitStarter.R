@@ -21,31 +21,6 @@ if(length(args)>0) { for(ii in 1:length(args))  eval(parse(text=args[[ii]])) }
 source('../SDPSimulations/SimulationFunctions.R') # simulating functions (from other project folder)
 load("data files/copula sigmas.Rdata")
 
-test <- dat
-pre.prepout <- pre.prep(test)
-within.prepout <- within.prep(test)
-for(nm in names(pre.prepout)) assign(nm, pre.prepout[[nm]]) ## make each of these global for easier access
-for(nm in names(within.prepout)) assign(nm, within.prepout[[nm]])
-
-library(compiler)
-source('DHSFitFunctions.R') # fitting functions
-source('OldPcalc.R') # fitting functions
-pcalc.cmp <- cmpfun(pcalc)
-system.time(print(pcalc(simpars, test, browse=F)))
-system.time(print(pcalc.cmp(simpars, test, browse=F)))
-
-oldpcalc.cmp <- cmpfun(oldpcalc)
-system.time(print(oldpcalc(simpars, test, browse=F)$lprob))
-system.time(print(oldpcalc.cmp(simpars, test, browse=F)$lprob))
-
-debug(pre.couple)
-undebug(pre.couple)
-
-debug(within.couple)
-undebug(within.couple)
-
-test <- dat[sample(1:nrow(dat),10),]
-
 ##load("data files/alldhs.Rdata")         # DHS data
 load("data files/allDHSAIS.Rdata")         # DHS data
 load("data files/ds.nm.all.Rdata") # country names
