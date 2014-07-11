@@ -125,74 +125,23 @@ test <- dat[sample(1:nrow(dat),10^4, repl=T),]
 test <- dat
 test <- dat[sample(1:nrow(dat),50, repl=T),]
 
+
+source('DHSFitFunctions.R') # fitting functions
+source('OldPcalc.R') # fitting functions
+
 pre.prepout <- pre.prep(test)
 within.prepout <- within.prep(test)
 for(nm in names(pre.prepout)) assign(nm, pre.prepout[[nm]]) ## make each of these global for easier access
 for(nm in names(within.prepout)) assign(nm, within.prepout[[nm]])
 
-source('DHSFitFunctions.R') # fitting functions
-blah <- sampler(sd.props=sd.props, dat = test, inits = simpars[-7], niter = 10, nburn = 1, br=F, keep.seros = T, acute.sc = 7, uncond.mort = T)
-blah$out
-dim(blah$seros)
-
-
-source('DHSFitFunctions.R') # fitting functions
-source('OldPcalc.R') # fitting functions
-
-oldblah <- oldsampler(sd.props=sd.props, dat = test, inits = simpars[-7], niter = 10, nburn = 1, nthin=1, br=F,  acute.sc = 7, survive = T)
-pnms <- names(simpars)[1:6]
-t(oldblah$out)[,pnms]
-dim(blah$out[,pnms])
-
-pis <- c('pibNA', 'pieNA', # b/e in +- given A
-           'piNbA', 'piNeA', # b/e in -+ given A
-           'pibPA', 'piePA', 'pipPA', 'pipPaA', 'pipPcA', # b/e/p in male in ++ given A
-           'piPbA', 'piPeA', 'piPpA', 'piPpaA', 'piPpcA', # b/e/p in female in ++ given A
-           'pibUA', 'pieUA', 'pipUA', 'pipUaA', 'pipUcA', # b/e/p in male in any given A
-           'piUbA', 'piUeA', 'piUpA', 'piUpaA', 'piUpcA')# b/e/p in female in any given A
-
-t(oldblah$out)[,pis] - pop.avs[,pis]
-
-    pop.avs <- data.frame(
-        ## conditional on survival
-        pibNA, pieNA, # b/e in +- given A
-        piNbA, piNeA, # b/e in -+ given A
-        pibPA, piePA, pipPA, pipPaA, pipPcA, # b/e/p in male in ++ given A
-        piPbA, piPeA, piPpA, piPpaA, piPpcA, # b/e/p in female in ++ given A
-        pibUA, pieUA, pipUA, pipUaA, pipUcA, # b/e/p in male in any given A
-        piUbA, piUeA, piUpA, piUpaA, piUpcA) # b/e/p in female in any given A
-
-
-get.rrs(blah$out)
-
-source('DHSFitFunctions.R') # fitting functions
-source('OldPcalc.R') # fitting functions
-
-op <- oldpcalc(blah$out[1,], test, browse=F)
-newpis <- prop.trans(blah$seros, test, browse = F)
-
-op$pop.avs - newpis[1,]
-
-
-
-newpis - t(oldblah$out)[,names(newpis)]
-
-foo <- pcalc(simpars, test, browse=T, uncond.mort = T)
-head(foo$seros)
-
-system.time(print(pcalc(simpars, test, browse=F, uncond.mort = T)$lprob))
-system.time(print(cmp.pcalc(simpars, test, browse=F)$lprob))
-
-
-tnew <- system.time(print(pcalc(simpars, test, browse=F)))
-told <- system.time(print(oldpcalc(simpars, test, browse=F)$lprob))
+tnew <- system.time(pcalc(simpars, test, browse=F,uncond.mort = T)$lprob)
+told <- system.time(oldpcalc(simpars, test, browse=F)$lprob)
 rbind(tnew,told)
 
-library(compiler)
-pcalc.cmp <- cmpfun(pcalc)
+nits <- 10
+tnew <- system.time(new.samp <- sampler(sd.props=sd.props, dat = test, inits = simpars[-7], niter = nits, nburn = 1, br=F, keep.seros = T, acute.sc = 7, uncond.mort = T))
+told <- system.time(old.samp <- oldsampler(sd.props=sd.props, dat = test, inits = simpars[-7], niter = nits, nburn = 1, nthin=1, br=F,  acute.sc = 7, survive = T))
+rbind(tnew, told)
 
-system.time(print(pcalc.cmp(simpars, test, browse=F)))
-
-oldpcalc.cmp <- cmpfun(oldpcalc)
-
-system.time(print(oldpcalc.cmp(simpars, test, browse=F)$lprob))
+newrrs <- get.rrs(new.samp$out)
+newpis <- prop.trans(new.samp$seros, test, browse = F)
