@@ -8,42 +8,25 @@
 ## within and outside their relationships as well as estimate transmission coefficients for pre-,
 ## extra-, & within-couple HIV transmission for both genders for each country.
 ####################################################################################################
+## This script is called by R CMD BATCH with a set of arguments. See DHSFitMK.R which makes
+## DHSFitControlFile.txt, the latter has one line with a set of arguments to be sent to a cluster.
+####################################################################################################
 rm(list=ls())
 
-jobnum=1;group.ind=1;s.epic=1;s.demog=1;s.bmb=1;s.bfb=1;s.bme=1;s.bfe=1;s.bmp=1;s.bfp=1;acute.sc=1;bmp.sc=1;bfp.sc=1;late.sc=1;aids.sc=1;new.folder=TRUE;simul=FALSE;maxN=1000;seed.bump=1;sigma.ad=TRUE;batchdirnm="results/DHSFits/BurundiRealAc";psNonPar=TRUE;infl.fac=50;death=TRUE;bmb.sc=1;bfb.sc=1;bme.sc=1;bfe.sc=1;het.b=FALSE;het.b.sd=0;het.b.cor=0;het.e=FALSE;het.e.sd=0;het.e.cor=0;het.p=FALSE;het.p.sd=0;het.p.cor=0;het.gen=FALSE;het.gen.sd=0;het.gen.cor=0;het.beh=FALSE;het.beh.sd=0;het.beh.cor=0;scale.by.sd=TRUE;scale.adj=1;sample.tmar=FALSE;tmar=(65*12):(111*12);each=200;tint=111*12;short.test=F;all.cores=T;nc=6;adapt=TRUE;d.nburn=400;d.nthin=3;d.niter=1200;nburn=500;nthin=1;niter=8000;survive=T;tell=100;low.coverage.arv=F;partner.arv=F;fsd.sens=F
-
 ## setwd('/home1/02413/sbellan/DHSProject/DHSFitting/')
-## This script must be called by R CMD BATCH with a set of arguments. See DHSFitMK.R which makes
-## DHSFitControlFile.txt, the latter has one line with a set of arguments to be sent to a cluster.
-args <- commandArgs(TRUE)
-## args is now a list of character vectors, we cycle through each element of the list and evaluate the expressions.
+args <- commandArgs(TRUE) ## extract R CMD BATCH arguments
 if(length(args)>0) { for(ii in 1:length(args))  eval(parse(text=args[[ii]])) }
 source('../SDPSimulations/SimulationFunctions.R') # simulating functions (from other project folder)
-load("data files/copula sigmas.Rdata")
-
-##load("data files/alldhs.Rdata")         # DHS data
-load("data files/allDHSAIS.Rdata")         # DHS data
-load("data files/ds.nm.all.Rdata") # country names
-load("data files/pars.arr.ac.Rdata")       # previously fitted parameters
-load("data files/csurv.Rdata")             # AIDS survival times
-##  [1] "Congo"      "DRC"        "Ethiopia"   "Kenya"      "Lesotho"   
-##  [6] "Malawi"     "Mozambique" "Rwanda"     "Swaziland"  "Tanzania"  
-## [11] "Uganda"     "WA"         "Zambia"     "Zimbabwe"  
-if(low.coverage.arv) { # if we're assuming 50% of ARV coverage results in no transmission
-    load("data files/allepicm.5.Rdata") # deprecated (need to reload these files)
-    load("data files/allepicf.5.Rdata")
-  }else{ # if we're assuming 100% of ARV coverage results in no transmission
-    load("data files/epic.Rdata")       # loads epicm & epicf
-  }
+source('AuxFxns.R') # other plotting, output manipulating functions
+source('DHSFitFunctions.R') # fitting functions
+## Load various data inputs (couple copulas, DHS/AIS data, country names, previously fitted parameters, HIV survival model, epidemic curves)
+data.fls <- paste0('data files/', c('copula sigmas','allDHSAIS','ds.nm.all','pars.arr.ac','csurv','epic'), '.Rdata')
+lapply(data.fls,load,.GlobalEnv)
 hazs <- c("bmb","bfb","bme","bfe","bmp","bfp") ## transmission coefficient names
-parnames <- c("bmb","bfb","bme","bfe","bmp","lrho") # parameters to fit
-trans.ratio <- 1 ## m->f : f<-m; within couples
-library(ade4); library(mvtnorm);library(mnormt);library(multicore);library(coda);library(abind); library(plotrix);
-####################################################################################################
-## West Africa is pooled and analyzed in a separate script modified to
-## deal with multiple countrie's prevalences simultaneously.
-######################################################################
-print(batchdirnm) ## where are we saving things?
+parnames <- hazs; parnames[6] <- 'lrho' # parameters to fit (fitting M->F/F->M transmission ratio, rho)
+trans.ratio <- 1 ## m->f : f<-m; within couples. This is the geometric mean of the prior
+lrho.sd <- 1/2
+print(batchdirnm) ## show where are we saving things.
 
 ## These parameters will be used for simulating data that are then fit.
 simpars <- c(bmb = .01, bfb = .03, bme = .012, bfe =.01, bmp=.03, lrho = 0)
@@ -89,7 +72,7 @@ if(simul) { ## if simulating
                  out.dir = ndirnm,  nc = nc, make.jpgs = F,
                  browse = F) 
     load(sim) ## sim is a file name, load it
-    dat <- output$evout ## store line list as dat
+    dat <- output$evout ## store line list as dat (to be fit)
     dat <- add.cat(dat) ## add some more variables to it
     simdat <- dat
     dat <- dat[dat$alive,]  ## only fit models to those who lived to end of survey
@@ -177,31 +160,37 @@ if(sigma.found) {
     sigma <- NA
 }
 
+## Prepare data set for fitting. 
+pre.prepout <- pre.prep(dat)
+within.prepout <- within.prep(dat)
+for(nm in names(pre.prepout)) assign(nm, pre.prepout[[nm]]) 
+for(nm in names(within.prepout)) assign(nm, within.prepout[[nm]])
+
 start.time1 <- Sys.time() ## start time of sampling
 if(all.cores) {           ## make wrapper function around sampler for mclapply
-    wrp <- function(seed=1, multiv=F, covar=NULL, acute.sc, 
+    wrp <- function(seed=1, multiv=F, covar=NULL, acute.sc, dat, lrho.sd,
                     niter, survive, browse,
                     nthin, nburn)
       { ## new version of wrp needs to save progress for long chains (WA)
         inits.temp <- init.fxn(seed = seed) # initial conditions different for each seed
-        sampler(sd.props = sd.props, inits = inits.temp, acute.sc = acute.sc, browse = browse,
+        sampler(dat = dat, sd.props = sd.props, inits = inits.temp, acute.sc = acute.sc, browse = browse,
                 multiv = multiv, covar = covar, lrho.sd = lrho.sd,
                 verbose = T, tell = tell, seed = seed,
                 niter = niter, survive = survive,
-                nthin = nthin,
+                nthin = nthin, keep.seros = TRUE,
                 nburn = nburn)
       }
     if(adapt) { ## Adaptive (d.) phase to get multivariate normal sampler
         print("beginning adaptive phase")
         d.out <- mclapply((seed.bump + 1:nc), wrp, 
-                          acute.sc = acute.sc, multiv = sigma.found, covar = sigma, browse=F,
+                          dat = dat, acute.sc = acute.sc, multiv = sigma.found, covar = sigma, browse=F, lrho.sd = lrho.sd,
                           survive = survive, niter = d.niter, nthin = d.nthin, nburn = d.nburn)
         save.image(file=file.path(ndirnm,"workspace.Rdata"))
         ## reformat into mcmc object
         mcmc.d.out <- list(NA)
         d.aratio <- 0
         for(ii in 1:nc) {
-            mcmc.d.out[[ii]] <- as.mcmc(t(d.out[[ii]][[1]]))
+            mcmc.d.out[[ii]] <- as.mcmc(d.out[[ii]]$out)
             d.aratio <- d.aratio + d.out[[ii]]$aratio
             if(ii==1) { ## initialize
                 init.adapt <- d.out[[ii]]$inits
