@@ -115,7 +115,7 @@ pre.prep <- function(dat) {
     out.names <- c('m.sex','f.sex','e.sex','pre.fprev','pre.mprev','pre.msurv','pre.fsurv')
     for(ob in out.names[1:3]) assign(ob, matrix(NA, nrow(dat), max(dat$bd)))
     for(ob in out.names[4:length(out.names)]) assign(ob, matrix(0, nrow(dat), max(dat$bd))) ## no transmission occurs by default when they aren't sexually active
-    esexList <- list()
+    PreActiveList <- list()
     for(tt in 1:max(dat$bd)) { ## for each month in the before-couple duration (bd)
         m.sex[,tt] <- dat$tmar-dat$bd+tt-1 >= dat$tms & dat$tmar-dat$bd+tt-1 < dat$tmar
         f.sex[,tt] <- dat$tmar-dat$bd+tt-1 >= dat$tfs & dat$tmar-dat$bd+tt-1 < dat$tmar
@@ -126,10 +126,10 @@ pre.prep <- function(dat) {
         ## probability each partner survives to interview date given they are infected in month tt of bd
         pre.msurv[m.sex[,tt],tt] <- csurv[cbind(dat$mage[m.sex[,tt]]-dat$cd[m.sex[,tt]]-dat$bd[m.sex[,tt]]+tt-1, dat$cd[m.sex[,tt]]+dat$bd[m.sex[,tt]]-tt+1)]
         pre.fsurv[f.sex[,tt],tt] <- csurv[cbind(dat$fage[f.sex[,tt]]-dat$cd[f.sex[,tt]]-dat$bd[f.sex[,tt]]+tt-1, dat$cd[f.sex[,tt]]+dat$bd[f.sex[,tt]]-tt+1)]
-        esexList[[tt]] <- which(e.sex[,tt])
+        PreActiveList[[tt]] <- which(e.sex[,tt]) -1 ## -1 is for C++ indexing
     }
-    pre.prepout <- list(m.sex, f.sex, e.sex, pre.fprev, pre.mprev, pre.msurv, pre.fsurv, esexList)
-    names(pre.prepout) <- c(out.names, "esexList")
+    pre.prepout <- list(m.sex, f.sex, e.sex, pre.fprev, pre.mprev, pre.msurv, pre.fsurv, PreActiveList)
+    names(pre.prepout) <- c(out.names, "PreActiveList")
     return(pre.prepout)
 }
 ## Get (1) logical matrices for whether couple is active for each tt-th month of marital durations
@@ -140,6 +140,7 @@ pre.prep <- function(dat) {
 within.prep <- function(dat) {
     out.names <- c('fmd','within.fprev','within.mprev', 'within.art.cov', 'within.msurv', 'within.fsurv')
     for(ob in out.names) assign(ob, matrix(NA, nrow(dat), max(dat$cd)))
+    WithinActiveList <- list()
     for(tt in 1:max(dat$cd-1)) { ## Loop through marital duration from 1st month to last month of longest marriage
         ff <- dat$cd >= tt ## are partners formed in a couple?
         within.fprev[ff,tt] <- epicf[cbind(dat$tmar[ff]+(tt-1), dat$epic.ind[ff])]
@@ -147,10 +148,11 @@ within.prep <- function(dat) {
         within.art.cov[ff,tt] <- art.cov[cbind(dat$tmar[ff]+(tt-1), dat$epic.ind[ff])]
         within.msurv[ff,tt] <- csurv[cbind(dat$mage[ff]-dat$cd[ff]+tt-1, dat$tint[ff] - (dat$tmar[ff] + tt - 1))]
         within.fsurv[ff,tt] <- csurv[cbind(dat$fage[ff]-dat$cd[ff]+tt-1, dat$tint[ff] - (dat$tmar[ff] + tt - 1))]
-        fmd[,tt] <- ff        
+        fmd[,tt] <- ff
+        WithinActiveList[[tt]] <- which(ff) -1 ## -1 is for C++ indexing
     }
-    within.prepout <- list(fmd,within.fprev,within.mprev, within.art.cov, within.msurv, within.fsurv)
-    names(within.prepout) <- out.names
+    within.prepout <- list(fmd,within.fprev,within.mprev, within.art.cov, within.msurv, within.fsurv, WithinActiveList)
+    names(within.prepout) <- c(out.names, "WithinActiveList")
     return(within.prepout)
 }
 
@@ -183,8 +185,7 @@ pcalc <- function(pars, dat, browse = F,
                                       'hb1b2', 'hb2b1', 'hbe', 'heb', ## rest are all M+F+
                                       'hbpa', 'hpba', 'hepa', 'hpea', ## acute infected by partner
                                       'hbp', 'hpb', 'hep', 'hpe', ## chronic infected by partner
-                                      'he2e1', 'he1e2') ## both extra-couply infected, different orders
-
+                                      'he1e2', 'he2e1') ## both extra-couply infected, different orders
             state.var.nms <- c(state.var.nms.uncond, paste0(state.var.nms.uncond[-1],'A')) ## joint with alive at the end
             if(browse) browser()
             seros <- matrix(0, K, length(state.var.nms), dimnames = list(NULL,state.var.nms))
@@ -199,7 +200,6 @@ pcalc <- function(pars, dat, browse = F,
                 pfb <- 1 - exp(-f.haz)
                 pmb.a <- pmb * pre.msurv[active,tt] ## joint transmission & survival probabilities 
                 pfb.a <- pfb * pre.fsurv[active,tt]
-                browser()
                 m.hazC <- f.hazC <- pmbC <- pfbC <- pmb.aC <- pfb.aC <- numeric(K)
                 m.hazC[active] <- bmb * pre.fprev[active,tt] ## hazards to sexually active men
                 f.hazC[active] <- bfb * pre.mprev[active,tt] ## hazards to sexually active women
@@ -209,7 +209,7 @@ pcalc <- function(pars, dat, browse = F,
                 pfb.aC[active] <- pfbC[active] * pre.fsurv[active,tt]
                 seros[active,] <- pre.couple(seros[active,], pmb=pmb, pfb=pfb, pmb.a=pmb.a, pfb.a=pfb.a, uncond.mort=uncond.mort) ## update serostates
             }
-            
+                        pr <<- seros
             ## probability of being infected by partner (constant, used inside loop)
             pmp <- 1 - exp(-bmp)
             pfp <- 1 - exp(-bfp)
@@ -243,6 +243,8 @@ pcalc <- function(pars, dat, browse = F,
                 seros[ff,] <- within.couple(seros[ff,], pme=pme, pfe=pfe, pmp=pmp, pfp=pfp, pmp.ac=pmp.ac, pfp.ac = pfp.ac, uncond.mort=uncond.mort,
                                             pme.a = pme.a, pfe.a = pfe.a, pmp.a = pmp.a, pfp.a = pfp.a, pmp.a.ac = pmp.a.ac, pfp.a.ac = pfp.a.ac)
             }
+wr <<- seros
+
             sum.nms <- c('ss','mm','ff','hh','mmA','ffA','hhA')
             sero.sums <- matrix(NA, K, length(sum.nms), dimnames = list(NULL,sum.nms))
             sero.sums[,'ss'] <- seros[,'s..']

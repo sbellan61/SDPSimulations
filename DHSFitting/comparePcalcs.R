@@ -125,22 +125,48 @@ setwd('/home1/02413/sbellan/DHSProject/DHSFitting/')
 load(file = 'prepProf.Rdata')
 source('DHSFitFunctions.R') # fitting functions
 require(Rcpp)
+sourceCpp('gonz.cpp')
+## test <- dat[sample(1:nrow(dat),10^4, repl=T),]
+## test <- dat
 
-test <- dat[sample(1:nrow(dat),10^4, repl=T),]
-test <- dat
-test <- dat[sample(1:nrow(dat),10, repl=T),]
-
-## test <- dat[sample(1:nrow(dat),50, repl=T),]
-
+test <- dat[sample(1:nrow(dat),100, repl=T),]
 pre.prepout <- pre.prep(test)
 within.prepout <- within.prep(test)
 for(nm in names(pre.prepout)) assign(nm, pre.prepout[[nm]]) ## make each of these global for easier access
 for(nm in names(within.prepout)) assign(nm, within.prepout[[nm]])
 
-pcalc(simpars, test, browse=F,uncond.mort = T, give.ser=F)
 
 sourceCpp('gonz.cpp')
-pc <- precLoop(max(test$bd), pre.fprev, pre.mprev, pre.msurv, pre.fsurv, activeList = esexList, bmb = simpars['bmb'], bfb = simpars['bfb'])
+source('DHSFitFunctions.R') # fitting functions
+
+system.time(pcalc(simpars, test, browse=F,uncond.mort = T, give.ser=F, acute.sc = 7))
+system.time(pc <- precLoop(max_bd =  max(test$bd), max_cd = max(test$cd),
+                           pre_fprev = pre.fprev, pre_mprev = pre.mprev, within_fprev = within.fprev, within_mprev = within.mprev,
+                           pre_msurv = pre.msurv, pre_fsurv = pre.fsurv, within_msurv = within.msurv, within_fsurv = within.fsurv,
+                           within_art_cov = within.art.cov,
+                           PreActiveList = PreActiveList, WithinActiveList = WithinActiveList,
+                           bmb = simpars['bmb'], bfb = simpars['bfb'],
+                           bme = simpars['bme'], bfe = simpars['bfe'],
+                           bmp = simpars['bmp'], lrho = simpars['lrho'],
+                           acute_sc = 7, partner_arv = partner.arv, cov_scalar = 1))
+colnames(pc) <- colnames(pr)
+
+head(wr-pc)
+identical(wr,pc)
+
+head(pr-pc)
+
+pr[1,]==pc[1,]
+
+esexList[[3]]
+which(e.sex[,3])
+
+pr
+pc
+test
+
+tb <- test
+tg <- test
 
 system.time(seros[active] <- pre.couple(seros[active, ], pmb = pmb, pfb = pfb, pmb.a = pmb.a, pfb.a = pfb.a, uncond.mort = uncond.mort))
 pr <- seros
