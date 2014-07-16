@@ -133,75 +133,49 @@ sourceCpp('gonz.cpp')
 sourceCpp('gonz.cpp')
 source('DHSFitFunctions.R') # fitting functions
 
-ncpls <- 2
+ncpls <- 3000
 test <- dat[sample(1:nrow(dat),ncpls, repl=T),]
 pre.prepout <- pre.prep(test)
 within.prepout <- within.prep(test)
 for(nm in names(pre.prepout)) assign(nm, pre.prepout[[nm]]) ## make each of these global for easier access
 for(nm in names(within.prepout)) assign(nm, within.prepout[[nm]])
-num <- 1
 
-tr <- system.time(for(ii in 1:num) curR <- pcalc(simpars, test, browse=F,uncond.mort = T, give.ser=T, acute.sc = 7, lrho.sd = 1/2))[3]
+tr <- system.time( cur <- pcalc(simpars, test, browse=F,uncond.mort = T, keep.seros=T, acute.sc = 7))
+tc <- system.time(cuc <- pcalcC(max_bd =  max(test$bd), max_cd = max(test$cd), datser = test$ser,
+                           pre_fprev = pre.fprev, pre_mprev = pre.mprev, within_fprev = within.fprev, within_mprev = within.mprev,
+                           pre_msurv = pre.msurv, pre_fsurv = pre.fsurv, within_msurv = within.msurv, within_fsurv = within.fsurv,
+                           within_art_cov = within.art.cov,
+                           PreActiveList = PreActiveList, WithinActiveList = WithinActiveList,
+                           bmb = simpars['bmb'], bfb = simpars['bfb'],
+                           bme = simpars['bme'], bfe = simpars['bfe'],
+                           bmp = simpars['bmp'], lrho = simpars['lrho'], lrho_sd = 1/2, trans_ratio = 1,
+                           acute_sc = 7, partner_arv = partner.arv, cov_scalar = 1))
+colnames(cuc$seros) <- colnames(cur$seros)
+identical(cur$seros,cuc$seros)
+rbind(tr, tc, tr/tc)
+c(R = cur$lprob,C = cuc$lprob)
+
+nits <- 10
+new.sampR <- sampler(sd.props=sd.props, dat = test, inits = simpars[-7], niter = nits, nburn = 1, br=F, keep.seros = T, acute.sc = 7, uncond.mort = T, useRcpp=F)
+new.sampC <- sampler(sd.props=sd.props, dat = test, inits = simpars[-7], niter = nits, nburn = 1, br=F, keep.seros = T, acute.sc = 7, uncond.mort = T, useRcpp=T)
+identical(new.sampR,new.sampC)
+
 
 sourceCpp('gonz.cpp')
-tc <- system.time(curC <- precLoop(max_bd =  max(test$bd), max_cd = max(test$cd), datser = dat$ser,
-                                 pre_fprev = pre.fprev, pre_mprev = pre.mprev, within_fprev = within.fprev, within_mprev = within.mprev,
-                                 pre_msurv = pre.msurv, pre_fsurv = pre.fsurv, within_msurv = within.msurv, within_fsurv = within.fsurv,
-                                 within_art_cov = within.art.cov,
-                                 PreActiveList = PreActiveList, WithinActiveList = WithinActiveList,
-                                 bmb = simpars['bmb'], bfb = simpars['bfb'],
-                                 bme = simpars['bme'], bfe = simpars['bfe'],
-                                 bmp = simpars['bmp'],
-                                 lrho = simpars['lrho'], lrho_sd = 1/2, trans_ratio = 1,
-                                 uselessnum = num,
-                                 acute_sc = 7, partner_arv = partner.arv, cov_scalar = 1))[3]
+source('DHSFitFunctions.R') # fitting functions
 
-colnames(curC$seros) <- colnames(wr)
-identical(wr,curC$seros)
-head(curC$seros-wr)
+copyv(3)
 
-curC$seros
-
-
-rbind(tr,tc)
-print(tr/tc)
-c(tr, tc)/ncpls
-
-
-ncpls.vec <- 10^c(2:4)
-bench <- data.frame(ncpls = ncpls.vec, tr=NA, tc=NA)
-for(cc in 1:length(ncpls.vec) ) {
-    ncpls <- ncpls.vec[cc]
-    test <- dat[sample(1:nrow(dat),ncpls, repl=T),]
-    pre.prepout <- pre.prep(test)
-    within.prepout <- within.prep(test)
-    for(nm in names(pre.prepout)) assign(nm, pre.prepout[[nm]]) ## make each of these global for easier access
-    for(nm in names(within.prepout)) assign(nm, within.prepout[[nm]])
-    num <- 1
-    bench$tr[cc] <- system.time(for(ii in 1:num) pcalc(simpars, test, browse=F,uncond.mort = T, give.ser=F, acute.sc = 7))[3]
-    bench$tc[cc] <- system.time(pc <- precLoop(max_bd =  max(test$bd), max_cd = max(test$cd),
-                                               pre_fprev = pre.fprev, pre_mprev = pre.mprev, within_fprev = within.fprev, within_mprev = within.mprev,
-                                               pre_msurv = pre.msurv, pre_fsurv = pre.fsurv, within_msurv = within.msurv, within_fsurv = within.fsurv,
-                                               within_art_cov = within.art.cov,
-                                               PreActiveList = PreActiveList, WithinActiveList = WithinActiveList,
-                                               bmb = simpars['bmb'], bfb = simpars['bfb'],
-                                               bme = simpars['bme'], bfe = simpars['bfe'],
-                                               bmp = simpars['bmp'], lrho = simpars['lrho'], uselessnum = num,
-                                               acute_sc = 7, partner_arv = partner.arv, cov_scalar = 1))[3]
-    colnames(pc) <- colnames(pr)
-    identical(wr,pc)
-    rbind(tr,tc)
-    print(tr/tc)
-}
-bench$speedup <- bench$tr/bench$tc
-bench
-##}
+blah <- matrix(rnorm(100),10,10)
+blah
+copyc(blah)
+identical(blah, copyc(blah))
 
 numcouples <- 10^c(2:5)
 times <- numeric(length(numcouples))
 for(cc in 1:length(numcouples)) {
     nn <- numcouples[cc]
-    maxT <- 500
+    maxT <- 800
     examplist <- list(NA)
     for(ii in 1:maxT) examplist[[ii]] <- sample(0:(nn-1), max(101-ii,1))
     pre_fprev <- matrix(runif(nn*maxT),nn,maxT)
@@ -210,56 +184,3 @@ for(cc in 1:length(numcouples)) {
     times[cc] <- system.time(cplC(max_bd = maxT, pre_fprev = pre_fprev, pre_msurv = pre_msurv, PreActiveList = examplist, bmb = bmb))[3]
 }
 cbind(numcouples,times, times/numcouples)
-
-
-
-head(wr-pc)
-
-
-head(pr-pc)
-
-pr[1,]==pc[1,]
-
-esexList[[3]]
-which(e.sex[,3])
-
-pr
-pc
-test
-
-tb <- test
-tg <- test
-
-system.time(seros[active] <- pre.couple(seros[active, ], pmb = pmb, pfb = pfb, pmb.a = pmb.a, pfb.a = pfb.a, uncond.mort = uncond.mort))
-pr <- seros
-
-system.time(pc <- prec(seros, which(active), pmb = pmbC, pfb = pfbC, pmbA = pmb.aC, pfbA = pfb.aC))
-
-head(pc)
-head(pr)
-
-pr[1:5,]  - pc[1:5,]
-identical(pr,pc)
-head(rowSums(pr-pc))
-
-
-system.time(
-pre.coupleArr(abind(seros[active, ],seros[active, ],seros[active, ], seros[active, ], along = 3), pmb = pmb, pfb = pfb, 
-    pmb.a = pmb.a, pfb.a = pfb.a, uncond.mort = uncond.mort))
-
-tnew <- system.time(pcalc(simpars, test, browse=F,uncond.mort = T)$lprob)
-
-Rprof('prof1.out', line.profiling = T, interval = .01)
-nits <- 10
-new.samp <- sampler(sd.props=sd.props, dat = test, inits = simpars[-7], niter = nits, nburn = 1, br=F, keep.seros = T, acute.sc = 7, uncond.mort = T)
-Rprof(NULL)
-proftable('prof1.out', lines = 20)
-
-print(tnew)
-
-nits <- 10
-tnew.samp <- system.time(new.samp <- sampler(sd.props=sd.props, dat = test, inits = simpars[-7], niter = nits, nburn = 1, br=F, keep.seros = T, acute.sc = 7, uncond.mort = T))
-tnew.samp
-
-## newrrs <- get.rrs(new.samp$out)
-## newpis <- prop.trans(new.samp$seros, test, browse = F)
