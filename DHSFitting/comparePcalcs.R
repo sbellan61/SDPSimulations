@@ -129,30 +129,92 @@ sourceCpp('gonz.cpp')
 ## test <- dat[sample(1:nrow(dat),10^4, repl=T),]
 ## test <- dat
 
-test <- dat[sample(1:nrow(dat),100, repl=T),]
-pre.prepout <- pre.prep(test)
-within.prepout <- within.prep(test)
-for(nm in names(pre.prepout)) assign(nm, pre.prepout[[nm]]) ## make each of these global for easier access
-for(nm in names(within.prepout)) assign(nm, within.prepout[[nm]])
-
 
 sourceCpp('gonz.cpp')
 source('DHSFitFunctions.R') # fitting functions
 
-system.time(pcalc(simpars, test, browse=F,uncond.mort = T, give.ser=F, acute.sc = 7))
-system.time(pc <- precLoop(max_bd =  max(test$bd), max_cd = max(test$cd),
-                           pre_fprev = pre.fprev, pre_mprev = pre.mprev, within_fprev = within.fprev, within_mprev = within.mprev,
-                           pre_msurv = pre.msurv, pre_fsurv = pre.fsurv, within_msurv = within.msurv, within_fsurv = within.fsurv,
-                           within_art_cov = within.art.cov,
-                           PreActiveList = PreActiveList, WithinActiveList = WithinActiveList,
-                           bmb = simpars['bmb'], bfb = simpars['bfb'],
-                           bme = simpars['bme'], bfe = simpars['bfe'],
-                           bmp = simpars['bmp'], lrho = simpars['lrho'],
-                           acute_sc = 7, partner_arv = partner.arv, cov_scalar = 1))
-colnames(pc) <- colnames(pr)
+ncpls <- 2
+test <- dat[sample(1:nrow(dat),ncpls, repl=T),]
+pre.prepout <- pre.prep(test)
+within.prepout <- within.prep(test)
+for(nm in names(pre.prepout)) assign(nm, pre.prepout[[nm]]) ## make each of these global for easier access
+for(nm in names(within.prepout)) assign(nm, within.prepout[[nm]])
+num <- 1
+
+tr <- system.time(for(ii in 1:num) curR <- pcalc(simpars, test, browse=F,uncond.mort = T, give.ser=T, acute.sc = 7, lrho.sd = 1/2))[3]
+
+sourceCpp('gonz.cpp')
+tc <- system.time(curC <- precLoop(max_bd =  max(test$bd), max_cd = max(test$cd), datser = dat$ser,
+                                 pre_fprev = pre.fprev, pre_mprev = pre.mprev, within_fprev = within.fprev, within_mprev = within.mprev,
+                                 pre_msurv = pre.msurv, pre_fsurv = pre.fsurv, within_msurv = within.msurv, within_fsurv = within.fsurv,
+                                 within_art_cov = within.art.cov,
+                                 PreActiveList = PreActiveList, WithinActiveList = WithinActiveList,
+                                 bmb = simpars['bmb'], bfb = simpars['bfb'],
+                                 bme = simpars['bme'], bfe = simpars['bfe'],
+                                 bmp = simpars['bmp'],
+                                 lrho = simpars['lrho'], lrho_sd = 1/2, trans_ratio = 1,
+                                 uselessnum = num,
+                                 acute_sc = 7, partner_arv = partner.arv, cov_scalar = 1))[3]
+
+colnames(curC$seros) <- colnames(wr)
+identical(wr,curC$seros)
+head(curC$seros-wr)
+
+curC$seros
+
+
+rbind(tr,tc)
+print(tr/tc)
+c(tr, tc)/ncpls
+
+
+ncpls.vec <- 10^c(2:4)
+bench <- data.frame(ncpls = ncpls.vec, tr=NA, tc=NA)
+for(cc in 1:length(ncpls.vec) ) {
+    ncpls <- ncpls.vec[cc]
+    test <- dat[sample(1:nrow(dat),ncpls, repl=T),]
+    pre.prepout <- pre.prep(test)
+    within.prepout <- within.prep(test)
+    for(nm in names(pre.prepout)) assign(nm, pre.prepout[[nm]]) ## make each of these global for easier access
+    for(nm in names(within.prepout)) assign(nm, within.prepout[[nm]])
+    num <- 1
+    bench$tr[cc] <- system.time(for(ii in 1:num) pcalc(simpars, test, browse=F,uncond.mort = T, give.ser=F, acute.sc = 7))[3]
+    bench$tc[cc] <- system.time(pc <- precLoop(max_bd =  max(test$bd), max_cd = max(test$cd),
+                                               pre_fprev = pre.fprev, pre_mprev = pre.mprev, within_fprev = within.fprev, within_mprev = within.mprev,
+                                               pre_msurv = pre.msurv, pre_fsurv = pre.fsurv, within_msurv = within.msurv, within_fsurv = within.fsurv,
+                                               within_art_cov = within.art.cov,
+                                               PreActiveList = PreActiveList, WithinActiveList = WithinActiveList,
+                                               bmb = simpars['bmb'], bfb = simpars['bfb'],
+                                               bme = simpars['bme'], bfe = simpars['bfe'],
+                                               bmp = simpars['bmp'], lrho = simpars['lrho'], uselessnum = num,
+                                               acute_sc = 7, partner_arv = partner.arv, cov_scalar = 1))[3]
+    colnames(pc) <- colnames(pr)
+    identical(wr,pc)
+    rbind(tr,tc)
+    print(tr/tc)
+}
+bench$speedup <- bench$tr/bench$tc
+bench
+##}
+
+numcouples <- 10^c(2:5)
+times <- numeric(length(numcouples))
+for(cc in 1:length(numcouples)) {
+    nn <- numcouples[cc]
+    maxT <- 500
+    examplist <- list(NA)
+    for(ii in 1:maxT) examplist[[ii]] <- sample(0:(nn-1), max(101-ii,1))
+    pre_fprev <- matrix(runif(nn*maxT),nn,maxT)
+    pre_msurv <- matrix(runif(nn*maxT),nn,maxT)
+    bmb <-  .05
+    times[cc] <- system.time(cplC(max_bd = maxT, pre_fprev = pre_fprev, pre_msurv = pre_msurv, PreActiveList = examplist, bmb = bmb))[3]
+}
+cbind(numcouples,times, times/numcouples)
+
+
 
 head(wr-pc)
-identical(wr,pc)
+
 
 head(pr-pc)
 

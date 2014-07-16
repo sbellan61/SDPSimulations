@@ -209,7 +209,6 @@ pcalc <- function(pars, dat, browse = F,
                 pfb.aC[active] <- pfbC[active] * pre.fsurv[active,tt]
                 seros[active,] <- pre.couple(seros[active,], pmb=pmb, pfb=pfb, pmb.a=pmb.a, pfb.a=pfb.a, uncond.mort=uncond.mort) ## update serostates
             }
-                        pr <<- seros
             ## probability of being infected by partner (constant, used inside loop)
             pmp <- 1 - exp(-bmp)
             pfp <- 1 - exp(-bfp)
@@ -243,8 +242,7 @@ pcalc <- function(pars, dat, browse = F,
                 seros[ff,] <- within.couple(seros[ff,], pme=pme, pfe=pfe, pmp=pmp, pfp=pfp, pmp.ac=pmp.ac, pfp.ac = pfp.ac, uncond.mort=uncond.mort,
                                             pme.a = pme.a, pfe.a = pfe.a, pmp.a = pmp.a, pfp.a = pfp.a, pmp.a.ac = pmp.a.ac, pfp.a.ac = pfp.a.ac)
             }
-wr <<- seros
-
+            wr <<- seros
             sum.nms <- c('ss','mm','ff','hh','mmA','ffA','hhA')
             sero.sums <- matrix(NA, K, length(sum.nms), dimnames = list(NULL,sum.nms))
             sero.sums[,'ss'] <- seros[,'s..']
@@ -267,115 +265,115 @@ wr <<- seros
                 lprob <- -Inf
             }
         }
-        if(give.ser)    return(list(lprob=lprob,pser=pser,seros=cbind(seros,sero.sums)))
+        if(give.ser)    return(list(lprob=lprob,pser=pser,seros= seros, sero.sums = sero.sums))
         if(!give.ser)    return(list(lprob=lprob,pser=pser))
-        
     }
 
 init.fxn <- function(seed = 1)
-  {
-    set.seed(seed)
-    ## sample uniform dispersed on log scale
-    lpars <- c(bmb = runif(1, -6, -3),
-               bfb = runif(1, -6, -3),
-               bme = runif(1, -6, -3),
-               bfe = runif(1, -6, -3),
-               bmp = runif(1, -6, -3))
-    pars <- c(exp(lpars), lrho = runif(1, -1, 1))
-    return(pars)
-  }
+    {
+set.seed(seed)
+## sample uniform dispersed on log scale
+lpars <- c(bmb = runif(1, -6, -3),
+           bfb = runif(1, -6, -3),
+           bme = runif(1, -6, -3),
+           bfe = runif(1, -6, -3),
+           bmp = runif(1, -6, -3))
+pars <- c(exp(lpars), lrho = runif(1, -1, 1))
+return(pars)
+}
 
 ## MCMC SAMPLER
 sampler <- function(sd.props = sd.props, inits, dat,
-                    acute.sc,
-                    multiv = F, covar = NULL, # if multiv, sample from multivariate distribution (calculated during adaptive phase)
-                    verbose = T, tell = 100, seed = 1, lrho.sd = 1/2,
-                    niter = 6*1000, survive = T, uncond.mort = F,
-                    keep.seros = F, ## trace all serostate probabilities
-                    nthin = 1,
-                    nburn = 1000, browse=F)
-  {
-    if(browse)  browser()
-    set.seed(seed)
-    pars <- inits
-    vv <- 2
-    accept <- 0 ## track each parameters acceptance individually
-    cur <- pcalc(pars, acute.sc = acute.sc, dat = dat, survive = survive, uncond.mort = uncond.mort, lrho.sd = lrho.sd)     #calculate first log probability
-    lprob.cur <- cur$lprob
-    out <- t(as.matrix(c(pars, bfp = as.numeric(pars["bmp"]*exp(pars["lrho"])))))
-    if(keep.seros)      seros.out <- cur$seros
-    last.it <- 0
-    start <- Sys.time()
-    while(vv < niter + 1) {
-        if(verbose & vv%%tell+1==1) print(paste("on iteration",vv,"of",last.it + niter + 1))
-        pars.prop <- pars              #initialize proposal parameterr vector
-        ## propose new parameter vector
-        if(multiv)          {
-            pars.prop <- pars.prop + rmnorm(1, mean = 0, varcov = covar)
-            pars.prop <- as.vector(pars.prop) #otherwise is a matrix
-            names(pars.prop) <- parnames
-          }else{
-            pars.prop <- pars.prop + rnorm(length(pars), mean = 0, sd = sd.props)
-          }
-        ## trace = T if in non-thinned iteration, or the previous one (in case of rejection)
-        ## calculate proposal par log probability
-        prop <- pcalc(pars.prop, acute.sc = acute.sc, dat = dat, survive = survive, uncond.mort = uncond.mort, lrho.sd = lrho.sd)
-        lprob.prop <- prop$lprob
-        lmh <- lprob.prop - lprob.cur       # log Metropolis-Hastings ratio
-        ## if MHR >= 1 or a uniform random # in [0,1] is <= MHR, accept otherwise reject
-        if(lmh >= 0 | runif(1,0,1) <= exp(lmh)) {
-            pars <- pars.prop
-            if(vv>nburn) accept <- accept + 1 #only track acceptance after burn-in
-            lprob.cur <- lprob.prop
-            cur <- prop
-          }
-        if(vv%%nthin + 1 ==1) {
-            out <- rbind(out,t(as.matrix(c(pars, bfp = as.numeric(pars["bmp"]*exp(pars["lrho"]))))))
-            if(keep.seros)      seros.out <- abind(seros.out, cur$seros, along = 3)
-        }
-        vv <- vv+1
+acute.sc,
+multiv = F, covar = NULL, # if multiv, sample from multivariate distribution (calculated during adaptive phase)
+verbose = T, tell = 100, seed = 1, lrho.sd = 1/2,
+niter = 6*1000, survive = T, uncond.mort = F,
+keep.seros = F, ## trace all serostate probabilities
+nthin = 1,
+nburn = 1000, browse=F)
+    {
+if(browse)  browser()
+set.seed(seed)
+pars <- inits
+vv <- 2
+accept <- 0 ## track each parameters acceptance individually
+cur <- pcalc(pars, acute.sc = acute.sc, dat = dat, survive = survive, uncond.mort = uncond.mort, lrho.sd = lrho.sd)     #calculate first log probability
+lprob.cur <- cur$lprob
+out <- t(as.matrix(c(pars, bfp = as.numeric(pars["bmp"]*exp(pars["lrho"])))))
+if(keep.seros)      seros.out <- cur$seros
+last.it <- 0
+start <- Sys.time()
+while(vv < niter + 1) {
+    if(verbose & vv%%tell+1==1) print(paste("on iteration",vv,"of",last.it + niter + 1))
+    pars.prop <- pars              #initialize proposal parameterr vector
+    ## propose new parameter vector
+    if(multiv)          {
+        pars.prop <- pars.prop + rmnorm(1, mean = 0, varcov = covar)
+        pars.prop <- as.vector(pars.prop) #otherwise is a matrix
+        names(pars.prop) <- parnames
+    }else{
+        pars.prop <- pars.prop + rnorm(length(pars), mean = 0, sd = sd.props)
     }
-    if(verbose) print(paste("took", difftime(Sys.time(),start, units = "mins"),"mins"))
-    aratio <- accept/((vv-nburn))
-    give <- 1:nrow(out)>(nburn+1)/nthin
-    if(keep.seros) seros.out <- seros.out[,,give] else seros.out <- NULL
-    return(list(out = out[give,], aratio = aratio, inits = inits, seros.arr=seros.out))
+    ## trace = T if in non-thinned iteration, or the previous one (in case of rejection)
+    ## calculate proposal par log probability
+    prop <- pcalc(pars.prop, acute.sc = acute.sc, dat = dat, survive = survive, uncond.mort = uncond.mort, lrho.sd = lrho.sd)
+    lprob.prop <- prop$lprob
+    lmh <- lprob.prop - lprob.cur       # log Metropolis-Hastings ratio
+    ## if MHR >= 1 or a uniform random # in [0,1] is <= MHR, accept otherwise reject
+    if(lmh >= 0 | runif(1,0,1) <= exp(lmh)) {
+        pars <- pars.prop
+        if(vv>nburn) accept <- accept + 1 #only track acceptance after burn-in
+        lprob.cur <- lprob.prop
+        cur <- prop
+    }
+    if(vv%%nthin + 1 ==1) {
+        out <- rbind(out,t(as.matrix(c(pars, bfp = as.numeric(pars["bmp"]*exp(pars["lrho"]))))))
+        if(keep.seros)      seros.out <- abind(seros.out, cur$seros, along = 3)
+    }
+    vv <- vv+1
+}
+if(verbose) print(paste("took", difftime(Sys.time(),start, units = "mins"),"mins"))
+aratio <- accept/((vv-nburn))
+give <- 1:nrow(out)>(nburn+1)/nthin
+if(keep.seros) seros.out <- seros.out[,,give] else seros.out <- NULL
+return(list(out = out[give,], aratio = aratio, inits = inits, seros.arr=seros.out))
 }
 
 get.rrs <- function(pars.out) {
-    with(as.data.frame(pars.out), {
-        ## relative rate of transmission coefficient extracouply vs before relationship
-        rr.m.eb <- bme/bmb
-        rr.f.eb <- bfe/bfb
-        rr.m.pe <- bmp/bme
-        rr.f.pe <- bfp/bfe
-        rr.m.pb <- bmp/bmb        #partner to before
-        rr.f.pb <- bfp/bfb
-        ## relative rate of transmission coefficient extracouply and before relationship between males and females
-        rr.mf.bef <- bmb/bfb
-        rr.mf.exc <- bme/bfe
-        ## rho is the last one
-        ## relative rate of contact/risk paramter (i.e. accounting
-        ## for difference in per coital act probability as estimated
-        ## from within partnership transmission.
-        rr.mf.bef.cont <- rr.mf.bef * exp(lrho)
-        rr.mf.exc.cont <- rr.mf.exc * exp(lrho)
-        rrs <- data.frame(rr.m.eb = rr.m.eb, rr.f.eb = rr.f.eb,
-                          rr.m.pe = rr.m.pe, rr.f.pe = rr.f.pe,
-                          rr.m.pb = rr.m.pb, rr.f.pb = rr.f.pb,
-                          rr.mf.bef = rr.mf.bef, rr.mf.exc = rr.mf.exc,
-                          rr.mf.bef.cont = rr.mf.bef.cont, rr.mf.exc.cont = rr.mf.exc.cont)
-        return(rrs)
-    })}
+with(as.data.frame(pars.out), {
+    ## relative rate of transmission coefficient extracouply vs before relationship
+    rr.m.eb <- bme/bmb
+    rr.f.eb <- bfe/bfb
+    rr.m.pe <- bmp/bme
+    rr.f.pe <- bfp/bfe
+    rr.m.pb <- bmp/bmb        #partner to before
+    rr.f.pb <- bfp/bfb
+    ## relative rate of transmission coefficient extracouply and before relationship between males and females
+    rr.mf.bef <- bmb/bfb
+    rr.mf.exc <- bme/bfe
+    ## rho is the last one
+    ## relative rate of contact/risk paramter (i.e. accounting
+    ## for difference in per coital act probability as estimated
+    ## from within partnership transmission.
+    rr.mf.bef.cont <- rr.mf.bef * exp(lrho)
+    rr.mf.exc.cont <- rr.mf.exc * exp(lrho)
+    rrs <- data.frame(rr.m.eb = rr.m.eb, rr.f.eb = rr.f.eb,
+                      rr.m.pe = rr.m.pe, rr.f.pe = rr.f.pe,
+                      rr.m.pb = rr.m.pb, rr.f.pb = rr.f.pb,
+                      rr.mf.bef = rr.mf.bef, rr.mf.exc = rr.mf.exc,
+                      rr.mf.bef.cont = rr.mf.bef.cont, rr.mf.exc.cont = rr.mf.exc.cont)
+    return(rrs)
+})}
 
 ## calculate the proportion of times a group of states occurred given a state.group.
 prop.trans.arr <- function(seros, state.log, states, state.group) {
-    apply(seros[state.log,,], 3, function(x) sum(x[,states]/x[,state.group])) / sum(state.log)
+apply(seros[state.log,,], 3, function(x) sum(x[,states]/x[,state.group])) / sum(state.log)
 }
-    
+
 
 ## Take seros as input and produce route of transmission breakdowns.
-prop.trans <- function(seros, dat, browse = F) {
+prop.trans <- function(seros, sero.sums, dat, browse = F) {
+    seros <- cbind(seros, sero.sums)
     ## Naming convention: pi = proportion of transmission, N(egative), P(positive), U(known) partner serostatus, A(live
     ## conditionality), b(efore couple duration), e(xtra-couple), p(artner transmitted),
     hh.log <- dat$ser==1

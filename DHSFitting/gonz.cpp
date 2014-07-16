@@ -1,157 +1,78 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-
-
-// [[Rcpp::export]]
-NumericVector cplC(NumericVector seros, IntegerVector active) {
-  int n = seros.size();
-  // NumericVector out(n);
-  for(IntegerVector::iterator jj = active.begin(); jj != active.end(); ++jj) {
-    // Rprintf("active %i \n",*jj);
-    seros(*jj-1) = seros(*jj-1)*2;
-  }
-  return seros;
-}
-
-
-// [[Rcpp::export]]
-NumericMatrix prec(NumericMatrix seros, IntegerVector active, NumericVector pmb, NumericVector pfb, NumericVector pmbA, NumericVector pfbA) {
-  NumericMatrix serosO = clone(seros); // Old seros (last state from which to iterate)
-  if (min(active) < 1) stop("active < 0");
-  int numcouples = seros.nrow();
-  if (max(active) > numcouples) stop("max(active) > numcouples");
-
-  int s__ = 0;
-  int mb_a1 = 1;
-  int mb_a2 = 2;
-  int mb_ = 3;
-  int me_a1 = 4; 
-  int me_a2 = 5;
-  int me_ = 6;
-  int f_ba1 = 7;
-  int f_ba2 = 8;
-  int f_b = 9;
-  int f_ea1 = 10;
-  int f_ea2 = 11;
-  int f_e = 12;
-  int hb1b2 = 13;
-  int hb2b1 = 14;
-  int hbe = 15;
-  int heb = 16;
-  int hbpa = 17;
-  int hpba = 18;
-  int hepa = 19;
-  int hpea = 20;
-  int hbp = 21;
-  int hpb = 22;
-  int hep = 23;
-  int hpe = 24;
-  int he1e2 = 25;
-  int he2e1 = 26;
-  int mb_a1A = 27;
-  int mb_a2A = 28;
-  int mb_A = 29;
-  int me_a1A = 30;
-  int me_a2A = 31;
-  int me_A = 32;
-  int f_ba1A = 33;
-  int f_ba2A = 34;
-  int f_bA = 35;
-  int f_ea1A = 36;
-  int f_ea2A = 37;
-  int f_eA = 38;
-  int hb1b2A = 39;
-  int hb2b1A = 40;
-  int hbeA = 41;
-  int hebA = 42;
-  int hbpaA = 43;
-  int hpbaA = 44;
-  int hepaA = 45;
-  int hpeaA = 46;
-  int hbpA = 47;
-  int hpbA = 48;		// package as a dll
-  int hepA = 49;
-  int hpeA = 50;
-  int he1e2A = 51;
-  int he2e1A = 52;
-  NumericVector p_mfirstA = clone(pmb);
-  NumericVector p_ffirstA = clone(pmb);
-  NumericVector p_mfirst = clone(pmb);
-  NumericVector p_ffirst = clone(pmb);
-
-  for(IntegerVector::iterator jj = active.begin()-1; jj != active.end()-1; ++jj) {
-
-    seros(*jj,s__)    = serosO(*jj,s__)* (1-pmb(*jj)) * (1 - pfb(*jj));
-    // conditional on survival
-    p_mfirstA(*jj) = pmbA(*jj) / (pmbA(*jj)+pfbA(*jj)); // Need to deal with NaN still
-    p_ffirstA(*jj) = 1-p_mfirstA(*jj); // Need to deal with NaN still			     
-    seros(*jj,mb_a1A)  = serosO(*jj,s__) * pmbA(*jj) * (1 - pfb(*jj));
-    seros(*jj,mb_a2A) = serosO(*jj,mb_a1A)*(1-pfb(*jj));
-    seros(*jj,mb_A)   = serosO(*jj,mb_a2A)*(1-pfb(*jj)) + serosO(*jj,mb_A)*(1 - pfb(*jj));
-    seros(*jj,f_ba1A) = serosO(*jj,s__)* pfbA(*jj) *(1-pmb(*jj));
-    seros(*jj,f_ba2A) = serosO(*jj,f_ba1A)*(1 - pmb(*jj));
-    seros(*jj,f_bA)   = serosO(*jj,f_ba2A)*(1 - pmb(*jj)) + serosO(*jj,f_bA)*(1 - pmb(*jj));
-    seros(*jj,hb1b2A) = serosO(*jj,hb1b2A) + p_mfirstA(*jj) * serosO(*jj,s__)* pmbA(*jj) * pfbA(*jj) + (serosO(*jj,mb_a1A) + serosO(*jj,mb_a2A) + serosO(*jj,mb_A)) * pfbA(*jj);
-    seros(*jj,hb2b1A) = serosO(*jj,hb2b1A) + p_ffirstA(*jj) * serosO(*jj,s__)* pmbA(*jj) * pfbA(*jj) + (serosO(*jj,f_ba1A) + serosO(*jj,f_ba2A) + serosO(*jj,f_bA)) * pmbA(*jj);
-    // unconditional on survival
-    p_mfirst(*jj) = pmb(*jj) / (pmb(*jj)+pfb(*jj)); // Need to deal with NaN still    
-    p_ffirst(*jj) = 1-p_mfirst(*jj);	     // Need to deal with NaN still		     
-    seros(*jj,mb_a1) = serosO(*jj,s__) * pmb(*jj) * (1-pfb(*jj));
-    seros(*jj,mb_a2) = serosO(*jj,mb_a1) * (1 - pfb(*jj));
-    seros(*jj,mb_) = serosO(*jj,mb_a2) * (1 - pfb(*jj)) + serosO(*jj,mb_) * (1 - pfb(*jj));
-    seros(*jj,f_ba1) = serosO(*jj,s__) * pfb(*jj) * (1-pmb(*jj));
-    seros(*jj,f_ba2) = serosO(*jj,f_ba1) * (1 - pmb(*jj));
-    seros(*jj,f_b) = serosO(*jj,f_ba2) * (1 - pmb(*jj)) + serosO(*jj,f_b) * (1 - pmb(*jj));
-    seros(*jj,hb1b2) = serosO(*jj,hb1b2) + p_mfirst(*jj)  *  serosO(*jj,s__) * pmb(*jj) * pfb(*jj) + (serosO(*jj,mb_a1) + serosO(*jj,mb_a2) + serosO(*jj,mb_))  *  pfb(*jj);
-    seros(*jj,hb2b1) = serosO(*jj,hb2b1) + p_ffirst(*jj)  *  serosO(*jj,s__) * pmb(*jj) * pfb(*jj) + (serosO(*jj,f_ba1) + serosO(*jj,f_ba2) + serosO(*jj,f_b))  *  pmb(*jj);
-    // Rprintf("\n %d", *jj);    
-  }
-  return seros;
-}
- 
-
+// Column names for seros (serostate matrix)
+int s__ = 0;
+int mb_a1 = 1;
+int mb_a2 = 2;
+int mb_ = 3;
+int me_a1 = 4;
+int me_a2 = 5;
+int me_ = 6;
+int f_ba1 = 7;
+int f_ba2 = 8;
+int f_b = 9;
+int f_ea1 = 10;
+int f_ea2 = 11;
+int f_e = 12;
+int hb1b2 = 13;
+int hb2b1 = 14;
+int hbe = 15;
+int heb = 16;
+int hbpa = 17;
+int hpba = 18;
+int hepa = 19;
+int hpea = 20;
+int hbp = 21;
+int hpb = 22;
+int hep = 23;
+int hpe = 24;
+int he1e2 = 25;
+int he2e1 = 26;
+int mb_a1A = 27;
+int mb_a2A = 28;
+int mb_A = 29;
+int me_a1A = 30;
+int me_a2A = 31;
+int me_A = 32;
+int f_ba1A = 33;
+int f_ba2A = 34;
+int f_bA = 35;
+int f_ea1A = 36;
+int f_ea2A = 37;
+int f_eA = 38;
+int hb1b2A = 39;
+int hb2b1A = 40;
+int hbeA = 41;
+int hebA = 42;
+int hbpaA = 43;
+int hpbaA = 44;
+int hepaA = 45;
+int hpeaA = 46;
+int hbpA = 47;
+int hpbA = 48;
+int hepA = 49;
+int hpeA = 50;
+int he1e2A = 51;
+int he2e1A = 52;
+static const float inv_sqrt_2pi = 1/sqrt(2*M_PI); // for prnormC below
 
 // [[Rcpp::export]]
-NumericVector examp() {
-  NumericMatrix out(6,6);
-  for(int i = 0; i < 6; ++i) out(i,0) = 1;
-  return out;
-}
-
-
-// [[Rcpp::export]]
-IntegerVector ex4(int max_cd,  Rcpp::List WithinActiveList) {
-  Rprintf("l %d", max_cd);
-
-  for(int ttw = 0; ttw < 358; ++ttw) { // Now loop through marriage
-    Rcpp::IntegerVector twactive = WithinActiveList[ttw]; // Currently active couples, -1 is to switch from R to C array indicing
-  }
-    IntegerVector wactive = WithinActiveList[0]; // Currently active couples, -1 is to switch from R to C array indicing  
-  // for(int ttw = 0; ttw < max_cd; ++ttw) { // Now loop through marriage
-  //   IntegerVector wactive = withinActiveList[ttw]; // Currently active couples, -1 is to switch from R to C array indicing
-  // }
-  // IntegerVector wact = withinActiveList[0];
-  // int out=wact.size();
-  return wactive;
+double dnormC(const double & x, const double & mean, const double & sd) {
+    double a = (x - mean) / sd;
+    return inv_sqrt_2pi / sd * std::exp(-0.5f * a * a);
 }
 
 // [[Rcpp::export]]
-NumericMatrix precLoop(int max_bd, int max_cd,
-		       NumericMatrix pre_fprev, NumericMatrix pre_mprev, NumericMatrix within_fprev, NumericMatrix within_mprev,
-		       NumericMatrix pre_msurv, NumericMatrix pre_fsurv, NumericMatrix within_msurv, NumericMatrix within_fsurv,
-		       NumericMatrix within_art_cov,
-		       List PreActiveList, List WithinActiveList,
-		       double bmb, double bfb, double bme, double bfe, double bmp, double lrho, double acute_sc,
-		       bool partner_arv, double cov_scalar) {
-  // Column names for sero
-  int s__ = 0; int mb_a1 = 1; int mb_a2 = 2; int mb_ = 3; int me_a1 = 4;  int me_a2 = 5; int me_ = 6; int f_ba1 = 7; int f_ba2 = 8;
-  int f_b = 9; int f_ea1 = 10; int f_ea2 = 11; int f_e = 12; int hb1b2 = 13; int hb2b1 = 14; int hbe = 15; int heb = 16; int hbpa = 17;
-  int hpba = 18; int hepa = 19; int hpea = 20; int hbp = 21; int hpb = 22; int hep = 23; int hpe = 24; int he1e2 = 25; int he2e1 = 26;
-  int mb_a1A = 27; int mb_a2A = 28; int mb_A = 29; int me_a1A = 30; int me_a2A = 31; int me_A = 32; int f_ba1A = 33; int f_ba2A = 34;
-  int f_bA = 35; int f_ea1A = 36; int f_ea2A = 37; int f_eA = 38; int hb1b2A = 39; int hb2b1A = 40; int hbeA = 41; int hebA = 42;
-  int hbpaA = 43; int hpbaA = 44; int hepaA = 45; int hpeaA = 46; int hbpA = 47; int hpbA = 48; int hepA = 49; int hpeA = 50;
-  int he1e2A = 51; int he2e1A = 52;
+Rcpp::List precLoop(const int & max_bd, const int & max_cd, const IntegerVector & datser,
+		       const NumericMatrix & pre_fprev, const NumericMatrix & pre_mprev, const NumericMatrix & within_fprev, const NumericMatrix & within_mprev,
+		       const NumericMatrix & pre_msurv, const NumericMatrix & pre_fsurv, const NumericMatrix & within_msurv, const NumericMatrix & within_fsurv,
+		       const NumericMatrix & within_art_cov,
+		       const List & PreActiveList, const List & WithinActiveList,
+		       const double &  bmb, const double &  bfb, const double &  bme, const double &  bfe, const double &  bmp,
+		       const double &  lrho, const double & lrho_sd, const double & trans_ratio,
+		       const double & acute_sc, int uselessnum,
+		       const bool & partner_arv, const double & cov_scalar) {
 
   int numcouples = pre_fsurv.nrow(); // # of couples
   NumericMatrix seros(numcouples, 53); // Initialize couples by serostate matrix
@@ -185,10 +106,13 @@ NumericMatrix precLoop(int max_bd, int max_cd,
   NumericVector within_art_scalar(numcouples);
   int numactive(1);
 
+  // for(int useless = 0; useless < uselessnum; ++useless) {
+
+    NumericMatrix serosO = clone(seros); 
   // For month of pre-couple duration
   for(int tt = 0; tt < max_bd; ++tt) { 
-    NumericMatrix serosO = clone(seros); // Copy old seros (last state from which to iterate)
     IntegerVector active = PreActiveList[tt]; // Currently active couples, -1 is to switch from R to C array indicing
+    serosO = seros;// Copy old seros (last state from which to iterate)
     numactive = active.size();		 // Number of active couples
     if (min(active) < 0) stop("active < 0"); // Check indices are within arrays
     if (max(active) > numcouples) stop("max(active) > numcouples");
@@ -249,7 +173,7 @@ NumericMatrix precLoop(int max_bd, int max_cd,
   // //////////////////////////////////////////////////
   for(int ttw = 0; ttw < max_withinloop; ttw++) { // Now loop through marriage
   IntegerVector within_active = WithinActiveList[ttw]; // Currently active couples, -1 is to switch from R to C array indicing
-  NumericMatrix serosO = clone(seros); // Copy old seros (last state from which to iterate)
+    serosO = seros;// Copy old seros (last state from which to iterate)
   numactive = within_active.size();		 // Number of active couples
   if (min(within_active) < 0) stop("within_active < 0"); // Check indices are within arrays
   if (max(within_active) > numcouples) stop("max(within-active) > numcouples");
@@ -355,36 +279,181 @@ NumericMatrix precLoop(int max_bd, int max_cd,
     seros(*jj,he2e1) = serosO(*jj,he2e1) + p_ffirst(*jj) * serosO(*jj,s__)*pme(*jj)*pfe(*jj) +
 		      (serosO(*jj,f_ea1) + serosO(*jj,f_ea2))*(1-pmp_ac(*jj))*pme(*jj) + serosO(*jj,f_e)*(1-pmp(*jj))*pme(*jj);
 
-}  // end active couple loop
-  } // end couple duration loop
 
-return seros;
+  }  // end active couple loop
+  } // end couple duration loop
+  //////////////////////////////////////////////////
+  // Get likelihood from serostatuses
+  LogicalVector impossible(numcouples);
+  NumericMatrix pser(numcouples,4);
+  NumericVector probs(numcouples); // probability each couple had their observed serostatus
+  for(int jj = 0; jj < numcouples; jj++) { 
+    pser(jj,0) = seros(jj,hb1b2A) + seros(jj,hb2b1A) + seros(jj,hbeA) + seros(jj,hebA) + seros(jj,hbpaA) + seros(jj,hpbaA) // ++ (1)
+      + seros(jj,hepaA) + seros(jj,hpeaA) + seros(jj,hbpA) + seros(jj,hpbA) + seros(jj,hepA) + seros(jj,hpeA) + seros(jj,he1e2A) + seros(jj,he2e1A); // +- (2)
+    pser(jj,1) = seros(jj,mb_a1A) + seros(jj,me_a1A) + seros(jj,mb_a2A) + seros(jj,me_a2A) + seros(jj,mb_A) + seros(jj,me_A); // -+ (3)
+    pser(jj,2) = seros(jj,f_ba1A) + seros(jj,f_ea1A) + seros(jj,f_ba2A) + seros(jj,f_ea2A) + seros(jj,f_bA) + seros(jj,f_eA); // -- (4)
+    pser(jj,3) = seros(jj,s__);
+    // datser gives which of the serostatuses the couple wa observed in, we divide by the total
+    // because this may not equal 1 since probability flows into mortality states too
+    probs(jj)  = pser(jj, datser(jj)-1) / (pser(jj,1)+pser(jj,2)+pser(jj,3)+pser(jj,4)); // -1 deals with R to C indexing
+    impossible(jj) = probs(jj)==0;
+  }
+
+  double lprob=0;
+  bool do_likelihood_sums;
+  do_likelihood_sums=is_true(any(impossible));
+  if(do_likelihood_sums) {		// If any have zero probabilitie return -Inf
+    lprob = -INFINITY;
+  }else{			// Otherwise
+    lprob=log(dnormC(lrho, log(trans_ratio), lrho_sd)); // take log prior
+    for(int jj = 0; jj < numcouples; jj++) {
+      lprob += log(probs(jj));	// Add each couple's log probability
+  	}
+  }
+  
+  // } // end useless loop 
+
+   return Rcpp::List::create(_["lprob"] = lprob, _["seros"] = seros);
 }
 
+
+// NumericMatrix mcmcsampler(NumericMatrix sd_props = sd_props, Rcpp::NumericVector inits, 
+//                     acute_sc,
+//                     multiv = F, covar = NULL, # if multiv, sample from multivariate distribution (calculated during adaptive phase)
+//                     verbose = T, tell = 100, seed = 1, lrho_sd = 1/2,
+//                     niter = 6*1000, survive = T, uncond_mort = F,
+//                     keep_seros = F, ## trace all serostate probabilities
+//                     nthin = 1,
+//                     nburn = 1000, browse=F)
+
+// 			  const int & max_bd, const int & max_cd,
+// 			  const NumericMatrix & pre_fprev, const NumericMatrix & pre_mprev, const NumericMatrix & within_fprev, const NumericMatrix & within_mprev,
+// 			  const NumericMatrix & pre_msurv, const NumericMatrix & pre_fsurv, const NumericMatrix & within_msurv, const NumericMatrix & within_fsurv,
+// 			  const NumericMatrix & within_art_cov,
+// 			  const List & PreActiveList, const List & WithinActiveList,
+// 			  const double &  bmb, const double &  bfb, const double &  bme, const double &  bfe, const double &  bmp, const double &  lrho,
+// 			  const double & acute_sc, int uselessnum,
+// 			  const bool & partner_arv, const double & cov_scalar) {
+
+// }
+
+
+
+
+// sampler <- function(sd.props = sd.props, inits, dat,
+//                     acute.sc,
+//                     multiv = F, covar = NULL, # if multiv, sample from multivariate distribution (calculated during adaptive phase)
+//                     verbose = T, tell = 100, seed = 1, lrho.sd = 1/2,
+//                     niter = 6*1000, survive = T, uncond.mort = F,
+//                     keep.seros = F, ## trace all serostate probabilities
+//                     nthin = 1,
+//                     nburn = 1000, browse=F)
+
+//   {
+//     if(browse)  browser()
+//     set.seed(seed)
+//     pars <- inits
+//     vv <- 2
+//     accept <- 0 ## track each parameters acceptance individually
+//     cur <- pcalc(pars, acute.sc = acute.sc, dat = dat, survive = survive, uncond.mort = uncond.mort, lrho.sd = lrho.sd)     #calculate first log probability
+//     lprob.cur <- cur$lprob
+//     out <- t(as.matrix(c(pars, bfp = as.numeric(pars["bmp"]*exp(pars["lrho"])))))
+//     if(keep.seros)      seros.out <- cur$seros
+//     last.it <- 0
+//     start <- Sys.time()
+//     while(vv < niter + 1) {
+//         if(verbose & vv%%tell+1==1) print(paste("on iteration",vv,"of",last.it + niter + 1))
+//         pars.prop <- pars              #initialize proposal parameterr vector
+//         ## propose new parameter vector
+//         if(multiv)          {
+//             pars.prop <- pars.prop + rmnorm(1, mean = 0, varcov = covar)
+//             pars.prop <- as.vector(pars.prop) #otherwise is a matrix
+//             names(pars.prop) <- parnames
+//           }else{
+//             pars.prop <- pars.prop + rnorm(length(pars), mean = 0, sd = sd.props)
+//           }
+//         ## trace = T if in non-thinned iteration, or the previous one (in case of rejection)
+//         ## calculate proposal par log probability
+//         prop <- pcalc(pars.prop, acute.sc = acute.sc, dat = dat, survive = survive, uncond.mort = uncond.mort, lrho.sd = lrho.sd)
+//         lprob.prop <- prop$lprob
+//         lmh <- lprob.prop - lprob.cur       # log Metropolis-Hastings ratio
+//         ## if MHR >= 1 or a uniform random # in [0,1] is <= MHR, accept otherwise reject
+//         if(lmh >= 0 | runif(1,0,1) <= exp(lmh)) {
+//             pars <- pars.prop
+//             if(vv>nburn) accept <- accept + 1 #only track acceptance after burn-in
+//             lprob.cur <- lprob.prop
+//             cur <- prop
+//           }
+//         if(vv%%nthin + 1 ==1) {
+//             out <- rbind(out,t(as.matrix(c(pars, bfp = as.numeric(pars["bmp"]*exp(pars["lrho"]))))))
+//             if(keep.seros)      seros.out <- abind(seros.out, cur$seros, along = 3)
+//         }
+//         vv <- vv+1
+//     }
+//     if(verbose) print(paste("took", difftime(Sys.time(),start, units = "mins"),"mins"))
+//     aratio <- accept/((vv-nburn))
+//     give <- 1:nrow(out)>(nburn+1)/nthin
+//     if(keep.seros) seros.out <- seros.out[,,give] else seros.out <- NULL
+//     return(list(out = out[give,], aratio = aratio, inits = inits, seros.arr=seros.out))
+// }
+
+
+
+// [[Rcpp::export]]
+NumericMatrix cplC(const int & max_bd,
+		       const NumericMatrix & pre_fprev, const NumericMatrix & pre_msurv, 
+		       const List & PreActiveList,	
+		       const double &  bmb) {
+  // Column names for sero
+  int s__ = 0; int mb_a1A = 1; int mb_a2A = 2; // 53 state variables for each individual
+  int numcouples = pre_fprev.nrow(); // get number of couples from one of the input matrices
+  NumericMatrix seros(numcouples, 3); // Initialize couples by state matrix
+  for(int jj = 0; jj < numcouples; ++jj) seros(jj,s__) = 1; // All couples start in first state
+  // Initialize transmission hazards & probabilities & joint probability of transmission & survival (*a*live)
+  int numactive(1);	      // # of active couples (changes between time steps)
+  NumericVector m_haz(numcouples); // intermediate couple-specific parameters
+  NumericVector pmb(numcouples);
+  NumericVector pmbA(numcouples);
+// For each time step up until max time
+  NumericMatrix serosO = clone(seros); 
+  for(int tt = 0; tt < max_bd; ++tt) { 
+    serosO = seros; // Copy old seros (last state from which to iterate forward)
+    IntegerVector active = PreActiveList[tt]; // Currently active couples,
+    numactive = active.size();		 // Number of active couples
+    if (min(active) < 0) stop("active < 0"); // Check indices are contained within arrays
+    if (max(active) > numcouples) stop("max(active) > numcouples");
+    // For each active couple
+    for(IntegerVector::iterator jj = active.begin(); jj != active.end(); ++jj) {
+      // ///////////////////////////////////////////////////
+      // Assign temporary parameters: about 40 lines of code like these 3 lines
+      m_haz(*jj) = bmb*pre_fprev(*jj,tt); // temporary parameter 1
+      pmb(*jj) = 1 - exp(-m_haz(*jj)); // temporary parameter 2
+      pmbA(*jj) = pmb(*jj)*pre_msurv(*jj,tt); // temporary parameter 3
+      // /////////////////////////////////////////////////
+      // Update state variables: about 120 lines of code like these 3 lines
+      seros(*jj,s__)    = serosO(*jj,s__)* (1-pmbA(*jj));
+      seros(*jj,mb_a1A)  = serosO(*jj,s__)*pmbA(*jj)*(1-pmb(*jj));
+      seros(*jj,mb_a2A) = serosO(*jj,mb_a1A)*pmbA(*jj)*pmb(*jj);
+    } // end couple iteration
+  }   // end month or pre-couple duration iteration
+return seros;
+}
 
 
 /*** R
 
 */
 
-				// new = prec(test, active = 2:4, pmb = .05, pfb = .03, pmbA = .05*.5, pfbA = .03*.5)
-     // print(new)
-
-
-     // library(microbenchmark)
-     // sroR1 = function(seros, active) {
-     // out = seros + seros*5
-     // return(out)
-     // }
-     // cplR = function(seros, active) {
-     // seros[active] = seros[active]*5
-     // return(seros)
-     // }
-     // seros = 1:10e5
-     // active = seq(1, length(seros), by = 2)
-     // microbenchmark(
-     // cplC(seros, active)[1:5],
-     // cplR(seros, active)[1:5]
-     // )
-     // cplC(seros, active)[1:5]
-     // cplR(seros, active)[1:5]
+// numcouples <- 10^c(2:5)
+// times <- numeric(length(numcouples))
+// for(cc in 1:length(numcouples)) {
+//     nn <- numcouples[cc]
+//     maxT <- 500
+//     examplist <- list(NA)
+//     for(ii in 1:maxT) examplist[[ii]] <- sample(0:(nn-1), max(101-ii,1))
+//     pre_fprev <- matrix(runif(nn*maxT),nn,maxT)
+//     pre_msurv <- matrix(runif(nn*maxT),nn,maxT)
+//     bmb <-  .05
+//     times[cc] <- system.time(cplC(max_bd = maxT, pre_fprev = pre_fprev, pre_msurv = pre_msurv, PreActiveList = examplist, bmb = bmb))[3]
+// }
+// cbind(numcouples,times, times/numcouples)
