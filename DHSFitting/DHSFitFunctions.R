@@ -1,4 +1,52 @@
 library(mnormt);library(multicore);library(coda);library(abind); library(plotrix); library(mvtnorm); library(Rcpp)
+
+## Get (1) logical matrices for whether male, female, or either partner is sexually active for each
+## tt-th month of pre-couple transmission, (2) country-level prevalence for each couple's tt-th month of before-couple duration, (3) probability either partner would survive to interview date if infected in tt-th month of pre-couple transmission.
+pre.prep <- function(dat) {
+    out.names <- c('m.sex','f.sex','e.sex','pre.fprev','pre.mprev','pre.msurv','pre.fsurv')
+    for(ob in out.names[1:3]) assign(ob, matrix(NA, nrow(dat), max(dat$bd)))
+    for(ob in out.names[4:length(out.names)]) assign(ob, matrix(0, nrow(dat), max(dat$bd))) ## no transmission occurs by default when they aren't sexually active
+    PreActiveList <- list()
+    for(tt in 1:max(dat$bd)) { ## for each month in the before-couple duration (bd)
+        m.sex[,tt] <- dat$tmar-dat$bd+tt-1 >= dat$tms & dat$tmar-dat$bd+tt-1 < dat$tmar
+        f.sex[,tt] <- dat$tmar-dat$bd+tt-1 >= dat$tfs & dat$tmar-dat$bd+tt-1 < dat$tmar
+        e.sex[,tt] <- m.sex[,tt] |f.sex[,tt] ## either are active 
+        ## opposite gender population prevalence in month tt of bd
+        pre.fprev[m.sex[,tt],tt] <- epicf[cbind(dat$tmar[m.sex[,tt]]-dat$bd[m.sex[,tt]]+tt-1, dat$epic.ind[m.sex[,tt]])]
+        pre.mprev[f.sex[,tt],tt] <- epicm[cbind(dat$tmar[f.sex[,tt]]-dat$bd[f.sex[,tt]]+tt-1, dat$epic.ind[f.sex[,tt]])]
+        ## probability each partner survives to interview date given they are infected in month tt of bd
+        pre.msurv[m.sex[,tt],tt] <- csurv[cbind(dat$mage[m.sex[,tt]]-dat$cd[m.sex[,tt]]-dat$bd[m.sex[,tt]]+tt-1, dat$cd[m.sex[,tt]]+dat$bd[m.sex[,tt]]-tt+1)]
+        pre.fsurv[f.sex[,tt],tt] <- csurv[cbind(dat$fage[f.sex[,tt]]-dat$cd[f.sex[,tt]]-dat$bd[f.sex[,tt]]+tt-1, dat$cd[f.sex[,tt]]+dat$bd[f.sex[,tt]]-tt+1)]
+        PreActiveList[[tt]] <- which(e.sex[,tt]) -1 ## -1 is for C++ indexing
+    }
+    pre.prepout <- list(m.sex, f.sex, e.sex, pre.fprev, pre.mprev, pre.msurv, pre.fsurv, PreActiveList)
+    names(pre.prepout) <- c(out.names, "PreActiveList")
+    return(pre.prepout)
+}
+## Get (1) logical matrices for whether couple is active for each tt-th month of marital durations
+## (i.e. how long was the couple duration), (2) country-level prevalence for each couple's tt-th
+## month of couple duration, (3) probability either partner would survive to interview date if
+## infected in tt-th month of within-couple transmission, (4) ART coverage for tt-the month of
+## couple duration if reducing within-couple transmission by ART coverage.
+within.prep <- function(dat) {
+    out.names <- c('fmd','within.fprev','within.mprev', 'within.art.cov', 'within.msurv', 'within.fsurv')
+    for(ob in out.names) assign(ob, matrix(NA, nrow(dat), max(dat$cd)))
+    WithinActiveList <- list()
+    for(tt in 1:max(dat$cd-1)) { ## Loop through marital duration from 1st month to last month of longest marriage
+        ff <- dat$cd >= tt ## are partners formed in a couple?
+        within.fprev[ff,tt] <- epicf[cbind(dat$tmar[ff]+(tt-1), dat$epic.ind[ff])]
+        within.mprev[ff,tt] <- epicm[cbind(dat$tmar[ff]+(tt-1), dat$epic.ind[ff])]
+        within.art.cov[ff,tt] <- art.cov[cbind(dat$tmar[ff]+(tt-1), dat$epic.ind[ff])]
+        within.msurv[ff,tt] <- csurv[cbind(dat$mage[ff]-dat$cd[ff]+tt-1, dat$tint[ff] - (dat$tmar[ff] + tt - 1))]
+        within.fsurv[ff,tt] <- csurv[cbind(dat$fage[ff]-dat$cd[ff]+tt-1, dat$tint[ff] - (dat$tmar[ff] + tt - 1))]
+        fmd[,tt] <- ff
+        WithinActiveList[[tt]] <- which(ff) -1 ## -1 is for C++ indexing
+    }
+    within.prepout <- list(fmd,within.fprev,within.mprev, within.art.cov, within.msurv, within.fsurv, WithinActiveList)
+    names(within.prepout) <- c(out.names, "WithinActiveList")
+    return(within.prepout)
+}
+
 ## Pre-couple transmission iterator
 pre.couple <- function(seros.active, pmb, pfb, pmb.a, pfb.a, uncond.mort=T) {
     if(class(seros.active)=='numeric')  seros.active <- t(as.matrix(seros.active))
@@ -109,56 +157,9 @@ within.couple <- function(seros.active, pme, pfe, pmp, pfp, pmp.ac, pfp.ac, pme.
 }
 
 
-## Get (1) logical matrices for whether male, female, or either partner is sexually active for each
-## tt-th month of pre-couple transmission, (2) country-level prevalence for each couple's tt-th month of before-couple duration, (3) probability either partner would survive to interview date if infected in tt-th month of pre-couple transmission.
-pre.prep <- function(dat) {
-    out.names <- c('m.sex','f.sex','e.sex','pre.fprev','pre.mprev','pre.msurv','pre.fsurv')
-    for(ob in out.names[1:3]) assign(ob, matrix(NA, nrow(dat), max(dat$bd)))
-    for(ob in out.names[4:length(out.names)]) assign(ob, matrix(0, nrow(dat), max(dat$bd))) ## no transmission occurs by default when they aren't sexually active
-    PreActiveList <- list()
-    for(tt in 1:max(dat$bd)) { ## for each month in the before-couple duration (bd)
-        m.sex[,tt] <- dat$tmar-dat$bd+tt-1 >= dat$tms & dat$tmar-dat$bd+tt-1 < dat$tmar
-        f.sex[,tt] <- dat$tmar-dat$bd+tt-1 >= dat$tfs & dat$tmar-dat$bd+tt-1 < dat$tmar
-        e.sex[,tt] <- m.sex[,tt] |f.sex[,tt] ## either are active 
-        ## opposite gender population prevalence in month tt of bd
-        pre.fprev[m.sex[,tt],tt] <- epicf[cbind(dat$tmar[m.sex[,tt]]-dat$bd[m.sex[,tt]]+tt-1, dat$epic.ind[m.sex[,tt]])]
-        pre.mprev[f.sex[,tt],tt] <- epicm[cbind(dat$tmar[f.sex[,tt]]-dat$bd[f.sex[,tt]]+tt-1, dat$epic.ind[f.sex[,tt]])]
-        ## probability each partner survives to interview date given they are infected in month tt of bd
-        pre.msurv[m.sex[,tt],tt] <- csurv[cbind(dat$mage[m.sex[,tt]]-dat$cd[m.sex[,tt]]-dat$bd[m.sex[,tt]]+tt-1, dat$cd[m.sex[,tt]]+dat$bd[m.sex[,tt]]-tt+1)]
-        pre.fsurv[f.sex[,tt],tt] <- csurv[cbind(dat$fage[f.sex[,tt]]-dat$cd[f.sex[,tt]]-dat$bd[f.sex[,tt]]+tt-1, dat$cd[f.sex[,tt]]+dat$bd[f.sex[,tt]]-tt+1)]
-        PreActiveList[[tt]] <- which(e.sex[,tt]) -1 ## -1 is for C++ indexing
-    }
-    pre.prepout <- list(m.sex, f.sex, e.sex, pre.fprev, pre.mprev, pre.msurv, pre.fsurv, PreActiveList)
-    names(pre.prepout) <- c(out.names, "PreActiveList")
-    return(pre.prepout)
-}
-## Get (1) logical matrices for whether couple is active for each tt-th month of marital durations
-## (i.e. how long was the couple duration), (2) country-level prevalence for each couple's tt-th
-## month of couple duration, (3) probability either partner would survive to interview date if
-## infected in tt-th month of within-couple transmission, (4) ART coverage for tt-the month of
-## couple duration if reducing within-couple transmission by ART coverage.
-within.prep <- function(dat) {
-    out.names <- c('fmd','within.fprev','within.mprev', 'within.art.cov', 'within.msurv', 'within.fsurv')
-    for(ob in out.names) assign(ob, matrix(NA, nrow(dat), max(dat$cd)))
-    WithinActiveList <- list()
-    for(tt in 1:max(dat$cd-1)) { ## Loop through marital duration from 1st month to last month of longest marriage
-        ff <- dat$cd >= tt ## are partners formed in a couple?
-        within.fprev[ff,tt] <- epicf[cbind(dat$tmar[ff]+(tt-1), dat$epic.ind[ff])]
-        within.mprev[ff,tt] <- epicm[cbind(dat$tmar[ff]+(tt-1), dat$epic.ind[ff])]
-        within.art.cov[ff,tt] <- art.cov[cbind(dat$tmar[ff]+(tt-1), dat$epic.ind[ff])]
-        within.msurv[ff,tt] <- csurv[cbind(dat$mage[ff]-dat$cd[ff]+tt-1, dat$tint[ff] - (dat$tmar[ff] + tt - 1))]
-        within.fsurv[ff,tt] <- csurv[cbind(dat$fage[ff]-dat$cd[ff]+tt-1, dat$tint[ff] - (dat$tmar[ff] + tt - 1))]
-        fmd[,tt] <- ff
-        WithinActiveList[[tt]] <- which(ff) -1 ## -1 is for C++ indexing
-    }
-    within.prepout <- list(fmd,within.fprev,within.mprev, within.art.cov, within.msurv, within.fsurv, WithinActiveList)
-    names(within.prepout) <- c(out.names, "WithinActiveList")
-    return(within.prepout)
-}
-
 ## Calculate likelihood
 pcalc <- function(pars, dat, browse = F, 
-                  give.ser = F, ## return serostatus probability matrix
+                  keep.seros = F, ## return serostatus probability matrix
                   acute.sc = 7, ## acute phase infectiousness
                   ## using global variables for these
                   ## partner.arv = F, ## ART coverage affects within-partnership transmission?
@@ -242,7 +243,6 @@ pcalc <- function(pars, dat, browse = F,
                 seros[ff,] <- within.couple(seros[ff,], pme=pme, pfe=pfe, pmp=pmp, pfp=pfp, pmp.ac=pmp.ac, pfp.ac = pfp.ac, uncond.mort=uncond.mort,
                                             pme.a = pme.a, pfe.a = pfe.a, pmp.a = pmp.a, pfp.a = pfp.a, pmp.a.ac = pmp.a.ac, pfp.a.ac = pfp.a.ac)
             }
-            wr <<- seros
             sum.nms <- c('ss','mm','ff','hh','mmA','ffA','hhA')
             sero.sums <- matrix(NA, K, length(sum.nms), dimnames = list(NULL,sum.nms))
             sero.sums[,'ss'] <- seros[,'s..']
@@ -265,79 +265,116 @@ pcalc <- function(pars, dat, browse = F,
                 lprob <- -Inf
             }
         }
-        if(give.ser)    return(list(lprob=lprob,pser=pser,seros= seros, sero.sums = sero.sums))
-        if(!give.ser)    return(list(lprob=lprob,pser=pser))
+        if(keep.seros)    return(list(lprob=lprob,pser=pser,seros= seros, sero.sums = sero.sums))
+        if(!keep.seros)    return(list(lprob=lprob,pser=pser))
     }
 
 init.fxn <- function(seed = 1)
     {
-set.seed(seed)
-## sample uniform dispersed on log scale
-lpars <- c(bmb = runif(1, -6, -3),
-           bfb = runif(1, -6, -3),
-           bme = runif(1, -6, -3),
-           bfe = runif(1, -6, -3),
-           bmp = runif(1, -6, -3))
-pars <- c(exp(lpars), lrho = runif(1, -1, 1))
-return(pars)
-}
+        set.seed(seed)
+        ## sample uniform dispersed on log scale
+        lpars <- c(bmb = runif(1, -6, -3),
+                   bfb = runif(1, -6, -3),
+                   bme = runif(1, -6, -3),
+                   bfe = runif(1, -6, -3),
+                   bmp = runif(1, -6, -3))
+        pars <- c(exp(lpars), lrho = runif(1, -1, 1))
+        return(pars)
+    }
 
 ## MCMC SAMPLER
 sampler <- function(sd.props = sd.props, inits, dat,
-acute.sc,
-multiv = F, covar = NULL, # if multiv, sample from multivariate distribution (calculated during adaptive phase)
-verbose = T, tell = 100, seed = 1, lrho.sd = 1/2,
-niter = 6*1000, survive = T, uncond.mort = F,
-keep.seros = F, ## trace all serostate probabilities
-nthin = 1,
-nburn = 1000, browse=F)
+                    acute.sc,
+                    multiv = F, covar = NULL, # if multiv, sample from multivariate distribution (calculated during adaptive phase)
+                    verbose = T, tell = 100, seed = 1, lrho.sd = 1/2, trans.ratio= 1,
+                    niter = 6*1000, survive = T, uncond.mort = F,
+                    keep.seros = F, ## trace all serostate probabilities
+                    nthin = 1,
+                    useRcpp = TRUE, ## use C version of pcalc
+                    nburn = 1000, browse=F)
     {
-if(browse)  browser()
-set.seed(seed)
-pars <- inits
-vv <- 2
-accept <- 0 ## track each parameters acceptance individually
-cur <- pcalc(pars, acute.sc = acute.sc, dat = dat, survive = survive, uncond.mort = uncond.mort, lrho.sd = lrho.sd)     #calculate first log probability
-lprob.cur <- cur$lprob
-out <- t(as.matrix(c(pars, bfp = as.numeric(pars["bmp"]*exp(pars["lrho"])))))
-if(keep.seros)      seros.out <- cur$seros
-last.it <- 0
-start <- Sys.time()
-while(vv < niter + 1) {
-    if(verbose & vv%%tell+1==1) print(paste("on iteration",vv,"of",last.it + niter + 1))
-    pars.prop <- pars              #initialize proposal parameterr vector
-    ## propose new parameter vector
-    if(multiv)          {
-        pars.prop <- pars.prop + rmnorm(1, mean = 0, varcov = covar)
-        pars.prop <- as.vector(pars.prop) #otherwise is a matrix
-        names(pars.prop) <- parnames
-    }else{
-        pars.prop <- pars.prop + rnorm(length(pars), mean = 0, sd = sd.props)
+        if(browse)  browser()
+        set.seed(seed)
+        pars <- inits
+        vv <- 2
+        accept <- 0 ## track each parameters acceptance individually
+                                        #calculate first log probability
+        maxbd <- max(dat$bd)
+        maxcd <- max(dat$cd)
+        if(!useRcpp) cur <- pcalc(pars, acute.sc = acute.sc, dat = dat, survive = survive, uncond.mort = uncond.mort, lrho.sd = lrho.sd, keep.seros=keep.seros) 
+        if(useRcpp)  cur <- pcalcC(max_bd = maxbd  , max_cd = maxcd, datser = dat$ser,
+                                   pre_fprev = pre.fprev, pre_mprev = pre.mprev, within_fprev = within.fprev, within_mprev = within.mprev,
+                                   pre_msurv = pre.msurv, pre_fsurv = pre.fsurv, within_msurv = within.msurv, within_fsurv = within.fsurv,
+                                   within_art_cov = within.art.cov,
+                                   PreActiveList = PreActiveList, WithinActiveList = WithinActiveList,
+                                   bmb = pars['bmb'], bfb = pars['bfb'],
+                                   bme = pars['bme'], bfe = pars['bfe'],
+                                   bmp = pars['bmp'], lrho = pars['lrho'], lrho_sd = lrho.sd, trans_ratio = trans.ratio,
+                                   acute_sc = 7, partner_arv = partner.arv, cov_scalar = 1)
+        lprob.cur <- cur$lprob
+        out <- t(as.matrix(c(pars, bfp = as.numeric(pars["bmp"]*exp(pars["lrho"])))))
+        if(keep.seros)      seros.out <- cur$seros
+        last.it <- 0
+        start <- Sys.time()
+        while(vv < niter + 1) {
+            if(verbose & vv%%tell+1==1) print(paste("on iteration",vv,"of",last.it + niter + 1))
+            pars.prop <- pars              #initialize proposal parameterr vector
+            ## propose new parameter vector
+            if(multiv)          {
+                pars.prop <- pars.prop + rmnorm(1, mean = 0, varcov = covar)
+                pars.prop <- as.vector(pars.prop) #otherwise is a matrix
+                names(pars.prop) <- parnames
+            }else{
+                pars.prop <- pars.prop + rnorm(length(pars), mean = 0, sd = sd.props)
+            }
+            ## trace = T if in non-thinned iteration, or the previous one (in case of rejection)
+            ## calculate proposal par log probability
+            if(!useRcpp) prop <- pcalc(pars.prop, acute.sc = acute.sc, dat = dat, survive = survive, uncond.mort = uncond.mort, lrho.sd = lrho.sd, keep.seros=keep.seros)
+            if(useRcpp)  prop <- pcalcC(max_bd = maxbd  , max_cd = maxcd, datser = dat$ser,
+                                        pre_fprev = pre.fprev, pre_mprev = pre.mprev, within_fprev = within.fprev, within_mprev = within.mprev,
+                                        pre_msurv = pre.msurv, pre_fsurv = pre.fsurv, within_msurv = within.msurv, within_fsurv = within.fsurv,
+                                        within_art_cov = within.art.cov,
+                                        PreActiveList = PreActiveList, WithinActiveList = WithinActiveList,
+                                        bmb = pars.prop['bmb'], bfb = pars.prop['bfb'],
+                                        bme = pars.prop['bme'], bfe = pars.prop['bfe'],
+                                        bmp = pars.prop['bmp'], lrho = pars.prop['lrho'], lrho_sd = lrho.sd, trans_ratio = trans.ratio,
+                                        acute_sc = 7, partner_arv = partner.arv, cov_scalar = 1)
+
+            lprob.prop <- prop$lprob
+            lmh <- lprob.prop - lprob.cur       # log Metropolis-Hastings ratio
+            ## if MHR >= 1 or a uniform random # in [0,1] is <= MHR, accept otherwise reject
+            if(lmh >= 0 | runif(1,0,1) <= exp(lmh)) {
+                pars <- pars.prop
+                if(vv>nburn) accept <- accept + 1 #only track acceptance after burn-in
+                lprob.cur <- lprob.prop
+                cur <- prop
+            }
+            if(vv%%nthin + 1 ==1) {
+                out <- rbind(out,t(as.matrix(c(pars, bfp = as.numeric(pars["bmp"]*exp(pars["lrho"]))))))
+                if(keep.seros)      seros.out <- abind(seros.out, cur$seros, along = 3)
+            }
+            vv <- vv+1
+        }
+        if(verbose) print(paste("took", difftime(Sys.time(),start, units = "mins"),"mins"))
+        aratio <- accept/((vv-nburn))
+        give <- 1:nrow(out)>(nburn+1)/nthin
+        if(keep.seros) {
+            if(useRcpp) {
+                state.var.nms.uncond <- c('s..',
+                                          'mb.a1', 'mb.a2', 'mb.', 'me.a1', 'me.a2', 'me.', #M+F- by routes & acute phase (a)
+                                          'f.ba1', 'f.ba2', 'f.b', 'f.ea1', 'f.ea2', 'f.e', #M-F+ by routes & acute phase (a)
+                                          'hb1b2', 'hb2b1', 'hbe', 'heb', ## rest are all M+F+
+                                          'hbpa', 'hpba', 'hepa', 'hpea', ## acute infected by partner
+                                          'hbp', 'hpb', 'hep', 'hpe', ## chronic infected by partner
+                                          'he1e2', 'he2e1') ## both extra-couply infected, different orders
+                state.var.nms <- c(state.var.nms.uncond, paste0(state.var.nms.uncond[-1],'A')) ## joint with alive at the ende
+                dimnames(seros.out)[[2]] <- state.var.nms
+            }
+            seros.out <- seros.out[,,give]
+        }else{ seros.out <- NULL
+           }
+        return(list(out = out[give,], aratio = aratio, inits = inits, seros.arr=seros.out))
     }
-    ## trace = T if in non-thinned iteration, or the previous one (in case of rejection)
-    ## calculate proposal par log probability
-    prop <- pcalc(pars.prop, acute.sc = acute.sc, dat = dat, survive = survive, uncond.mort = uncond.mort, lrho.sd = lrho.sd)
-    lprob.prop <- prop$lprob
-    lmh <- lprob.prop - lprob.cur       # log Metropolis-Hastings ratio
-    ## if MHR >= 1 or a uniform random # in [0,1] is <= MHR, accept otherwise reject
-    if(lmh >= 0 | runif(1,0,1) <= exp(lmh)) {
-        pars <- pars.prop
-        if(vv>nburn) accept <- accept + 1 #only track acceptance after burn-in
-        lprob.cur <- lprob.prop
-        cur <- prop
-    }
-    if(vv%%nthin + 1 ==1) {
-        out <- rbind(out,t(as.matrix(c(pars, bfp = as.numeric(pars["bmp"]*exp(pars["lrho"]))))))
-        if(keep.seros)      seros.out <- abind(seros.out, cur$seros, along = 3)
-    }
-    vv <- vv+1
-}
-if(verbose) print(paste("took", difftime(Sys.time(),start, units = "mins"),"mins"))
-aratio <- accept/((vv-nburn))
-give <- 1:nrow(out)>(nburn+1)/nthin
-if(keep.seros) seros.out <- seros.out[,,give] else seros.out <- NULL
-return(list(out = out[give,], aratio = aratio, inits = inits, seros.arr=seros.out))
-}
 
 get.rrs <- function(pars.out) {
 with(as.data.frame(pars.out), {

@@ -57,28 +57,31 @@ int he1e2A = 51;
 int he2e1A = 52;
 static const float inv_sqrt_2pi = 1/sqrt(2*M_PI); // for prnormC below
 
+
+
 // [[Rcpp::export]]
 double dnormC(const double & x, const double & mean, const double & sd) {
     double a = (x - mean) / sd;
     return inv_sqrt_2pi / sd * std::exp(-0.5f * a * a);
 }
 
+
 // [[Rcpp::export]]
-Rcpp::List precLoop(const int & max_bd, const int & max_cd, const IntegerVector & datser,
+Rcpp::List pcalcC(const int & max_bd, const int & max_cd, const IntegerVector & datser,
 		       const NumericMatrix & pre_fprev, const NumericMatrix & pre_mprev, const NumericMatrix & within_fprev, const NumericMatrix & within_mprev,
 		       const NumericMatrix & pre_msurv, const NumericMatrix & pre_fsurv, const NumericMatrix & within_msurv, const NumericMatrix & within_fsurv,
 		       const NumericMatrix & within_art_cov,
 		       const List & PreActiveList, const List & WithinActiveList,
 		       const double &  bmb, const double &  bfb, const double &  bme, const double &  bfe, const double &  bmp,
 		       const double &  lrho, const double & lrho_sd, const double & trans_ratio,
-		       const double & acute_sc, int uselessnum,
+		       const double & acute_sc, 
 		       const bool & partner_arv, const double & cov_scalar) {
-
+  int numactive(1);
   int numcouples = pre_fsurv.nrow(); // # of couples
-  NumericMatrix seros(numcouples, 53); // Initialize couples by serostate matrix
-  for(int jj = 0; jj < numcouples; ++jj) seros(jj,s__) = 1; // All couples start both susceptible
+  int numstates = 53;
   // Initialize transmission hazards & probabilities & joint probability of transmission & survival (*a*live)
   double bfp = bmp * exp(lrho); // Conver M->F/F->M within-couple ratio (rho) to bfp
+  double lprob=0;
   NumericVector m_haz(numcouples); // Note, these vectors change within the loop over time below.
   NumericVector f_haz(numcouples);
   NumericVector pmb(numcouples);
@@ -104,15 +107,16 @@ Rcpp::List precLoop(const int & max_bd, const int & max_cd, const IntegerVector 
   NumericVector p_ffirst(numcouples);
   NumericVector denom(numcouples);
   NumericVector within_art_scalar(numcouples);
-  int numactive(1);
-
-  // for(int useless = 0; useless < uselessnum; ++useless) {
-
-    NumericMatrix serosO = clone(seros); 
+  NumericMatrix seros(numcouples, 53); // Initialize couples by serostate matrix
+  for(int jj = 0; jj < numcouples; ++jj) seros(jj,s__) = 1; // All couples start both susceptible
+  // int numactive(1);
+  NumericMatrix serosO(numcouples, 53); // to keep as old states
+  
+  // for(int useless = 0; useless < uselessnum; ++useless) { // to loop through these calculations
   // For month of pre-couple duration
-  for(int tt = 0; tt < max_bd; ++tt) { 
+  for(int tt = 0; tt < max_bd; ++tt) {
+  std::copy(&seros(0,0), &seros(0,0) + numcouples*numstates, &serosO(0,0)); 
     IntegerVector active = PreActiveList[tt]; // Currently active couples, -1 is to switch from R to C array indicing
-    serosO = seros;// Copy old seros (last state from which to iterate)
     numactive = active.size();		 // Number of active couples
     if (min(active) < 0) stop("active < 0"); // Check indices are within arrays
     if (max(active) > numcouples) stop("max(active) > numcouples");
@@ -167,13 +171,12 @@ Rcpp::List precLoop(const int & max_bd, const int & max_cd, const IntegerVector 
       // Rprintf("\n %d", *jj);    
     } // end couple iteration
   } // end month or pre-couple duration iteration
-
   /////////////////////////////////////////////////// 
   int max_withinloop = max_cd - 1;
   // //////////////////////////////////////////////////
   for(int ttw = 0; ttw < max_withinloop; ttw++) { // Now loop through marriage
   IntegerVector within_active = WithinActiveList[ttw]; // Currently active couples, -1 is to switch from R to C array indicing
-    serosO = seros;// Copy old seros (last state from which to iterate)
+  std::copy(&seros(0,0), &seros(0,0) + numcouples*numstates, &serosO(0,0)); 
   numactive = within_active.size();		 // Number of active couples
   if (min(within_active) < 0) stop("within_active < 0"); // Check indices are within arrays
   if (max(within_active) > numcouples) stop("max(within-active) > numcouples");
@@ -278,9 +281,7 @@ Rcpp::List precLoop(const int & max_bd, const int & max_cd, const IntegerVector 
 		      (serosO(*jj,me_a1) + serosO(*jj,me_a2))*(1-pfp_ac(*jj))*pfe(*jj) + serosO(*jj,me_)*(1-pfp(*jj))*pfe(*jj);
     seros(*jj,he2e1) = serosO(*jj,he2e1) + p_ffirst(*jj) * serosO(*jj,s__)*pme(*jj)*pfe(*jj) +
 		      (serosO(*jj,f_ea1) + serosO(*jj,f_ea2))*(1-pmp_ac(*jj))*pme(*jj) + serosO(*jj,f_e)*(1-pmp(*jj))*pme(*jj);
-
-
-  }  // end active couple loop
+}  // end active couple loop
   } // end couple duration loop
   //////////////////////////////////////////////////
   // Get likelihood from serostatuses
@@ -295,109 +296,22 @@ Rcpp::List precLoop(const int & max_bd, const int & max_cd, const IntegerVector 
     pser(jj,3) = seros(jj,s__);
     // datser gives which of the serostatuses the couple wa observed in, we divide by the total
     // because this may not equal 1 since probability flows into mortality states too
-    probs(jj)  = pser(jj, datser(jj)-1) / (pser(jj,1)+pser(jj,2)+pser(jj,3)+pser(jj,4)); // -1 deals with R to C indexing
+    probs(jj)  = pser(jj, datser(jj) - 1) / (pser(jj,0)+pser(jj,1)+pser(jj,2)+pser(jj,3)); // -1 deals with R to C indexing
     impossible(jj) = probs(jj)==0;
   }
-
-  double lprob=0;
   bool do_likelihood_sums;
-  do_likelihood_sums=is_true(any(impossible));
+  do_likelihood_sums = is_true(any(impossible));
   if(do_likelihood_sums) {		// If any have zero probabilitie return -Inf
     lprob = -INFINITY;
   }else{			// Otherwise
     lprob=log(dnormC(lrho, log(trans_ratio), lrho_sd)); // take log prior
     for(int jj = 0; jj < numcouples; jj++) {
       lprob += log(probs(jj));	// Add each couple's log probability
-  	}
+    	}
   }
-  
-  // } // end useless loop 
-
-   return Rcpp::List::create(_["lprob"] = lprob, _["seros"] = seros);
+  //  } // end useless loop
+  return Rcpp::List::create(_["seros"]=seros, _["lprob"]=lprob);
 }
-
-
-// NumericMatrix mcmcsampler(NumericMatrix sd_props = sd_props, Rcpp::NumericVector inits, 
-//                     acute_sc,
-//                     multiv = F, covar = NULL, # if multiv, sample from multivariate distribution (calculated during adaptive phase)
-//                     verbose = T, tell = 100, seed = 1, lrho_sd = 1/2,
-//                     niter = 6*1000, survive = T, uncond_mort = F,
-//                     keep_seros = F, ## trace all serostate probabilities
-//                     nthin = 1,
-//                     nburn = 1000, browse=F)
-
-// 			  const int & max_bd, const int & max_cd,
-// 			  const NumericMatrix & pre_fprev, const NumericMatrix & pre_mprev, const NumericMatrix & within_fprev, const NumericMatrix & within_mprev,
-// 			  const NumericMatrix & pre_msurv, const NumericMatrix & pre_fsurv, const NumericMatrix & within_msurv, const NumericMatrix & within_fsurv,
-// 			  const NumericMatrix & within_art_cov,
-// 			  const List & PreActiveList, const List & WithinActiveList,
-// 			  const double &  bmb, const double &  bfb, const double &  bme, const double &  bfe, const double &  bmp, const double &  lrho,
-// 			  const double & acute_sc, int uselessnum,
-// 			  const bool & partner_arv, const double & cov_scalar) {
-
-// }
-
-
-
-
-// sampler <- function(sd.props = sd.props, inits, dat,
-//                     acute.sc,
-//                     multiv = F, covar = NULL, # if multiv, sample from multivariate distribution (calculated during adaptive phase)
-//                     verbose = T, tell = 100, seed = 1, lrho.sd = 1/2,
-//                     niter = 6*1000, survive = T, uncond.mort = F,
-//                     keep.seros = F, ## trace all serostate probabilities
-//                     nthin = 1,
-//                     nburn = 1000, browse=F)
-
-//   {
-//     if(browse)  browser()
-//     set.seed(seed)
-//     pars <- inits
-//     vv <- 2
-//     accept <- 0 ## track each parameters acceptance individually
-//     cur <- pcalc(pars, acute.sc = acute.sc, dat = dat, survive = survive, uncond.mort = uncond.mort, lrho.sd = lrho.sd)     #calculate first log probability
-//     lprob.cur <- cur$lprob
-//     out <- t(as.matrix(c(pars, bfp = as.numeric(pars["bmp"]*exp(pars["lrho"])))))
-//     if(keep.seros)      seros.out <- cur$seros
-//     last.it <- 0
-//     start <- Sys.time()
-//     while(vv < niter + 1) {
-//         if(verbose & vv%%tell+1==1) print(paste("on iteration",vv,"of",last.it + niter + 1))
-//         pars.prop <- pars              #initialize proposal parameterr vector
-//         ## propose new parameter vector
-//         if(multiv)          {
-//             pars.prop <- pars.prop + rmnorm(1, mean = 0, varcov = covar)
-//             pars.prop <- as.vector(pars.prop) #otherwise is a matrix
-//             names(pars.prop) <- parnames
-//           }else{
-//             pars.prop <- pars.prop + rnorm(length(pars), mean = 0, sd = sd.props)
-//           }
-//         ## trace = T if in non-thinned iteration, or the previous one (in case of rejection)
-//         ## calculate proposal par log probability
-//         prop <- pcalc(pars.prop, acute.sc = acute.sc, dat = dat, survive = survive, uncond.mort = uncond.mort, lrho.sd = lrho.sd)
-//         lprob.prop <- prop$lprob
-//         lmh <- lprob.prop - lprob.cur       # log Metropolis-Hastings ratio
-//         ## if MHR >= 1 or a uniform random # in [0,1] is <= MHR, accept otherwise reject
-//         if(lmh >= 0 | runif(1,0,1) <= exp(lmh)) {
-//             pars <- pars.prop
-//             if(vv>nburn) accept <- accept + 1 #only track acceptance after burn-in
-//             lprob.cur <- lprob.prop
-//             cur <- prop
-//           }
-//         if(vv%%nthin + 1 ==1) {
-//             out <- rbind(out,t(as.matrix(c(pars, bfp = as.numeric(pars["bmp"]*exp(pars["lrho"]))))))
-//             if(keep.seros)      seros.out <- abind(seros.out, cur$seros, along = 3)
-//         }
-//         vv <- vv+1
-//     }
-//     if(verbose) print(paste("took", difftime(Sys.time(),start, units = "mins"),"mins"))
-//     aratio <- accept/((vv-nburn))
-//     give <- 1:nrow(out)>(nburn+1)/nthin
-//     if(keep.seros) seros.out <- seros.out[,,give] else seros.out <- NULL
-//     return(list(out = out[give,], aratio = aratio, inits = inits, seros.arr=seros.out))
-// }
-
-
 
 // [[Rcpp::export]]
 NumericMatrix cplC(const int & max_bd,
@@ -415,9 +329,9 @@ NumericMatrix cplC(const int & max_bd,
   NumericVector pmb(numcouples);
   NumericVector pmbA(numcouples);
 // For each time step up until max time
-  NumericMatrix serosO = clone(seros); 
-  for(int tt = 0; tt < max_bd; ++tt) { 
-    serosO = seros; // Copy old seros (last state from which to iterate forward)
+  NumericMatrix serosO = clone(seros);
+  for(int tt = 0; tt < max_bd; ++tt) {
+    std::copy(&seros(0,0), &seros(0,0) + numcouples*3, &serosO(0,0)); 
     IntegerVector active = PreActiveList[tt]; // Currently active couples,
     numactive = active.size();		 // Number of active couples
     if (min(active) < 0) stop("active < 0"); // Check indices are contained within arrays
@@ -438,6 +352,30 @@ NumericMatrix cplC(const int & max_bd,
   }   // end month or pre-couple duration iteration
 return seros;
 }
+
+// [[Rcpp::export]]
+NumericMatrix copyc(NumericMatrix x) {
+  NumericMatrix x2(10,10);
+  std::copy(&x(0,0), &x(0,0) + 10*10, &x2(0,0)); 
+  return x2;
+}
+
+
+// [[Rcpp::export]]
+NumericVector copyv(NumericVector x) {
+  NumericVector x2(100);
+  // std::copy(&x(0,0), &x(0,0) + 10*10, &x2(0,0)); 
+  return x2;
+}
+
+
+// // [[Rcpp::export]]
+// NumericVector copyc(NumericVector x) {
+//   NumericVector x2[10];
+//   memcpy(x2, x, 10);
+//   // std::copy(&x[0][0], &x[0][0] + 10, &x2[0][0]); 
+//   return x2;
+// }
 
 
 /*** R
