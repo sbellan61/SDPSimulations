@@ -2,8 +2,8 @@
 ## Collect, summarize, & visualize results from counterfactual simulations.
 ####################################################################################################
 rm(list=ls())                           # clear workspace
-setwd('/home1/02413/sbellan/SDPSimulations/')     # setwd
-source('PlotFunctions.r')                    # load functions to collect & plot results
+if(grepl('tacc', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/DHSProject/SDPSimulations/')
+source('PlotFunctions.R')                    # load functions to collect & plot results
 source('SimulationFunctions.R')                   # load simulation functions
 library(abind)                          # array binding
 load('data files/ds.nm.all.Rdata')        # country names
@@ -22,10 +22,10 @@ fs <- list.files(pattern = '.Rdata', path = file.path(dir.results), recursive = 
 fs <- fs[!grepl('blocks',fs) & !grepl('cfs',fs)]
 #fs <- fs[grepl('Acute7',fs)]
 print(length(fs))
-    
+
 ## coll: collects all results into data frame of input parameters, and array of time series
 if(!file.exists(file.path(dir.results, 'cfs.Rdata')) | do.again) {
-  cfs <- coll(fs, nc = 12, give.ev = F)
+  cfs <- coll(fs, nc = 12, give.ev = F, lbrowse=F, trace=F)
   cfs$cframe <- cfs$cframe[order(cfs$cframe$job),] # order by jobs
   cfs$t.arr <- cfs$t.arr[,,order(cfs$cframe$job)]          # ditto
   attach(cfs) # for convenience, be careful later!
@@ -179,138 +179,235 @@ for(cc in countries) {   # make summary figures for each country
 }
 
 ####################################################################################################
-## Figure 2 for the manuscript
+## Figure 2 for the manuscript - Homogeneous
 ####################################################################################################
-col.pl <- 'white'
+col.pl <- 'black'
 ac <- 7 ## acute phase RH to use in Figure
 for(one.file in c(F,T)) {
-  leg.cex <- .57
-  rmp <- colorRampPalette(c("yellow","red"))
-  hazm <- c('bmb.sc','bme.sc','bmp.sc')   ## for each route get simjob with as fitted, 0, 10 scalars; acuteRH=7, no heterogeneity
-  inds <- matrix(NA, 4,3)
-  for(bb in 1:2) inds[bb,] <- c(1,blocks$start[bb+2],blocks$end[bb+2])
-  for(bb in 3) inds[bb,] <- c(1,blocks$start[bb+2]+1,blocks$end[bb+2])
-  inds[4,] <- c(1,90:91)
-  inds <- rbind(c(1,2,NA), inds)
-  bltd <- c(2:5,17) ## blocks to show in summary figure (no AIDS mortality, 3 routes, within-couple, heterogeneity)
-  tbl <- list(lab = blocks$lab[bltd], seq = list(inds[1,], inds[2,], inds[3,], inds[4,], inds[5,])) ## 5 blocks for figure
-  mains <- c('A','B','C','D','E')
-  mains <- c('mortality','pre-couple \ncontact coefficient','extra-couple \ncontact coefficient',
-             'intrinsic \ntransmission rate', 'heterogeneity \nin transmission')
-  ltys <- 1:3
-  lwds <- c(3,1.2,1.2)
-  cx <- .9
-  if(one.file) pdf(file.path(dir.figs,paste0('Figure X - Counterfactual SummaryAc',ac,'.pdf')), w = 6.5, h = 3)
-  for(cc1 in countries) {
-    if(!one.file)  pdf(file.path(dir.figs,paste0('Figure X - Counterfactual Summary ', ds.nm[cc1],' Ac',ac,'.pdf')), w = 6.5, h = 3)
-    layout(matrix(c(1,6,2,7,3,8,4,9,5,10,11,11),2,6),w = c(rep(1,5),.85))
-    par(mar = c(3,1,2,0), oma = c(1,3,0,0), cex.lab = cx, cex.axis = cx, cex.main = cx, fg = col.pl, col.axis = col.pl,
-        col.lab = col.pl, col = col.pl, col.main = col.pl)
-    for(bb in 1:5) {
-      jst <- c(1, tbl$seq[[bb]])
-      js <- which(cframe$simj %in% jst)
-      js <- js[cframe$acute.sc[js]==ac & cframe$group.ind[js]==cc1] # select sims for this acute phase RH & country
-      main <- mains[bb]
-      js1 <- cframe$job[js[cframe$simj[js]==1]] # which line was as fitted? always simj=1
-      set.labs(bb,js)
-      yaxt <- ifelse(bb==1, T, F)
-      if(bb==1) cols <- c('black', 'gray')
-      if(bb>1) cols <- c('black', 'gray', 'gray')
-      ltys <- c(1,1,2)
-      plot.sdp.nsub(js = js, leg = leg, js1 = js1, make.pdf = F, early.yr = 1985, show.pts = show.pts, pts.group = cc1,
-                    main = main, cex.leg = .8, yaxt = yaxt, ylab = '', ltys = ltys, lwds = lwds, cols = cols,
-                    title = legtitle, browse=F, col.pl = col.pl, show.leg = F, sep.leg = F)
-      ## if(bb==1) legend('bottomleft', c('as fitted', 'no AIDS mortality'), lwd = 2:1, lty = 1:2, col = c('black', rmp(2)[2]), bty = 'n', cex = leg.cex)
-      ## if(bb%in%2:3) legend('bottomleft', c('set to 0', 'as fitted', 'scaled X 10'), lwd = c(1,2,1), lty = c(2,1,3),
-      ##                      col = c(rmp(3)[2], 'black', rmp(3)[3]), bty = 'n', cex = leg.cex)
-      ## if(bb%in%4) legend('bottomleft', c('scaled X 1/10', 'as fitted', 'scaled X 10'), lwd = c(1,2,1), lty = c(2,1,3),
-      ##                    col = c(rmp(3)[2], 'black', rmp(3)[3]), bty = 'n', cex = leg.cex)
-      ## if(bb==5) legend('bottomleft', c('as fitted', 'std dev = 1', 'std dev = 2'), lwd = c(2,1,1), lty = 1:3,
-      ##      col = c('black', rmp(3)[2:3]), bty = 'n', cex = leg.cex)
-      if(bb==1) legend('bottomleft', c('as fitted', 'no AIDS mortality'), lwd = 2:1, lty = 1, col = c('black', 'gray'), bty = 'n', cex = leg.cex)
-      if(bb%in%2:3) legend('bottomleft', c('set to 0', 'as fitted', 'scaled X 10'), lwd = c(1,2,1), lty = c(1,1,2),
-                           col = c( 'gray', 'black', 'gray'), bty = 'n', cex = leg.cex)
-      if(bb%in%4) legend('bottomleft', c('scaled X 1/10', 'as fitted', 'scaled X 10'), lwd = c(1,2,1), lty = c(1,1,2),
-                         col = c( 'gray', 'black',  'gray'), bty = 'n', cex = leg.cex)
-      if(bb==5) legend('bottomleft', c('as fitted', 'std dev = 1', 'std dev = 2'), lwd = c(2,1,1), lty = c(1,1,2),
-           col = c('black',  'gray', 'gray'), bty = 'n', cex = leg.cex)
-    }
+    leg.cex <- .57
+    rmp <- colorRampPalette(c("yellow","red"))
+    hazm <- c('bmb.sc','bme.sc','bmp.sc')   ## for each route get simjob with as fitted, 0, 10 scalars; acuteRH=7, no heterogeneity
+    inds <- matrix(NA, 4,3)
+    for(bb in 1:2) inds[bb,] <- c(1,blocks$start[bb+2],blocks$end[bb+2])
+    for(bb in 3) inds[bb,] <- c(1,blocks$start[bb+2]+1,blocks$end[bb+2])
+    inds[4,] <- c(1,90:91)
+    inds <- rbind(c(1,2,NA), inds)
+    bltd <- c(2:5,17) ## blocks to show in summary figure (no AIDS mortality, 3 routes, within-couple, heterogeneity)
+    tbl <- list(lab = blocks$lab[bltd], seq = list(inds[1,], inds[2,], inds[3,], inds[4,], inds[5,])) ## 5 blocks for figure
+    mains <- c('A','B','C','D','E')
+    mains <- c('mortality','pre-couple \ncontact coefficient','extra-couple \ncontact coefficient',
+               'intrinsic \ntransmission rate', 'heterogeneity \nin transmission')
+    ltys <- 1:3
+    lwds <- c(3,1.2,1.2)
+    cx <- .9
+    if(one.file) pdf(file.path(dir.figs,paste0('Figure X - Counterfactual SummaryAc',ac,'.pdf')), w = 6.5, h = 3)
+    for(cc1 in countries) {
+        if(!one.file)  pdf(file.path(dir.figs,paste0('Figure X - Counterfactual Summary ', ds.nm[cc1],' Ac',ac,'.pdf')), w = 6.5, h = 3)
+        layout(t(matrix(c(1:4,9,5:8,9),5,2)),w = c(rep(1,4),.85))
+        par(mar = c(3,1,2,0), oma = c(1,3,0,0), cex.lab = cx, cex.axis = cx, cex.main = cx, fg = col.pl, col.axis = col.pl,
+            col.lab = col.pl, col = col.pl, col.main = col.pl)
+        for(bb in 1:4) {
+            jst <- c(1, tbl$seq[[bb]])
+            js <- which(cframe$simj %in% jst)
+            js <- js[cframe$acute.sc[js]==ac & cframe$group.ind[js]==cc1] # select sims for this acute phase RH & country
+            main <- mains[bb]
+            js1 <- cframe$job[js[cframe$simj[js]==1]] # which line was as fitted? always simj=1
+            set.labs(bb,js)
+            yaxt <- ifelse(bb==1, T, F)
+            if(bb==1) cols <- c('black', 'gray')
+            if(bb>1) cols <- c('black', 'gray', 'gray')
+            ltys <- c(1,1,2)
+            plot.sdp.nsub(js = js, leg = leg, js1 = js1, make.pdf = F, early.yr = 1985, show.pts = show.pts, pts.group = cc1,
+                          main = main, cex.leg = .8, yaxt = yaxt, ylab = '', ltys = ltys, lwds = lwds, cols = cols,
+                          title = legtitle, browse=F, col.pl = col.pl, show.leg = F, sep.leg = F)
+            ## if(bb==1) legend('bottomleft', c('as fitted', 'no AIDS mortality'), lwd = 2:1, lty = 1:2, col = c('black', rmp(2)[2]), bty = 'n', cex = leg.cex)
+            ## if(bb%in%2:3) legend('bottomleft', c('set to 0', 'as fitted', 'scaled X 10'), lwd = c(1,2,1), lty = c(2,1,3),
+            ##                      col = c(rmp(3)[2], 'black', rmp(3)[3]), bty = 'n', cex = leg.cex)
+            ## if(bb%in%4) legend('bottomleft', c('scaled X 1/10', 'as fitted', 'scaled X 10'), lwd = c(1,2,1), lty = c(2,1,3),
+            ##                    col = c(rmp(3)[2], 'black', rmp(3)[3]), bty = 'n', cex = leg.cex)
+            ## if(bb==5) legend('bottomleft', c('as fitted', 'std dev = 1', 'std dev = 2'), lwd = c(2,1,1), lty = 1:3,
+            ##      col = c('black', rmp(3)[2:3]), bty = 'n', cex = leg.cex)
+            if(bb==1) legend('bottomleft', c('as fitted', 'no AIDS mortality'), lwd = 2:1, lty = 1, col = c('black', 'gray'), bty = 'n', cex = leg.cex)
+            if(bb%in%2:3) legend('bottomleft', c('set to 0', 'as fitted', 'scaled X 10'), lwd = c(1,2,1), lty = c(1,1,2),
+                                 col = c( 'gray', 'black', 'gray'), bty = 'n', cex = leg.cex)
+            if(bb%in%4) legend('bottomleft', c('scaled X 1/10', 'as fitted', 'scaled X 10'), lwd = c(1,2,1), lty = c(1,1,2),
+                               col = c( 'gray', 'black',  'gray'), bty = 'n', cex = leg.cex)
+            if(bb==5) legend('bottomleft', c('as fitted', 'std dev = 1', 'std dev = 2'), lwd = c(2,1,1), lty = c(1,1,2),
+                   col = c('black',  'gray', 'gray'), bty = 'n', cex = leg.cex)
+        }
 ####################################################################################################
-    ## Extract SDP's from 2008 for all scenarios to plot in 2nd row of figure
-    par(mar = c(3,1,.5,0))
-    cols <- rainbow(length(ds.nm))
-    ylab <- '' #ifelse(rr==1,'SDP','')
-    xmax <- c(1,10,10,10,2)
-    for(rr in 1:5) {
-      yaxt <- ifelse(rr==1, T, F)
-      if(rr %in% 2:4) {
-        logd <- 'x'
-        xlim <- c(.04, 10.5)
-      }else{
-        logd <- ''
-        if(rr==1)  xlim <- c(-.2,1.2)     else    xlim <- c(-.2,3.2)
-      }   
-      plot(1,1, type = 'n', xlim = xlim, ylim = c(0,1), bty = 'n', axes = F,
-           xlab = '', ylab = ylab, main = '', log = logd)
-      if(rr==1)     axis(1, at = c(0,1), c('no AIDS \nmortality','as fitted'), las =1, padj = 1)
-      if(rr %in% c(2:4))    {
-        axis(1, at = c(.1,.2,.5,1,2,5,10), label = c('0.1','0.2','0.5','1','2','5','10'), las = 2)
-        if(rr<4) axis(1, at = c(.05), '0', las = 2)
-      }
-      if(rr==5)             axis(1, at = 0:3)
-      if(rr ==5) {
-        grcol <- rgb(t(col2rgb(gray(.6), alpha = .5)),max=255)
-        segments(0,0,0,1, col = grcol, lwd = 3)
-      }else{
-        grcol <- rgb(t(col2rgb(gray(.6), alpha = .5)),max=255)
-        segments(1,0,1,1, col = grcol, lwd = 3)
-      }
-      if(yaxt) axis(2, at = seq(0,1,l=5), las = 2) else axis(2, at = seq(0,1,l=5), labels = NA)
-      yrind <- which(t.arr[,2,1]==2008)
-      for(cc in countries)   {
-        if(rr==1) { 
-          sel <- which(cframe$group.ind==cc & cframe$simj %in% 1:2 & cframe$acute.sc==ac)
-          lines(c(1,0), (t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel], col = cols[cc], type = 'l', pch = 19, lty = 1)
+        ## Extract SDP's from 2008 for all scenarios to plot in 2nd row of figure
+        par(mar = c(3,1,.5,0))
+        cols <- rainbow(length(ds.nm))
+        ylab <- '' #ifelse(rr==1,'SDP','')
+        xmax <- c(1,10,10,10,2)
+        for(rr in 1:4) {
+            yaxt <- ifelse(rr==1, T, F)
+            if(rr %in% 2:4) {
+                logd <- 'x'
+                xlim <- c(.04, 10.5)
+            }else{
+                logd <- ''
+                if(rr==1)  xlim <- c(-.2,1.2)     else    xlim <- c(-.2,3.2)
+            }   
+            plot(1,1, type = 'n', xlim = xlim, ylim = c(0,1), bty = 'n', axes = F,
+                 xlab = '', ylab = ylab, main = '', log = logd)
+            if(rr==1)     axis(1, at = c(0,1), c('no AIDS \nmortality','as fitted'), las =1, padj = 1)
+            if(rr %in% c(2:4))    {
+                axis(1, at = c(.1,.2,.5,1,2,5,10), label = c('0.1','0.2','0.5','1','2','5','10'), las = 2)
+                if(rr<4) axis(1, at = c(.05), '0', las = 2)
+            }
+            if(rr==5)             axis(1, at = 0:3)
+            if(rr ==5) {
+                grcol <- rgb(t(col2rgb(gray(.6), alpha = .5)),max=255)
+                segments(0,0,0,1, col = grcol, lwd = 3)
+            }else{
+                grcol <- rgb(t(col2rgb(gray(.6), alpha = .5)),max=255)
+                segments(1,0,1,1, col = grcol, lwd = 3)
+            }
+            if(yaxt) axis(2, at = seq(0,1,l=5), las = 2) else axis(2, at = seq(0,1,l=5), labels = NA)
+            yrind <- which(t.arr[,2,1]==2008)
+            for(cc in countries)   {
+                if(rr==1) { 
+                    sel <- which(cframe$group.ind==cc & cframe$simj %in% 1:2 & cframe$acute.sc==ac)
+                    lines(c(1,0), (t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel], col = cols[cc], type = 'l', pch = 19, lty = 1)
+                }
+                if(rr==2) {
+                    sel <- which(cframe$group.ind==cc & cframe$simj %in% blocks$start[bltd[rr]]:blocks$end[bltd[rr]] & cframe$acute.sc==ac)
+                    xs <- cframe$bmb.sc[sel]
+                    xs[cframe$bmb.sc[sel]==0] <- .05 # since on a log scale
+                    lines(xs, (t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel],
+                          col = cols[cc], type = 'l', pch = 19, lty = 1)
+                }
+                if(rr==3) {
+                    sel <- which(cframe$group.ind==cc & cframe$simj %in% blocks$start[bltd[rr]]:blocks$end[bltd[rr]] & cframe$acute.sc==ac)
+                    xs <- cframe$bme.sc[sel]
+                    xs[cframe$bme.sc[sel]==0] <- .05 # since on a log scale
+                    lines(xs, (t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel],
+                          col = cols[cc], type = 'l', pch = 19, lty = 1)
+                }
+                if(rr %in% 4) {
+                    sel <- which(cframe$group.ind==cc & cframe$simj %in% (blocks$start[bltd[rr]]+1):blocks$end[bltd[rr]] & cframe$acute.sc==ac) 
+                    lines(cframe$bmp.sc[sel], (t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel], col = cols[cc], type = 'l', pch = 19, lty = 1)
+                }
+                if(rr == 5) {
+                    sel <- which(cframe$group.ind==cc & cframe$simj %in% c(1,90:92) & cframe$acute.sc==ac)
+                    lines(cframe$het.gen.sd[sel], (t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel],
+                          col = cols[cc], type = 'l', pch = 19, lty = 1)
+                } 
+            }
         }
-        if(rr==2) {
-          sel <- which(cframe$group.ind==cc & cframe$simj %in% blocks$start[bltd[rr]]:blocks$end[bltd[rr]] & cframe$acute.sc==ac)
-          xs <- cframe$bmb.sc[sel]
-          xs[cframe$bmb.sc[sel]==0] <- .05 # since on a log scale
-          lines(xs, (t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel],
-                col = cols[cc], type = 'l', pch = 19, lty = 1)
-        }
-        if(rr==3) {
-          sel <- which(cframe$group.ind==cc & cframe$simj %in% blocks$start[bltd[rr]]:blocks$end[bltd[rr]] & cframe$acute.sc==ac)
-          xs <- cframe$bme.sc[sel]
-          xs[cframe$bme.sc[sel]==0] <- .05 # since on a log scale
-          lines(xs, (t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel],
-                col = cols[cc], type = 'l', pch = 19, lty = 1)
-        }
-        if(rr %in% 4) {
-          sel <- which(cframe$group.ind==cc & cframe$simj %in% (blocks$start[bltd[rr]]+1):blocks$end[bltd[rr]] & cframe$acute.sc==ac) 
-          lines(cframe$bmp.sc[sel], (t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel], col = cols[cc], type = 'l', pch = 19, lty = 1)
-        }
-        if(rr == 5) {
-          sel <- which(cframe$group.ind==cc & cframe$simj %in% c(1,90:92) & cframe$acute.sc==ac)
-          lines(cframe$het.gen.sd[sel], (t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel],
-                col = cols[cc], type = 'l', pch = 19, lty = 1)
-        } 
-      }
+        mtext('serodiscordant proportion (SDP)', side = 2, line = 2, adj = .5, cex = leg.cex, outer = T)
+        mtext('scalar multiple of fitted parameter used', side = 1, line = -.3, adj = .35, cex = leg.cex, outer = T)
+        mtext('standard deviation \nof risk distribution', side = 1, line = 3, adj = .5, cex = leg.cex, outer = F)      
+        plot.new()
+        par(mar=c(0,0,0,0))
+        sel <- which(cframe$simj==1 & cframe$acute.sc==ac)
+        ord <- rev(order((t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel]))
+        save(ord, file='data files/sdp ord.Rdata')
+        par(xpd=NA)
+        legend('bottomleft', ds.nm[ord], col=rainbow(length(sel))[ord], lwd = 1, title = 'top to bottom', cex = .8, inset = -.1)
+        if(one.file) mtext(ds.nm[cc1], adj = 0.5, line = -2, side = 3, outer = F, cex = .75)
+        if(!one.file) dev.off()
     }
-    mtext('serodiscordant proportion (SDP)', side = 2, line = 2, adj = .5, cex = leg.cex, outer = T)
-    mtext('scalar multiple of fitted parameter used', side = 1, line = -.3, adj = .35, cex = leg.cex, outer = T)
-    mtext('standard deviation \nof risk distribution', side = 1, line = 3, adj = .5, cex = leg.cex, outer = F)      
-    plot.new()
-    par(mar=c(0,0,0,0))
-    sel <- which(cframe$simj==1 & cframe$acute.sc==ac)
-    ord <- rev(order((t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel]))
-    save(ord, file='data files/sdp ord.Rdata')
-    par(xpd=NA)
-    legend('bottomleft', ds.nm[ord], col=rainbow(length(sel))[ord], lwd = 1, title = 'top to bottom', cex = .8, inset = -.1)
-    if(one.file) mtext(ds.nm[cc1], adj = 0.5, line = -2, side = 3, outer = F, cex = .75)
-    if(!one.file) dev.off()
-  }
-  if(one.file)    dev.off()
+    if(one.file)    dev.off()
+}
+graphics.off()
+
+
+####################################################################################################
+## Figure 3 for the manuscript - Heterogeneity and Assortativity
+####################################################################################################
+col.pl <- 'black'
+ac <- 7 ## acute phase RH to use in Figure
+for(one.file in c(F,T)) {
+    
+    leg.cex <- .57
+    rmp <- colorRampPalette(c("yellow","red"))
+    hazm <- c('bmb.sc','bme.sc','bmp.sc')   ## for each route get simjob with as fitted, 0, 10 scalars; acuteRH=7, no heterogeneity
+    inds <- rbind(c(1,90:91), c(1, 118:119), c(1,146:147))
+    bltd <- c(17, 24, 31) ## blocks to show in summary figure (no AIDS mortality, 3 routes, within-couple, heterogeneity)
+    mains <- paste0('(',LETTERS[1:3],')')
+    ## mains <- paste0('heterogeneity, ', c(0, 0.4, 0.8), ' inter-partner correlation') ##c('heterogeneity \nin transmission', 'assortativity \nin transmission')
+    tbl <- list(lab = blocks$lab[bltd], seq = list(inds[1,], inds[2,], inds[3,])) ## 5 blocks for figure
+
+    ltys <- 1:3
+    lwds <- c(3,1.2,1.2)
+    cx <- .9
+    if(one.file) pdf(file.path(dir.figs,paste0('Figure X - Counterfactual SummaryAc',ac,'.pdf')), w = 6.5, h = 3)
+    for(cc1 in countries) {
+        
+        if(!one.file)  pdf(file.path(dir.figs,paste0('Figure X - Counterfactual Summary ', ds.nm[cc1],' Ac',ac,'.pdf')), w = 6.5, h = 3)
+        layout(t(matrix(c(1:3,7,4:6,7),4,2)),w = c(rep(1,3),.85))
+        par(mar = c(3,1,2,0), oma = c(1,3,0,0), cex.lab = cx, cex.axis = cx, cex.main = cx, fg = col.pl, col.axis = col.pl,
+            col.lab = col.pl, col = col.pl, col.main = col.pl)
+        for(bb in 1:3) {
+            jst <- c(1, tbl$seq[[bb]])
+            js <- which(cframe$simj %in% jst)
+            js <- js[cframe$acute.sc[js]==ac & cframe$group.ind[js]==cc1] # select sims for this acute phase RH & country
+            main <- mains[bb]
+            js1 <- cframe$job[js[cframe$simj[js]==1]] # which line was as fitted? always simj=1
+            set.labs(bb,js)
+            yaxt <- ifelse(bb==1, T, F)
+            if(bb==1) cols <- c('black', 'gray')
+            if(bb>1) cols <- c('black', 'gray', 'gray')
+            ltys <- c(1,1,2)
+            plot.sdp.nsub(js = js, leg = leg, js1 = js1, make.pdf = F, early.yr = 1985, show.pts = show.pts, pts.group = cc1,
+                          main = main, cex.leg = .8, yaxt = yaxt, ylab = '', ltys = ltys, lwds = lwds, cols = cols,
+                          title = legtitle, browse=F, col.pl = col.pl, show.leg = F, sep.leg = F)
+            legend('bottomleft', c('as fitted', 'std dev = 1', 'std dev = 2'), lwd = c(2,1,1), lty = c(1,1,2),
+                   col = c('black',  'gray', 'gray'), bty = 'n', cex = leg.cex)
+        }
+####################################################################################################
+        ## Extract SDP's from 2008 for all scenarios to plot in 2nd row of figure
+        par(mar = c(3,1,.5,0))
+        cols <- rainbow(length(ds.nm))
+        ylab <- '' #ifelse(rr==1,'SDP','')
+        xmax <- c(1,10,10,10,2)
+        for(rr in 1:3) {
+            yaxt <- ifelse(rr==1, T, F)
+            logd <- ''
+            xlim <- c(-.2,3.2)
+            plot(1,1, type = 'n', xlim = xlim, ylim = c(0,1), bty = 'n', axes = F,
+                 xlab = '', ylab = ylab, main = '', log = logd)
+            grcol <- rgb(t(col2rgb(gray(.6), alpha = .5)),max=255)
+            segments(0,0,0,1, col = grcol, lwd = 3)
+            if(yaxt) axis(2, at = seq(0,1,l=5), las = 2) else axis(2, at = seq(0,1,l=5), labels = NA)
+            axis(1, 0:3)
+            yrind <- which(t.arr[,2,1]==2008)
+            for(cc in countries)   {
+                if(rr == 1) {
+                    sel <- which(cframe$group.ind==cc & cframe$simj %in% c(1,90:92) & cframe$acute.sc==ac)
+                    lines(cframe$het.gen.sd[sel], (t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel],
+                          col = cols[cc], type = 'l', pch = 19, lty = 1)
+                }
+                if(rr == 2) {
+                    sel <- which(cframe$group.ind==cc & cframe$simj %in% c(1,118:120) & cframe$acute.sc==ac)
+                    lines(cframe$het.gen.sd[sel], (t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel],
+                          col = cols[cc], type = 'l', pch = 19, lty = 1)
+                }
+                if(rr == 3) {
+                    sel <- which(cframe$group.ind==cc & cframe$simj %in% c(1,146:148) & cframe$acute.sc==ac)
+                    lines(cframe$het.gen.sd[sel], (t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel],
+                          col = cols[cc], type = 'l', pch = 19, lty = 1)
+                }
+            }
+        }
+        mtext('serodiscordant proportion (SDP)', side = 2, line = 2, adj = .5, cex = leg.cex, outer = T)
+        mtext('standard deviation of risk distribution', side = 1, line = -.3, adj = .4, cex = leg.cex, outer = T)      
+        plot.new()
+        par(mar=c(0,0,0,0))
+        sel <- which(cframe$simj==1 & cframe$acute.sc==ac)
+        ord <- rev(order((t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel]))
+        save(ord, file='data files/sdp ord.Rdata')
+        par(xpd=NA)
+        legend('bottomleft', ds.nm[ord], col=rainbow(length(sel))[ord], lwd = 1, title = 'top to bottom', cex = .8, inset = -.1)
+        if(one.file) mtext(ds.nm[cc1], adj = 0.5, line = -2, side = 3, outer = F, cex = .75)
+        if(!one.file) dev.off()
+        
+    }
+    
+    if(one.file)    dev.off()
 }
 graphics.off()
 
