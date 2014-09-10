@@ -7,7 +7,7 @@
 ####################################################################################################
 ## Collect simulation results named by 'files' into arrays/dataframes
 coll <- function(files, give.ev = T,    # files to collect; return 'evout' (line list) array?
-                 nc = 12, browse = F)   # number cores; debug
+                 nc = 12, browse = F, lbrowse = F, trace=F)   # number cores; debug
   {
     if(browse) browser()              # debug
     ## make batches to divide between cores to increase speed
@@ -15,96 +15,104 @@ coll <- function(files, give.ev = T,    # files to collect; return 'evout' (line
     wrp <- function(bb, files = files, browse) { # wrapper function to feed to mclapply() for parallel processing
         if(browse) browser()
       files <- files[batchs == bb] # select batch
-      for(ff in 1:length(files)) { # loop through files
-        if(ff%%5 == 0) print(paste('collecting result file', ff, 'of', length(files))) # update on progress
-        load(files[ff]) 
-        if(ff==1) {     # initialize cframe (description of jobs), t.arr (time
+        for(ff in 1:length(files)) { # loop through files
+            if(trace)   print(fs[ff])
+            if(ff%%5 == 0) print(paste('collecting result file', ff, 'of', length(files))) # update on progress
+            load(files[ff])
+            if(ff==1) {     # initialize cframe (description of jobs), t.arr (time
                                         # serieses in array), e.arr (line lists in array)
-          t.arr.temp <- output$tss[output$tss$tt > 62*12, ]
-          if(max(t.arr.temp$tt) < 1356) { ## add rows up to 2013, do avoid doing all simulations that just did to 2011
-              temp <- t.arr.temp[1:(1356-max(t.arr.temp$tt)),] ## copy df structure
-              temp[,] <- NA
-              temp$tt <- (max(t.arr.temp$tt)+1):1356
-              t.arr.temp <- rbind(t.arr.temp, temp)
-          }
-         t.arr.temp$sdp <- (t.arr.temp[,'mm'] + t.arr.temp[,'ff']) / t.arr.temp[,'inf.alive']          
-          t.arr <- t.arr.temp
-          cframe <- data.frame(t(c(output$jobnum, output$simj, rakacRR = output$rakacRR, output$pars, output$hours,
-                                   sdp08 = t.arr.temp[which(t.arr.temp$yr==2008),'sdp'])))
-          ## causes of infection (m/f): before = 1, extra = 2, partner = 3, not infected = 4.
-          output$ev$mcoi <- as.numeric(output$ev$mcoi) 
-          output$ev$fcoi <- as.numeric(output$ev$fcoi)
-          if(give.ev) { # if returning line list
-            ## Next if statement: if parametrically sampling couple formation (marital) dates,
-            ## select 98% of first line list, and sample that from the
-            ## populations to account fo the fact that each simulation has
-            ## slightly different # of couples (otherwise can't store in
-            ## array due to different sizes.
-            if(output$pars['sample.tmar']==1 & output$pars['psNonPar']==0) {
-              maxrow <- round(.98*nrow(output$ev))
-              samp <- sample(1:nrow(output$ev), maxrow )
-            }else{ samp <- 1:nrow(output$ev)} # return all data
-            col.nms <- c( "uid", "ser", "tms", "tfs", "tmar", # variables to return
-                         "tint", "mardur.mon","mage", "fage", "epic.ind", 
-                         "mser", "fser", "mdoi", "fdoi", "mdod", 
-                         "fdod", "mcoi", "fcoi",'dage','dmage','dfage',
-                         'm.het.b','f.het.b','m.het.e','f.het.e','m.het.p','f.het.p',
-                         "m.het.gen", "f.het.gen",
-                         "m.het.beh", "f.het.beh", "malive", "falive", "alive", 
-                         "tend", "tmsdc", "tfsdc", "tccc", "msdc", 
-                         "fsdc", "ccc")       
-            e.arr <- output$ev[samp,col.nms] # select rows & columns to return
-          }
-        }else{      # append cframe, t.arr, e.arr
-          t.arr.temp <- output$tss[output$tss$tt > 62*12, ]
-         t.arr.temp$sdp <- (t.arr.temp[,'mm'] + t.arr.temp[,'ff']) / t.arr.temp[,'inf.alive']
-          cframe <- rbind(cframe, data.frame(t(c(output$jobnum, output$simj, rakacRR = output$rakacRR,
-                                                 output$pars, output$hours, sdp08 = t.arr.temp[which(t.arr.temp$yr==2008),'sdp'])))) # append
-          if(max(t.arr.temp$tt) < 1356) { ## add rows up to 2013, do avoid doing all simulations that just did to 2011
-              temp <- t.arr.temp[1:(1356-max(t.arr.temp$tt)),] ## copy df structure
-              temp[,] <- NA
-              temp$tt <- (max(t.arr.temp$tt)+1):1356
-              t.arr.temp <- rbind(t.arr.temp, temp)
-          }
-          t.arr <- abind(t.arr, t.arr.temp, along = 3) # append
-          if(give.ev) { # must be numeric since it's an array
-            output$ev$mcoi <- as.numeric(output$ev$mcoi)
-            output$ev$fcoi <- as.numeric(output$ev$fcoi)
-            if(output$pars['sample.tmar']==1 & output$pars['psNonPar']==0) { 
-              samp <- sample(1:nrow(output$ev), maxrow )# downsample as above
-            }else{ samp <- 1:nrow(output$ev)}             # complete sample
-            e.arr <- abind(e.arr, output$ev[samp,col.nms], along = 3) # append
-          }
+                t.arr.temp <- output$tss[output$tss$tt > 62*12, ]
+                if(max(t.arr.temp$tt) < 1356) { ## add rows up to 2013, do avoid doing all simulations that just did to 2011
+                    temp <- t.arr.temp[1:(1356-max(t.arr.temp$tt)),] ## copy df structure
+                    temp[,] <- NA
+                    temp$tt <- (max(t.arr.temp$tt)+1):1356
+                    t.arr.temp <- rbind(t.arr.temp, temp)
+                }
+                t.arr.temp$sdp <- (t.arr.temp[,'mm'] + t.arr.temp[,'ff']) / t.arr.temp[,'inf.alive']          
+                t.arr <- t.arr.temp
+
+                cframe <- data.frame(t(c(output$jobnum, output$simj, rakacRR = output$rakacRR, output$pars, output$hours,
+                                         sdp08 = t.arr.temp[which(t.arr.temp$yr==2008),'sdp'])))
+                ## causes of infection (m/f): before = 1, extra = 2, partner = 3, not infected = 4.
+                output$ev$mcoi <- as.numeric(output$ev$mcoi) 
+                output$ev$fcoi <- as.numeric(output$ev$fcoi)
+                if(give.ev) { # if returning line list
+                    ## Next if statement: if parametrically sampling couple formation (marital) dates,
+                    ## select 98% of first line list, and sample that from the
+                    ## populations to account fo the fact that each simulation has
+                    ## slightly different # of couples (otherwise can't store in
+                    ## array due to different sizes.
+                    if(output$pars['sample.tmar']==1 & output$pars['psNonPar']==0) {
+                        maxrow <- round(.98*nrow(output$ev))
+                        samp <- sample(1:nrow(output$ev), maxrow )
+                    }else{ samp <- 1:nrow(output$ev)} # return all data
+                    col.nms <- c( "uid", "ser", "tms", "tfs", "tmar", # variables to return
+                                 "tint", "mardur.mon","mage", "fage", "epic.ind", 
+                                 "mser", "fser", "mdoi", "fdoi", "mdod", 
+                                 "fdod", "mcoi", "fcoi",'dage','dmage','dfage',
+                                 'm.het.b','f.het.b','m.het.e','f.het.e','m.het.p','f.het.p',
+                                 "m.het.gen", "f.het.gen",
+                                 "m.het.beh", "f.het.beh", "malive", "falive", "alive", 
+                                 "tend", "tmsdc", "tfsdc", "tccc", "msdc", 
+                                 "fsdc", "ccc")       
+                    e.arr <- output$ev[samp,col.nms] # select rows & columns to return
+                }
+            }else{      # append cframe, t.arr, e.arr
+                t.arr.temp <- output$tss[output$tss$tt > 62*12, ]
+                t.arr.temp$sdp <- (t.arr.temp[,'mm'] + t.arr.temp[,'ff']) / t.arr.temp[,'inf.alive']
+                to.append <- data.frame(t(c(output$jobnum, output$simj, rakacRR = output$rakacRR,
+                                            output$pars, output$hours, sdp08 = t.arr.temp[which(t.arr.temp$yr==2008),'sdp'])))
+                ## see if there are parameter mismatches between sims with different code versions, i.e. added hilo options 7/2014 without using
+                names.to.add.cf <- names(to.append)[!names(to.append) %in% names(cframe)] 
+                if(length(names.to.add.cf)>0) for(nm in names.to.add.cf) cframe[,nm] <- NA
+                names.to.add.ta <- names(cframe)[!names(cframe) %in% names(to.append)] 
+                if(length(names.to.add.ta)>0) for(nm in names.to.add.ta) to.append[,nm] <- NA
+                cframe <- rbind(cframe, to.append) # append
+                if(max(t.arr.temp$tt) < 1356) { ## add rows up to 2013, do avoid doing all simulations that just did to 2011
+                    temp <- t.arr.temp[1:(1356-max(t.arr.temp$tt)),] ## copy df structure
+                    temp[,] <- NA
+                    temp$tt <- (max(t.arr.temp$tt)+1):1356
+                    t.arr.temp <- rbind(t.arr.temp, temp)
+                }
+                t.arr <- abind(t.arr, t.arr.temp, along = 3) # append
+                if(give.ev) { # must be numeric since it's an array
+                    output$ev$mcoi <- as.numeric(output$ev$mcoi)
+                    output$ev$fcoi <- as.numeric(output$ev$fcoi)
+                    if(output$pars['sample.tmar']==1 & output$pars['psNonPar']==0) { 
+                        samp <- sample(1:nrow(output$ev), maxrow )# downsample as above
+                    }else{ samp <- 1:nrow(output$ev)}             # complete sample
+                    e.arr <- abind(e.arr, output$ev[samp,col.nms], along = 3) # append
+                }
+            }
         }
-      }
-      if(give.ev) {           
-        return(list(cframe = cframe, t.arr = t.arr, e.arr = e.arr))
-      }else{
-        return(list(cframe = cframe, t.arr = t.arr))
-      }
+        if(give.ev) {           
+            return(list(cframe = cframe, t.arr = t.arr, e.arr = e.arr))
+        }else{
+            return(list(cframe = cframe, t.arr = t.arr))
+        }
     } ## end multicore wrapper
     temp <- mclapply(1:nc, wrp, files = files, browse = browse) # send wrp tasks to cores
-#    browser()
+    if(lbrowse) browser()
     for(ii in 1:nc) {                          ## collect results from single core outputs
-      if(ii==1) {                        ## initialize cframe, t.arr, e.arr
-        cframe <- temp[[ii]]$cframe
-        t.arr <- temp[[ii]]$t.arr
-        if(give.ev)     e.arr <- temp[[ii]]$e.arr
-      }else{              # append cframe, t.arr, e.arr
-        cframe <- rbind(cframe, temp[[ii]]$cframe)
-        t.arr <- abind(t.arr, temp[[ii]]$t.arr, along = 3)
-        if(give.ev)     e.arr <- abind(e.arr, temp[[ii]]$e.arr, along = 3)
-      }
+        if(ii==1) {                        ## initialize cframe, t.arr, e.arr
+            cframe <- temp[[ii]]$cframe
+            t.arr <- temp[[ii]]$t.arr
+            if(give.ev)     e.arr <- temp[[ii]]$e.arr
+        }else{              # append cframe, t.arr, e.arr
+            cframe <- rbind(cframe, temp[[ii]]$cframe)
+            t.arr <- abind(t.arr, temp[[ii]]$t.arr, along = 3)
+            if(give.ev)     e.arr <- abind(e.arr, temp[[ii]]$e.arr, along = 3)
+        }
     }                                                      
     names(cframe)[1] <- 'job'
     jord <- order(cframe$job)
     names(cframe)[2] <- 'simj'
     if(give.ev) { ## return results.
-      list(cframe = cframe[jord,], t.arr = t.arr[,,jord], e.arr = e.arr[,,jord])
+        list(cframe = cframe[jord,], t.arr = t.arr[,,jord], e.arr = e.arr[,,jord])
     }else{ ## return results without line lists.
-      list(cframe = cframe[jord,], t.arr = t.arr[,,jord])
+        list(cframe = cframe[jord,], t.arr = t.arr[,,jord])
     }
-  }
+}
 
 ####################################################################################################
 ## Plot time series array file from psrun()

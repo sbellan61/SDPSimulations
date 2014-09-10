@@ -3,7 +3,7 @@
 ## to run on a cluster.
 ####################################################################################################
 #rm(list=ls())                                  # clear workspace
-setwd('/home1/02413/sbellan/SDPSimulations/')     # setwd
+if(grepl('tacc', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/DHSProject/SDPSimulations/')
 load("data files/ds.nm.all.Rdata") # country names
 load('data files/pars.arr.ac.Rdata')    # load acute phase relative hazards used to fit (in.arr[,,2])
 load('data files/CFJobsToDo.Rdata') ## for finishing up jobs from last run that didn't get finished due to cluster problems.
@@ -181,16 +181,18 @@ for(aa in acutes)  {                    # loop through acute phase relative haza
                    " het.p=", het.p[ii], " het.p.sd=", het.p.sd[ii], " het.p.cor=", het.p.cor[ii],                     
                    " het.gen=", het.gen[ii], " het.gen.sd=", het.gen.sd[ii], " het.gen.cor=", het.gen.cor[ii],
                    " het.beh=", het.beh[ii], " het.beh.sd=", het.beh.sd[ii], " het.beh.cor=", het.beh.cor[ii],
+                   " hilo=F phihi=.2 phi.m=.2 phi.f=.2 rrhi.m=10 rrhi.f=10", ## default hilo parameters, not used
                    " scale.by.sd=", scale.by.sd[ii], " scale.adj=", scale.adj[ii],
                    " infl.fac=", infl.fac[ii], " maxN=", maxN[ii], " sample.tmar=", sample.tmar[ii],
                    " psNonPar=", psNonPar[ii], " seed=1 tmar=(65*12):(113*12) each=", each[ii],
                    " tint=113*12' SimulationStarter.R ", file.path(batchdirnm, "routs", paste0(ds.nm[group[ii]], ii, ".Rout")), sep='')
   #     if(totn %in% jtd & ii %in% 89:92 & aa==7) { ## for finishing up jobs that didn't get properly submitted (cluster issues sometimes)
+       if(ii %in% c(117:120,145:148) & aa==7) { ## for finishing up jobs that didn't get properly submitted (cluster issues sometimes)      
             num.doing <- num.doing+1
             cat(cmd)               # add command
             cat('\n')              # add new line
           }
-     #   }
+        }
     } 
 }
 sink()

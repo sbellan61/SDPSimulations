@@ -4,8 +4,7 @@
 rm(list=ls())                           # clear workspace
 gc()
 library(plyr); library(mgcv)
-
-setwd('DHSProject/SDPSimulations/')
+if(grepl('tacc', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/DHSProject/SDPSimulations/')
 
 source('PlotFunctions.R')                    # load functions to collect & plot results
 source('SimulationFunctions.R')                   # load simulation functions
