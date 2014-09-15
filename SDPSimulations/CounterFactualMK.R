@@ -187,13 +187,14 @@ for(aa in acutes)  {                    # loop through acute phase relative haza
                    " psNonPar=", psNonPar[ii], " seed=1 tmar=(65*12):(113*12) each=", each[ii],
                    " tint=113*12' SimulationStarter.R ", file.path(batchdirnm, "routs", paste0(ds.nm[group[ii]], ii, ".Rout")), sep='')
   #     if(totn %in% jtd & ii %in% 89:92 & aa==7) { ## for finishing up jobs that didn't get properly submitted (cluster issues sometimes)
-       if(ii %in% c(117:120,145:148) & aa==7) { ## for finishing up jobs that didn't get properly submitted (cluster issues sometimes)      
-            num.doing <- num.doing+1
-            cat(cmd)               # add command
-            cat('\n')              # add new line
-          }
-        }
-    } 
+      if(ii %in% c(1:26,89:92,117:120,145:148) & aa==7) { ## for finishing up jobs that didn't get properly submitted (cluster issues sometimes)
+      if(paste0(group[ii],'-',ii) %in% jtd) {
+          num.doing <- num.doing+1
+          cat(cmd)               # add command
+          cat('\n')              # add new line
+      }}
+  }
+} 
 }
 sink()
 blocks
