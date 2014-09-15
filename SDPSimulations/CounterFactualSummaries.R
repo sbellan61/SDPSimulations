@@ -45,11 +45,11 @@ mend <- max(blocks$end)                 # last job of each block
 countries <- unique(cframe$group.ind)   # countries simulated
 countries <- countries[order(countries)]
 ngroup <- length(countries)             # how many
-jtd <- which(!1:(mend*nac*ngroup) %in% cframe$job)    # jobs undone
-std <- which(is.na(t.arr[612,4,])) # jobs that weren't run up to 2013 yet
+jtd.all <- expand.grid(1:16, c(1:26,89:92,117:120,145:148))
+jtd.all <- paste0(jtd.all[,1],'-',jtd.all[,2])
+jtd <- jtd.all[which(!jtd.all %in% paste0(cframe$group.ind, '-', cframe$simj))]
 print(paste("didn't do jobs:",paste(head(jtd,50), collapse=','))) # check to see if any jobs didn't complete
 save(jtd, file='data files/CFJobsToDo.Rdata')
-save(std, file='data files/CFShort2011ToDo.Rdata')
 
 ## Set labels & indices for plotting below
 set.labs <- function(bb, js) {
@@ -178,6 +178,8 @@ for(cc in countries) {   # make summary figures for each country
   dev.off()
 }
 
+countries <- 1:16
+
 ####################################################################################################
 ## Figure 2 for the manuscript - Homogeneous
 ####################################################################################################
@@ -207,7 +209,7 @@ for(one.file in c(F,T)) {
         par(mar = c(3,1,2,0), oma = c(1,3,0,0), cex.lab = cx, cex.axis = cx, cex.main = cx, fg = col.pl, col.axis = col.pl,
             col.lab = col.pl, col = col.pl, col.main = col.pl)
         for(bb in 1:4) {
-            jst <- c(1, tbl$seq[[bb]])
+            jst <- c(tbl$seq[[bb]])
             js <- which(cframe$simj %in% jst)
             js <- js[cframe$acute.sc[js]==ac & cframe$group.ind[js]==cc1] # select sims for this acute phase RH & country
             main <- mains[bb]
@@ -314,48 +316,46 @@ for(one.file in c(F,T)) {
 }
 graphics.off()
 
-
 ####################################################################################################
 ## Figure 3 for the manuscript - Heterogeneity and Assortativity
 ####################################################################################################
 col.pl <- 'black'
 ac <- 7 ## acute phase RH to use in Figure
 for(one.file in c(F,T)) {
-    
     leg.cex <- .57
     rmp <- colorRampPalette(c("yellow","red"))
     hazm <- c('bmb.sc','bme.sc','bmp.sc')   ## for each route get simjob with as fitted, 0, 10 scalars; acuteRH=7, no heterogeneity
-    inds <- rbind(c(1,90:91), c(1, 118:119), c(1,146:147))
-    bltd <- c(17, 24, 31) ## blocks to show in summary figure (no AIDS mortality, 3 routes, within-couple, heterogeneity)
-    mains <- paste0('(',LETTERS[1:3],')')
-    ## mains <- paste0('heterogeneity, ', c(0, 0.4, 0.8), ' inter-partner correlation') ##c('heterogeneity \nin transmission', 'assortativity \nin transmission')
-    tbl <- list(lab = blocks$lab[bltd], seq = list(inds[1,], inds[2,], inds[3,])) ## 5 blocks for figure
-
+    inds <- rbind(c(1, 91:92), c(1,91,119))
+    bltd <- c(17, 24) ## blocks to show in summary figure (no AIDS mortality, 3 routes, within-couple, heterogeneity)
+    mains <- paste0('(',LETTERS[1:2],')')
+    mains <- c('transmission risk\nheterogeneity', 'transmission risk\nassortativity')
+    tbl <- list(lab = blocks$lab[bltd], seq = list(inds[1,], inds[2,]))
     ltys <- 1:3
     lwds <- c(3,1.2,1.2)
     cx <- .9
-    if(one.file) pdf(file.path(dir.figs,paste0('Figure X - Counterfactual SummaryAc',ac,'.pdf')), w = 6.5, h = 3)
+    if(one.file) pdf(file.path(dir.figs,paste0('Figure 3 - HetAssort SummaryAc',ac,'.pdf')), w = 6.5, h = 3)
     for(cc1 in countries) {
-        
-        if(!one.file)  pdf(file.path(dir.figs,paste0('Figure X - Counterfactual Summary ', ds.nm[cc1],' Ac',ac,'.pdf')), w = 6.5, h = 3)
-        layout(t(matrix(c(1:3,7,4:6,7),4,2)),w = c(rep(1,3),.85))
+        npan <- 2
+        if(!one.file)  pdf(file.path(dir.figs,paste0('Figure X - HetAssort SummaryAc ', ds.nm[cc1],' Ac',ac,'.pdf')), w = 4, h = 3)
+        layout(t(matrix(c(1:npan,npan*2+1,(npan+1):(2*npan),npan*2+1),npan+1,2)),w = c(rep(1,npan),.85))
         par(mar = c(3,1,2,0), oma = c(1,3,0,0), cex.lab = cx, cex.axis = cx, cex.main = cx, fg = col.pl, col.axis = col.pl,
             col.lab = col.pl, col = col.pl, col.main = col.pl)
-        for(bb in 1:3) {
-            jst <- c(1, tbl$seq[[bb]])
+        for(bb in 1:npan) {
+            jst <- c(tbl$seq[[bb]])
             js <- which(cframe$simj %in% jst)
             js <- js[cframe$acute.sc[js]==ac & cframe$group.ind[js]==cc1] # select sims for this acute phase RH & country
             main <- mains[bb]
             js1 <- cframe$job[js[cframe$simj[js]==1]] # which line was as fitted? always simj=1
             set.labs(bb,js)
             yaxt <- ifelse(bb==1, T, F)
-            if(bb==1) cols <- c('black', 'gray')
-            if(bb>1) cols <- c('black', 'gray', 'gray')
+            cols <- c('black', 'gray', 'gray')
             ltys <- c(1,1,2)
             plot.sdp.nsub(js = js, leg = leg, js1 = js1, make.pdf = F, early.yr = 1985, show.pts = show.pts, pts.group = cc1,
                           main = main, cex.leg = .8, yaxt = yaxt, ylab = '', ltys = ltys, lwds = lwds, cols = cols,
                           title = legtitle, browse=F, col.pl = col.pl, show.leg = F, sep.leg = F)
-            legend('bottomleft', c('as fitted', 'std dev = 1', 'std dev = 2'), lwd = c(2,1,1), lty = c(1,1,2),
+            if(bb==1)   legend('bottomleft', c('as fitted', 'std dev = 1', 'std dev = 2'), lwd = c(2,1,1), lty = c(1,1,2),
+                   col = c('black',  'gray', 'gray'), bty = 'n', cex = leg.cex)
+            if(bb==2)   legend('bottomleft', c('st dev = 2', 'std dev = 2, corr = 0.4', 'std dev = 2, corr = 0.8'), lwd = c(2,1,1), lty = c(1,1,2),
                    col = c('black',  'gray', 'gray'), bty = 'n', cex = leg.cex)
         }
 ####################################################################################################
@@ -364,37 +364,32 @@ for(one.file in c(F,T)) {
         cols <- rainbow(length(ds.nm))
         ylab <- '' #ifelse(rr==1,'SDP','')
         xmax <- c(1,10,10,10,2)
-        for(rr in 1:3) {
+        for(rr in 1:npan) {
             yaxt <- ifelse(rr==1, T, F)
             logd <- ''
-            xlim <- c(-.2,3.2)
+            if(rr==1)   xlim <- c(-.2,3.2) else xlim <- c(-.1, 1)
             plot(1,1, type = 'n', xlim = xlim, ylim = c(0,1), bty = 'n', axes = F,
                  xlab = '', ylab = ylab, main = '', log = logd)
             grcol <- rgb(t(col2rgb(gray(.6), alpha = .5)),max=255)
             segments(0,0,0,1, col = grcol, lwd = 3)
             if(yaxt) axis(2, at = seq(0,1,l=5), las = 2) else axis(2, at = seq(0,1,l=5), labels = NA)
-            axis(1, 0:3)
+            if(rr==1)   axis(1, 0:3) else axis(1, c(0,.4,.8))
             yrind <- which(t.arr[,2,1]==2008)
             for(cc in countries)   {
                 if(rr == 1) {
                     sel <- which(cframe$group.ind==cc & cframe$simj %in% c(1,90:92) & cframe$acute.sc==ac)
                     lines(cframe$het.gen.sd[sel], (t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel],
                           col = cols[cc], type = 'l', pch = 19, lty = 1)
-                }
-                if(rr == 2) {
-                    sel <- which(cframe$group.ind==cc & cframe$simj %in% c(1,118:120) & cframe$acute.sc==ac)
-                    lines(cframe$het.gen.sd[sel], (t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel],
-                          col = cols[cc], type = 'l', pch = 19, lty = 1)
-                }
-                if(rr == 3) {
-                    sel <- which(cframe$group.ind==cc & cframe$simj %in% c(1,146:148) & cframe$acute.sc==ac)
-                    lines(cframe$het.gen.sd[sel], (t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel],
+                }else{
+                    sel <- which(cframe$group.ind==cc & cframe$simj %in% c(91,119,147) & cframe$acute.sc==ac)
+                    lines(cframe$het.gen.cor[sel], (t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel],
                           col = cols[cc], type = 'l', pch = 19, lty = 1)
                 }
             }
+            if(rr==1)       mtext('standard deviation \nof risk distribution', side = 1, line = 3, adj = .5, cex = leg.cex, outer = F)
+            if(rr==2)       mtext('inter-partner risk correlation', side = 1, line = 2, adj = .5, cex = leg.cex, outer = F)             
         }
         mtext('serodiscordant proportion (SDP)', side = 2, line = 2, adj = .5, cex = leg.cex, outer = T)
-        mtext('standard deviation of risk distribution', side = 1, line = -.3, adj = .4, cex = leg.cex, outer = T)      
         plot.new()
         par(mar=c(0,0,0,0))
         sel <- which(cframe$simj==1 & cframe$acute.sc==ac)
@@ -404,16 +399,13 @@ for(one.file in c(F,T)) {
         legend('bottomleft', ds.nm[ord], col=rainbow(length(sel))[ord], lwd = 1, title = 'top to bottom', cex = .8, inset = -.1)
         if(one.file) mtext(ds.nm[cc1], adj = 0.5, line = -2, side = 3, outer = F, cex = .75)
         if(!one.file) dev.off()
-        
     }
-    
     if(one.file)    dev.off()
 }
 graphics.off()
 
-
-
-####################################################################################################
+ 
+## ##################################################################################################
 ## Figure for appendix showing how SDP sensitivity to pre- & extra-couple is affected by heterogeneity
 ####################################################################################################
 ## 3 row by 5 column figure, 1st column shows distribution of within-couple risk factors
@@ -434,7 +426,7 @@ acutes.to.do <- c(1,7,25,50)
 sds <- c(0,1,2)
 col.pl <- 'black'
 for(one.file in c(F,T)) {
-####################################################################################################
+    ## ##################################################################################################
     if(one.file) pdf(file.path(dir.figs,paste0('Figure AX - SDP sensitivity vs acute & het.pdf')), w = 6.5, h = 4)  
     for(cc in 1:length(ds.nm)) { #which(ds.nm=='Swaziland')) { ## each country has its own page
         if(!one.file) pdf(file.path(dir.figs,paste0('Figure AX - ',ds.nm[cc],' SDP sensitivity vs acute & het.pdf')), w = 6.5, h = 4)  
@@ -444,7 +436,7 @@ for(one.file in c(F,T)) {
         starts <- matrix(blocks$start[2:13], nr = length(mains), nc = length(sds)) # routes by het sd
         starts[1,] <- c(1, 32, 57) # just take scalar 1 from pre-couple for sd = 1,2 (simj=32,57) for as fitted but with het
         ends <- matrix(blocks$end[2:13], nr = length(mains), nc = length(sds)) # routes by het sd
-####################################################################################################
+        ## ##################################################################################################
         ## Extract SDP's from 2008 for all scenarios to plot in 2nd row of figure
         par(mfrow=c(length(sds),length(mains)), mar = c(1.5,2,.5,0), oma = c(3,3,2,4))
         ylab <- '' #ifelse(rr==1,'SDP','')
