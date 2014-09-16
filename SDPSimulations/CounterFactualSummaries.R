@@ -8,7 +8,7 @@ source('SimulationFunctions.R')                   # load simulation functions
 library(abind)                          # array binding
 load('data files/ds.nm.all.Rdata')        # country names
 load('data files/dframe.s.Rdata')        # SDP by survey
-do.again <- F                           # collect results again (otherwise load cfs.Rdata)
+do.again <- T                           # collect results again (otherwise load cfs.Rdata)
 show.pts <- T                           # show observed SDP in real DHS data
 ## source('CounterFactualSummaries.R')
 
@@ -83,7 +83,7 @@ set.labs <- function(bb, js) {
   }
 }
 
-ac.to.do <- c(1,7,25,50)
+ac.to.do <- c(7) #1,7,25,50)
 nac <- length(ac.to.do)
 for(cc in countries) {   # make summary figures for each country
 ####################################################################################################

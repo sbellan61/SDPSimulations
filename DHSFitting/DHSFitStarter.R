@@ -13,7 +13,7 @@
 ####################################################################################################
 rm(list=ls())
 
-## setwd('/home1/02413/sbellan/DHSProject/DHSFitting/')
+if(grepl('tacc', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/DHSProject/DHSFitting/')
 args <- commandArgs(TRUE) ## extract R CMD BATCH arguments
 if(length(args)>0) { for(ii in 1:length(args))  eval(parse(text=args[[ii]])) }
 source('../SDPSimulations/SimulationFunctions.R') # simulating functions (from other project folder)
