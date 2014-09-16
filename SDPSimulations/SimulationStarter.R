@@ -100,7 +100,7 @@ temp <- psrun(country = country,   # what country are we 'simulating'
               het.gen.cor = het.gen.cor, # inter-partner correlation of individual risk deviate for genetic heterogeneity
               ## next 3 are same as previous 3, but for behavioral heterogeneity (risk deviate
               ## amplifies only pre- and extra-couple transmission susceptibility)
-              ## het.beh = het.beh, het.beh.sd = het.beh.sd, het.beh.cor = het.beh.cor,
+              het.beh = het.beh, het.beh.sd = het.beh.sd, het.beh.cor = het.beh.cor,
               ## ## route-specific heterogeneity (i.e. individuals' hazards are multiplied by a different lognormal risk deviate for each route)
               ## het.b = het.b, het.b.sd = het.b.sd, het.b.cor = het.b.cor, # pre-couple   
               ## het.e = het.e, het.e.sd = het.e.sd, het.e.cor = het.e.cor, # extra-couple 
