@@ -75,7 +75,7 @@ for(ii in 1:nn) {
               " tint=113*12' SimulationStarter.R ", file.path(batchdirnms[group[ii]], "routs", paste0(ds.nm[group[ii]], ii, ".Rout")), sep='')
     })
                                         #     if(totn %in% jtd & ii %in% 89:92 & aa==7) { ## for finishing up jobs that didn't get properly submitted (cluster issues sometimes)
-    if(blocks$group[ii]==12 & blocks$het.gen[ii]==T & ii %in% jtd) { ## for finishing up jobs that didn't get properly submitted (cluster issues sometimes)
+    if(blocks$group[ii]==7) { ## for finishing up jobs that didn't get properly submitted (cluster issues sometimes)
         num.doing <- num.doing+1
         cat(cmd)               # add command
         cat('\n')              # add new line
