@@ -53,16 +53,18 @@ save(jtd, file=file.path(dir.results, 'JobsToDo.Rdata'))
 par(mar=c(4,4,.3,0))
 
 xs <- unique(cframe$het.beh.sd)
+xs <- xs[order(xs)]
 nx <- length(xs)
 ys <- unique(cframe$het.beh.cor)
 ny <- length(ys)
+group <- 12
 
 ## Behavior het
 out.beh <- with(cframe[cframe$het.beh==T,], {
     prev <- sdp <- matrix(NA, nx, ny)
     for(ii in 1:nx) {
         for(jj in 1:ny) {
-            sel <- which(het.beh.sd==xs[ii] & het.beh.cor==ys[jj])
+            sel <- which(het.beh.sd==xs[ii] & het.beh.cor==ys[jj] & group.ind==group)
             if(length(sel)>0) {
                 sdp[ii,jj] <- sdp08[sel]
                 prev[ii,jj] <- prev08[sel]
@@ -77,7 +79,7 @@ out.gen <- with(cframe[cframe$het.gen==T,], {
     prev <- sdp <- matrix(NA, nx, ny)
     for(ii in 1:nx) {
         for(jj in 1:ny) {
-            sel <- which(het.gen.sd==xs[ii] & het.gen.cor==ys[jj])
+            sel <- which(het.gen.sd==xs[ii] & het.gen.cor==ys[jj]& group.ind==group)
             if(length(sel)>0) {
                 sdp[ii,jj] <- sdp08[sel]
                 prev[ii,jj] <- prev08[sel]
@@ -118,7 +120,7 @@ for(show.prev in c(T,F)) {
             ## Prevalence
             ## ##################################################
             par('ps'=12, mar = c(4,4,1,2))
-            levels <- seq(0,.1, b = .001)
+            levels <- seq(0,.05, b = .001)
             cols <- colorRampPalette(c('yellow','red'))(length(levels)-1)
             ## Contact rates
             image(xs, ys, prev.beh,  xlim = c(-.1,3), ylim = c(-.1,1), mgp = c(3,1,0), bty='n', las = 1,
@@ -136,3 +138,5 @@ for(show.prev in c(T,F)) {
         graphics.off()
     }
 }
+
+range(cframe$prev08)

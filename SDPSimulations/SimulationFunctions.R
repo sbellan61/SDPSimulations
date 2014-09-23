@@ -267,21 +267,20 @@ event.fn <- function(pars, dat, browse = F, # transmission coefficients to use f
           het.both <- rmvnorm(K, mean = rep(0,2), sigma = b.corSig)
           assign(paste('m.het.',het.t,sep=''), exp(het.both[,1]))
           assign(paste('f.het.',het.t,sep=''), exp(het.both[,2]))            
-        }
-        if(het.t %in% c('b','e','p')) { # which hazards to rescale to keep geometric mean of risk deviates = 1
-          het.hazs <- paste0('b',c('m','f'),het.t)
-        }else{
-          if(het.t=='gen') het.hazs <- hazs
-          if(het.t=='beh') het.hazs <- hazs[1:4]
-        }
-        if(scale.by.sd) { ##  keep geometric mean transmission coefficient the same
-          hpars[het.hazs] <-  hpars[het.hazs] / exp(het.sd^2 / 2)  # correct for increased geometric mean w/ hetogeneity
-        }else{
-          hpars[het.hazs] <-  hpars[het.hazs] / scale.adj # scale arbitrarily
-        }
+          if(het.t %in% c('b','e','p')) { # which hazards to rescale to keep geometric mean of risk deviates = 1
+              het.hazs <- paste0('b',c('m','f'),het.t)
+          }else{
+              if(het.t=='gen') het.hazs <- hazs
+              if(het.t=='beh') het.hazs <- hazs[1:4]
+          }
+          if(scale.by.sd) { ##  keep geometric mean transmission coefficient the same
+              hpars[het.hazs] <-  hpars[het.hazs] / exp(het.sd^2 / 2)  # correct for increased geometric mean w/ hetogeneity
+          }else{
+              hpars[het.hazs] <-  hpars[het.hazs] / scale.adj # scale arbitrarily
+          }
       }else{ ## no  pre-couple-specific heterogeneity
-        assign(paste('m.het.',het.t,sep=''), rep(1, K))
-        assign(paste('f.het.',het.t,sep=''), rep(1, K))          
+          assign(paste('m.het.',het.t,sep=''), rep(1, K))
+          assign(paste('f.het.',het.t,sep=''), rep(1, K))          
       }
       ## Discrete (binary) heterogeneity: High risk & low risk groups
       m.het.hilo <- rep(1,K)
