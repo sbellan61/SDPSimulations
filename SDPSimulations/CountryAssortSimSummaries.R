@@ -9,6 +9,10 @@ source('SimulationFunctions.R')                   # load simulation functions
 library(abind)                          # array binding
 load('data files/ds.nm.all.Rdata')        # country names
 load('data files/dframe.s.Rdata')        # SDP by survey
+load('data files/dframe.Rdata') # country summary data (peak prevalence, country-prevalence, etc...)
+load("data files/draw.Rdata") # raw country summary data (peak prevalence, country-prevalence, etc...)
+load('data files/dframe.s.Rdata')# country summary data (peak prevalence, country-prevalence, etc...) by DHS survey
+load('data files/draw.s.Rdata')# country summary data (peak prevalence, country-prevalence, etc...) by DHS survey (unfiltered data)
 do.again <- T                           # collect results again (otherwise load cfs.Rdata)
 show.pts <- T                           # show observed SDP in real DHS data
 ## source('CountryAssortSimSummaries.R')
@@ -51,51 +55,65 @@ jtd <- jtd.all[!jtd.all %in% cframe$job]
 print(paste("didn't do", length(jtd), "jobs")) # check to see if any jobs didn't complete
 save(jtd, file=file.path(dir.results, 'JobsToDo.Rdata'))
 
+temp <- cframe[,c('het.beh.sd','m.het.beh.var','f.het.beh.var', 'het.beh.cor','het.beh.cov.emp')]
+temp$het.beh.cor <- temp$het.beh.cor*temp$het.beh.sd
+unique(temp)
+
+het.sd <- 2
+het.cor <- .7
+b.corSig <- matrix(c(het.sd^2,rep(het.cor*het.sd^2,2),het.sd^2),2,2)
+hets <- rmvnorm(10^4, mean = rep(0,2), sigma = b.corSig)
+b.corSig
+cov(hets)
+
 ####################################################################################################
 ## Need to fit these simulations with a homogenous model
 
  
 ####################################################################################################
 ## Plot SDP vs prev
-prev.max <- .7
-sdp.min <- .5
-sdp.max <- .8
+prev.max <- .35
+sdp.mins <- c(0,.35)
+sdp.maxs <- c(1,.9)
 bcors <- round(unique(blocks$het.beh.cor)^2,2)
 bsds <- unique(blocks$het.beh.sd)
 cframe$het.beh.cor2 <- round(cframe$het.beh.cor^2,2)
-pdf(file.path(dir.figs, paste0('SDP vs Prev.pdf')), w = 6.5, h = 6)
-par(mfrow=c(length(bcors), length(bsds)), mar = c(2,2,.5,.5), oma = c(6,7,0,0))
-for(cr in rev(bcors)) {
-    for(sd in bsds) {
-        if(sd==0) crr <- 0 else crr <- cr
-        #sd <- 1; crr = .75
-        sel <- which(cframe$het.beh.sd==sd & cframe$het.beh.cor2 == crr)
-        c2 <- cframe[sel,c('bme.sc','sdp08','prev08','het.beh.sd','het.beh.cor')]
-        plot(cframe$prev08[sel], cframe$sdp08[sel], las = 1, bty = 'n', pch = 16,
-             ylim = c(sdp.min,sdp.max), xlim = c(0,prev.max), xlab = '', ylab = '', axes = F)
-        if(sd==bsds[1]) {
-            axis(2, pretty(c(sdp.min,sdp.max),5), las = 2)
-            mtext(cr, 2, adj = .5, line = 7, las = 2)
-            if(cr==bcors[4]) mtext(expression(rho['contact']), 2, at = .9, line = 5, las = 2)
-        }else{
-            axis(2, pretty(c(sdp.min,sdp.max),5), lab = NA)
-        }
-        if(cr==bcors[1]) {
-            axis(1, pretty(c(0,prev.max),5))
-            if(sd==0) mtext(expression(sigma['contact']), 1, at = -.2, line = 7)
-            mtext(sd, 1, adj = .5, line = 7)
-        }else{
-            axis(1, pretty(c(0,prev.max),5), lab = NA)
+cols <- colorRampPalette(c('yellow','red'))(21)
+for(ii in 1:2) {
+    pdf(file.path(dir.figs, paste0('SDP vs Prev', c('full','zoom')[ii],'.pdf')), w = 6.5, h = 6)
+    layout(cbind(t(matrix(1:16, 4,4)), rep(17,4)))
+    par(mar = c(2,2,.5,.5), oma = c(6,7,0,0), 'ps' = 12)
+    for(cr in rev(bcors)) {
+        for(sd in bsds) {
+            if(sd==0) crr <- 0 else crr <- cr
+                                        #sd <- 1; crr = .75
+            sel <- which(cframe$het.beh.sd==sd & cframe$het.beh.cor2 == crr)
+            c2 <- cframe[sel,c('bme.sc','sdp08','prev08','het.beh.sd','het.beh.cor')]
+            plot(1,1, type = 'n', las = 1, bty = 'n', ylim = c(sdp.mins[ii],sdp.maxs[ii]), xlim = c(0,prev.max), xlab = '', ylab = '', axes = F)
+            with(dframe, points(dhsprev, psdc, pch = 16, col = gray(.6)))
+            with(cframe, points(prev08[sel], sdp08[sel], col = cols, pch = 16))
+            if(sd==bsds[1]) {
+                axis(2, pretty(c(sdp.mins[ii],sdp.maxs[ii]),5), las = 2)
+                mtext(cr, 2, adj = .5, line = 7, las = 2)
+                if(cr==bcors[4]) mtext(expression(rho['contact']), 2, at = .9, line = 5, las = 2)
+            }else{
+                axis(2, pretty(c(sdp.mins[ii],sdp.maxs[ii]),5), lab = NA)
+            }
+            if(cr==bcors[1]) {
+                axis(1, pretty(c(0,prev.max),5))
+                if(sd==0) mtext(expression(sigma['contact']), 1, at = -.2, line = 7)
+                mtext(sd, 1, adj = .5, line = 7)
+            }else{
+                axis(1, pretty(c(0,prev.max),5), lab = NA)
+            }
         }
     }
+    mtext('SDP', 2 , 2, T)
+    mtext('prevalence', 1 , 2, T)
+    par(mar=rep(0,4))
+    plot(0,0, type = 'n', bty = 'n', axes = F)
+    legend('center', leg = signif(cframe$bmb.sc[sel],2), col = cols, pch = 16, title = 'scalar multiplier \nof fitted\n contact coefficients', bty ='n')
+    legend('top', leg = 'DHS country data', col = gray(.6), pch = 16, bty = 'n')
+    graphics.off()
 }
-mtext('SDP', 2 , 2, T)
-mtext('prevalence', 1 , 2, T)
-graphics.off()
-
 xtabs(~het.beh.sd + het.beh.cor, cframe)
-
-pdf(file.path(dir.figs, 'test.pdf'))
-
-c1
-c2

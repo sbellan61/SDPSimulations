@@ -29,10 +29,14 @@ coll <- function(files, give.ev = T,    # files to collect; return 'evout' (line
                         t.arr.temp <- rbind(t.arr.temp, temp)
                     }
                     t.arr.temp$sdp <- (t.arr.temp[,'mm'] + t.arr.temp[,'ff']) / t.arr.temp[,'inf.alive']
-                    t.arr.temp$prev <- (t.arr.temp[,'mm'] + t.arr.temp[,'ff'] + 2*t.arr.temp[,'hh']) / t.arr.temp[,'alive']
+                    t.arr.temp$prev <- (t.arr.temp[,'mm'] + t.arr.temp[,'ff'] + 2*t.arr.temp[,'hh']) / (t.arr.temp[,'alive']*2)
                     t.arr <- t.arr.temp
+                    ## Calculate empirical covariance
+                    beh.cov <- cov(log(output$evout[,c('m.het.beh','f.het.beh')]))[c(1,4,2)]
+                    names(beh.cov) <- c('m.het.beh.var','f.het.beh.var','het.beh.cov.emp')
                     cframe <- data.frame(t(c(output$jobnum, output$simj, rakacRR = output$rakacRR, output$pars, output$hours,
-                                             sdp08 = t.arr.temp[which(t.arr.temp$yr==2008),'sdp'], prev08 = t.arr.temp[which(t.arr.temp$yr==2008),'prev'])))
+                                             sdp08 = t.arr.temp[which(t.arr.temp$yr==2008),'sdp'], prev08 = t.arr.temp[which(t.arr.temp$yr==2008),'prev'],
+                                             beh.cov)))
                     ## causes of infection (m/f): before = 1, extra = 2, partner = 3, not infected = 4.
                     output$ev$mcoi <- as.numeric(output$ev$mcoi) 
                     output$ev$fcoi <- as.numeric(output$ev$fcoi)
@@ -60,10 +64,13 @@ coll <- function(files, give.ev = T,    # files to collect; return 'evout' (line
                 }else{      # append cframe, t.arr, e.arr
                     t.arr.temp <- output$tss[output$tss$tt > 62*12, ]
                     t.arr.temp$sdp <- (t.arr.temp[,'mm'] + t.arr.temp[,'ff']) / t.arr.temp[,'inf.alive']
-                    t.arr.temp$prev <- (t.arr.temp[,'mm'] + t.arr.temp[,'ff'] + 2*t.arr.temp[,'hh']) / t.arr.temp[,'alive']
+                    t.arr.temp$prev <- (t.arr.temp[,'mm'] + t.arr.temp[,'ff'] + 2*t.arr.temp[,'hh']) / (t.arr.temp[,'alive']*2)
+                    beh.cov <- cov(log(output$evout[,c('m.het.beh','f.het.beh')]))[c(1,4,2)]
+                    names(beh.cov) <- c('m.het.beh.var','f.het.beh.var','het.beh.cov.emp')
                     to.append <- data.frame(t(c(output$jobnum, output$simj, rakacRR = output$rakacRR,
                                                 output$pars, output$hours,
-                                                sdp08 = t.arr.temp[which(t.arr.temp$yr==2008),'sdp'],  prev08 = t.arr.temp[which(t.arr.temp$yr==2008),'prev'])))
+                                                sdp08 = t.arr.temp[which(t.arr.temp$yr==2008),'sdp'],  prev08 = t.arr.temp[which(t.arr.temp$yr==2008),'prev'],
+                                                beh.cov)))
                     ## see if there are parameter mismatches between sims with different code versions, i.e. added hilo options 7/2014 without using
                     names.to.add.cf <- names(to.append)[!names(to.append) %in% names(cframe)] 
                     if(length(names.to.add.cf)>0) for(nm in names.to.add.cf) cframe[,nm] <- NA

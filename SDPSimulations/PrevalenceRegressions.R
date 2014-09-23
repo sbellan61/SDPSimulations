@@ -2,7 +2,7 @@
 ## Plot HIV prevalence & SDP vs fit transmission coefficients, and fit contact mixing coefficients.
 rm(list=ls())                           # clear workspace
 library(metatest);library(coda);library(faraway); library(hier.part); library(AICcmodavg); library(abind)
-setwd('/home1/02413/sbellan/SDPSimulations/')     # setwd
+if(grepl('tacc', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/DHSProject/SDPSimulations/')
 load("data files/allDHSAIS.Rdata")         # DHS data
 load("data files/ds.nm.all.Rdata") # country names
 load('data files/dframe.Rdata') # country summary data (peak prevalence, country-prevalence, etc...)
