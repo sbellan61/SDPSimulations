@@ -3,7 +3,7 @@
 ##  survey (dframe.s) with accompanying summary characteristics.
 ######################################################################
 rm(list=ls())                           # clear workspace
-setwd('/home1/02413/sbellan/SDPSimulations/')     # setwd
+if(grepl('tacc', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/DHSProject/SDPSimulations/')
 #load("data files/ds.name.Rdata")        # country names
 load("data files/ds.nm.all.Rdata") # country names
 load("data files/allDHSAIS.Rdata")         # DHS data
@@ -16,8 +16,8 @@ hazs <- c("bmb","bfb","bme","bfe","bmp","bfp")
 
 ####################################################################################################
 ## initialize dframe: one row per country: name; serodiscordant proportion (SDP; psdc), male SDP, female SDP
-dframe <- data.frame(matrix(NA,length(ds.nm), 14))
-colnames(dframe) <- c('country','psdc','pmsdc','pfsdc','curprev','peak','peak.nart','tpeak','tpeak.nart',
+dframe <- data.frame(matrix(NA,length(ds.nm), 15))
+colnames(dframe) <- c('country','psdc','dhsprev','pmsdc','pfsdc','curprev','peak','peak.nart','tpeak','tpeak.nart',
                       'pms','pfs','rms','rfs', 'col')
 dframe$col <- rainbow(nrow(dframe))
 dframe$country <- levels(dat$group)
@@ -32,6 +32,7 @@ ord <- c(which(ds.nm=='WA'), which(ds.nm!='WA')) # order so WA first so plot loo
 for(cc in ord) {## for each country
     temp <- dat[dat$group==dframe$country[cc],] ## select that country's data
     dframe$psdc[cc] <- sum(temp$ser %in% 2:3) / sum(temp$ser %in% 1:3) ## SDP
+    dframe$dhsprev[cc] <- (sum(temp$ser %in% 2:3) + 2*sum(temp$ser==1)) / (2*sum(temp$ser %in% 1:4)) ## DHS prevalence
     dframe$pmsdc[cc] <- sum(temp$ser %in% 2) / sum(temp$ser %in% 1:3) ## M SDP
     dframe$pfsdc[cc] <- sum(temp$ser %in% 3) / sum(temp$ser %in% 1:3) ## F SDP
     dframe$curprev[cc] <- mean(prev.inf[temp$tint,temp$epic.ind])        ## infectious prevalence at mean interview time
@@ -82,9 +83,9 @@ save(dframe, file=file.path("data files/dframe.Rdata"))
 
 ####################################################################################################
 ## initialize dframe.s: one row per survey
-dframe.s <- data.frame(matrix(NA,length(unique(dat$ds)), 19))
+dframe.s <- data.frame(matrix(NA,length(unique(dat$ds)), 20))
 colnames(dframe.s) <- c('ds', 'country','group','yr',
-                        'psdc','pmsdc','pfsdc',
+                        'psdc','dhsprev','pmsdc','pfsdc',
                         'psdc.f','pmsdc.f','pfsdc.f',
                         'curprev','peak','peak.nart','tpeak','tpeak.nart',
                       'pms','pfs','rms','rfs')
@@ -95,6 +96,7 @@ for(cc in 1:nrow(dframe.s)) {
     dframe.s$group[cc] <- temp$group[1]
     bfmar <- temp$m.fun == 1 & temp$f.fun == 1 ## both partners in first union?
     dframe.s$psdc[cc] <- sum(temp$ser %in% 2:3) / sum(temp$ser %in% 1:3) # SDP
+    dframe.s$dhsprev[cc] <- (sum(temp$ser %in% 2:3) + 2*sum(temp$ser==1)) / (2*sum(temp$ser %in% 1:4)) ## DHS prevalence
     dframe.s$pmsdc[cc] <- sum(temp$ser %in% 2) / sum(temp$ser %in% 1:3)  # M SDP
     dframe.s$pfsdc[cc] <- sum(temp$ser %in% 3) / sum(temp$ser %in% 1:3)  # F SDP
     ## ditto above but first marriage only
@@ -147,15 +149,15 @@ allraw[allraw$ds=="Ethiopia 2011",c("tms","tfs","tmar","tint")] <-
     allraw[allraw$ds=="Ethiopia 2011",c("tms","tfs","tmar","tint")] + diff2011
 ##################################################
 ##  get discordance rates by countries for raw data (draw)
-draw <- data.frame(matrix(NA,length(ds.nm), 13))
-colnames(draw) <- c('country','psdc','pmsdc','pfsdc','curprev','peak','peak.nart','tpeak','tpeak.nart',
+draw <- data.frame(matrix(NA,length(ds.nm), 14))
+colnames(draw) <- c('country','psdc','dhsprev','pmsdc','pfsdc','curprev','peak','peak.nart','tpeak','tpeak.nart',
                       'pms','pfs','rms','rfs')
 draw$country <- unique(dat$group)
 draw <- draw[order(draw$country),]
-head(draw)
 for(cc in 1:nrow(draw)) {
     temp <- allraw[allraw$group==draw$country[cc],]
-    draw$psdc[cc] <- sum(temp$ser %in% 2:3, na.rm=T) / sum(temp$ser %in% 1:3, na.rm=T) # SDP  
+    draw$psdc[cc] <- sum(temp$ser %in% 2:3, na.rm=T) / sum(temp$ser %in% 1:3, na.rm=T) # SDP
+    draw$dhsprev[cc] <- (sum(temp$ser %in% 2:3, na.rm=T) + 2*sum(temp$ser==1, na.rm=T)) / (2*sum(temp$ser %in% 1:4, na.rm=T)) ## DHS prevalence
     draw$pmsdc[cc] <- sum(temp$ser %in% 2, na.rm=T) / sum(temp$ser %in% 1:3, na.rm=T)  # M SDP
     draw$pfsdc[cc] <- sum(temp$ser %in% 3, na.rm=T) / sum(temp$ser %in% 1:3, na.rm=T)  # F SDP
     ##  premarital duration of sexual activity
@@ -172,9 +174,9 @@ save(draw, file="data files/draw.Rdata")
 
 ####################################################################################################
 ##  get discordance rates by surveys for raw data (draw.s), do for first mar only too.
-draw.s <- data.frame(matrix(NA,length(unique(allraw$ds)), 17))
+draw.s <- data.frame(matrix(NA,length(unique(allraw$ds)), 18))
 colnames(draw.s) <- c('country','ds', 'tint.yr',
-                      'psdc','pmsdc','pfsdc',
+                      'psdc','dhsprev','pmsdc','pfsdc',
                       'psdc.f','pmsdc.f','pfsdc.f',
                       'pms','pfs','rms','rfs',
                       'pms.f','pfs.f','rms.f','rfs.f')
@@ -184,7 +186,8 @@ show <- c('Mnumber.of.unions', 'Fnumber.of.unions')
 for(cc in 1:nrow(draw.s)) {
     temp <- allraw[allraw$ds==draw.s$ds[cc],]
     draw.s$country[cc] <- temp$epic.nm[1]
-    draw.s$psdc[cc] <- sum(temp$ser %in% 2:3, na.rm=T) / sum(temp$ser %in% 1:3, na.rm=T) # SDP  
+    draw.s$psdc[cc] <- sum(temp$ser %in% 2:3, na.rm=T) / sum(temp$ser %in% 1:3, na.rm=T) # SDP
+    draw.s$dhsprev[cc] <- (sum(temp$ser %in% 2:3, na.rm=T) + 2*sum(temp$ser==1, na.rm=T)) / (2*sum(temp$ser %in% 1:4, na.rm=T)) ## DHS prevalence
     draw.s$pmsdc[cc] <- sum(temp$ser %in% 2, na.rm=T) / sum(temp$ser %in% 1:3, na.rm=T)  # M SDP
     draw.s$pfsdc[cc] <- sum(temp$ser %in% 3, na.rm=T) / sum(temp$ser %in% 1:3, na.rm=T)  # F SDP
     ## for both partners in first marriage only

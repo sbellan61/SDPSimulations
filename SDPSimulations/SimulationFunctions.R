@@ -263,11 +263,7 @@ event.fn <- function(pars, dat, browse = F, # transmission coefficients to use f
       het.sd <- get(paste('het.',het.t,'.sd',sep='')) # corresponding standard deviation
       het.cor <- get(paste('het.',het.t,'.cor',sep='')) # corresponding inter-partner correlation
       if(het.log) { #  include this type of heterogeneity?
-        if(het.cor==0) {              #   uncorrelated
-          assign(paste('m.het.',het.t,sep=''), exp( rnorm(K, mean = 0, sd = het.sd) ))
-          assign(paste('f.het.',het.t,sep=''), exp( rnorm(K, mean = 0, sd = het.sd) ))            
-        }else{                        #  correlated between partners
-          b.corSig <- matrix(c(het.sd,rep(het.cor*het.sd,2),het.sd),2,2)
+          b.corSig <- matrix(c(het.sd^2,rep(het.cor*het.sd^2,2),het.sd^2),2,2)
           het.both <- rmvnorm(K, mean = rep(0,2), sigma = b.corSig)
           assign(paste('m.het.',het.t,sep=''), exp(het.both[,1]))
           assign(paste('f.het.',het.t,sep=''), exp(het.both[,2]))            
