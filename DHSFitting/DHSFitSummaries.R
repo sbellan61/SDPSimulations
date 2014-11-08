@@ -5,7 +5,7 @@
 ## Steve Bellan, 2013
 ####################################################################################################
 rm(list=ls())
-setwd('/home1/02413/sbellan/DHSFitting')    # set working directory
+setwd('/home1/02413/sbellan/DHSProject/DHSFitting/')    # set working directory
 lab <- 'DHSFits'
 wd <- file.path('results',lab)
 outdir <- file.path('results',paste0(lab,'Summary'))
@@ -19,56 +19,60 @@ library(coda)
 
 ## use old WA directory for now
 fls <- fls[!grepl('shortchain', fls)]
-#fls[grepl('WA',fls)] <- 'results/DHSFitsold/WARealAc/'
+                                        #fls[grepl('WA',fls)] <- 'results/DHSFitsold/WARealAc/'
 ## Collect all estimated of proportion of transmission by routes, and
 ## route-gender specific prevalence standardized hazards into arrays
 ## for sensitivity analysis by acute phase by country
 fls                                  
 for(fff in 1:length(fls)) { # looping through these countries
     print(paste('extracting results from', fls[fff]))
-        dirs <- list.files(fls[fff],full.name=T) # names of folders in each country folder (each is a different acute phase relative hazard)
-        dirs <- dirs[!grepl('routs', dirs)]
-#        if(fff==14) dirs <- dirs[2] # for WA which hasn't finished yet use old sim
-        for(ddd in 1:length(dirs)) {
-              if(fff == 1 & ddd==1)     # if first iteration of loop, set up array structure
-                { ## out.arr.t stores median and credible intervals of traced parameters
-                  out.arr.t <- array(NA, dim = c(nrow(pars)+12, ncol(pars), 8, length(fls))) # + 8 is for added gender geometric means & contact mixing pars below
-                  colnames(out.arr.t) <- colnames(pars)
-                  in.arr.t <- array(NA, dim = c(8, length(fls),3)) # in.arr.t stores country, acute relative hazard, and muttivariate gelman-rubin diagnostic
-                }
-              if(sum(grepl('Figure 6', list.files(dirs[ddd])))>0) {
-                      load(file.path(dirs[ddd],'workspace.Rdata'))
-                      in.arr.t[ddd,fff,1] <- group # country
-                      in.arr.t[ddd,fff,2] <- acute.sc # acute relative hazard
-                      in.arr.t[ddd,fff,3] <- gelout[[2]]
-                      ## get geometric mean parameters for each transmission route and contact rates
-                      ## (pre-/extra- transmission coefficients / within-couple hazard)
-                      bmb.vec <- unlist(mcmc.out[,"bmb"]) # extract MCMC chains from list into one long vector
-                      bfb.vec <- unlist(mcmc.out[,"bfb"])
-                      bmp.vec <- unlist(mcmc.out[,"bmp"])
-                      bfp.vec <- unlist(mcmc.out[,"bfp"])    
-                      bme.vec <- unlist(mcmc.out[,"bme"])
-                      bfe.vec <- unlist(mcmc.out[,"bfe"])
-                      bb <- sqrt(bmb.vec*bfb.vec) # pre- geometric mean
-                      be <- sqrt(bme.vec*bfe.vec) # extra- geometric mean
-                      bp <- sqrt(bmp.vec*bfp.vec) # within- geometric mean
-                      rr.ep <- be / bp            # extra- contact mixing (of geometric means)
-                      rr.bp <- bb / bp            # pre- contact mixing (of geometric means)
-                      rr.bp.m <- bmb.vec / bp     # pre- contact mixing (male) (using geometric mean for within-rate)
-                      rr.bp.f <- bfb.vec / bp     # pre- contact mixing (female) (using geometric mean for within-rate)
-                      rr.eb <- be / bb            # extra- / pre-
-                      cmb <- bmb.vec / bmp.vec    # male pre- contact
-                      cfb <- bfb.vec / bfp.vec    # female pre- contact
-                      cme <- bme.vec / bmp.vec    # male extra- contact
-                      cfe <- bfe.vec / bfp.vec    # female extra- contact
-                      gmpars <- data.frame(cmb=cmb, cfb=cfb, cme=cme, cfe= cfe, bb=bb,be=be,bp=bp, rr.ep = rr.ep, rr.bp = rr.bp, rr.eb = rr.eb, rr.bp.m, rr.bp.f)
-                      gmpars <- t(apply(gmpars, 2, function(x) quantile(x, c(.025,.5,.975)))) # get median/credible intervals
-                      pars <- rbind(gmpars, pars) # add to pars
-                      out.arr.t[,,ddd,fff] <- pars    # estimated hazards & route-specific contributions to infections
-                      if(fff==1 & ddd==1)       rownames(out.arr.t) <- rownames(pars) # set rownames
-                  }
+    dirs <- list.files(fls[fff],full.name=T) # names of folders in each country folder (each is a different acute phase relative hazard)
+    dirs <- dirs[!grepl('routs', dirs)]
+                                        #        if(fff==14) dirs <- dirs[2] # for WA which hasn't finished yet use old sim
+    for(ddd in 1:length(dirs)) {
+        if(fff == 1 & ddd==1)     # if first iteration of loop, set up array structure
+            { ## out.arr.t stores median and credible intervals of traced parameters
+                out.arr.t <- array(NA, dim = c(nrow(pars)+15, ncol(pars), 8, length(fls))) # + 8 is for added gender geometric means & contact mixing pars below
+                colnames(out.arr.t) <- colnames(pars)
+                in.arr.t <- array(NA, dim = c(8, length(fls),3)) # in.arr.t stores country, acute relative hazard, and muttivariate gelman-rubin diagnostic
             }
+        if(sum(grepl('Figure 6', list.files(dirs[ddd])))>0) {
+            load(file.path(dirs[ddd],'workspace.Rdata'))
+            in.arr.t[ddd,fff,1] <- group # country
+            in.arr.t[ddd,fff,2] <- acute.sc # acute relative hazard
+            in.arr.t[ddd,fff,3] <- gelout[[2]]
+            ## get geometric mean parameters for each transmission route and contact rates
+            ## (pre-/extra- transmission coefficients / within-couple hazard)
+            bmb.vec <- unlist(mcmc.out[,"bmb"]) # extract MCMC chains from list into one long vector
+            bfb.vec <- unlist(mcmc.out[,"bfb"])
+            bmp.vec <- unlist(mcmc.out[,"bmp"])
+            bfp.vec <- unlist(mcmc.out[,"bfp"])    
+            bme.vec <- unlist(mcmc.out[,"bme"])
+            bfe.vec <- unlist(mcmc.out[,"bfe"])
+            bm2f <- bmb.vec/bfb.vec ## m to f ratio before
+            em2f <- bme.vec/bfe.vec ## m to f ratio before
+            pm2f <- bmp.vec/bfp.vec ## m to f ratio before
+            bb <- sqrt(bmb.vec*bfb.vec) # pre- geometric mean
+            be <- sqrt(bme.vec*bfe.vec) # extra- geometric mean
+            bp <- sqrt(bmp.vec*bfp.vec) # within- geometric mean
+            rr.ep <- be / bp            # extra- contact mixing (of geometric means)
+            rr.bp <- bb / bp            # pre- contact mixing (of geometric means)
+            rr.bp.m <- bmb.vec / bp     # pre- contact mixing (male) (using geometric mean for within-rate)
+            rr.bp.f <- bfb.vec / bp     # pre- contact mixing (female) (using geometric mean for within-rate)
+            rr.eb <- be / bb            # extra- / pre-
+            cmb <- bmb.vec / bmp.vec    # male pre- contact
+            cfb <- bfb.vec / bfp.vec    # female pre- contact
+            cme <- bme.vec / bmp.vec    # male extra- contact
+            cfe <- bfe.vec / bfp.vec    # female extra- contact
+            gmpars <- data.frame(cmb=cmb, cfb=cfb, cme=cme, cfe= cfe, bb=bb,be=be,bp=bp, rr.ep = rr.ep, rr.bp = rr.bp, rr.eb = rr.eb, rr.bp.m, rr.bp.f,
+                                 bm2f=bm2f,em2f=em2f,pm2f=pm2f)
+            gmpars <- t(apply(gmpars, 2, function(x) quantile(x, c(.025,.5,.975)))) # get median/credible intervals
+            pars <- rbind(gmpars, pars) # add to pars
+            out.arr.t[,,ddd,fff] <- pars    # estimated hazards & route-specific contributions to infections
+            if(fff==1 & ddd==1)       rownames(out.arr.t) <- rownames(pars) # set rownames
+        }
     }
+}
 
 in.arr <- in.arr.t ## renamed above because load(workspace) loaded old version of in.arr
 out.arr <- out.arr.t
@@ -78,6 +82,7 @@ ord <- order(as.numeric(in.arr[,1,2]))
 in.arr <- in.arr[ord,,]
 out.arr <- out.arr[,,ord,]
 
+rownames(out.arr)
 
 ## what does it look like?
 #in.arr
@@ -90,9 +95,10 @@ out.arr[hazs,2,,14]
 ds.nm[is.na(in.arr[1,,1])]           # countries left
 ## save this for simulation later
 save(out.arr, in.arr, file = "data files/pars.arr.ac.Rdata")
-save(out.arr, in.arr, file = "/home1/02413/sbellan/SDPSimulations/data files/pars.arr.ac.Rdata")
+save(out.arr, in.arr, file = "../SDPSimulations/data files/pars.arr.ac.Rdata")
+save(out.arr, in.arr, file = "../../Rakai/AcuteRetroSim/data files/pars.arr.ac.Rdata")
 
-load(file = "/home1/02413/sbellan/SDPSimulations/data files/pars.arr.ac.Rdata")
+load(file = "data files/pars.arr.ac.Rdata")
 
 hazs <- c("bmb","bfb","bme","bfe","bmp","bfp")
 out.arr[hazs,,,] <- out.arr[hazs,,,] * 12 * 100 # per 100 person years
