@@ -21,13 +21,16 @@ nc <- 12                                       # core per simulation
 ## rates.
 ####################################################################################################
 countries <- 1:length(ds.nm)
-                                        #countries <- which(ds.nm=='Zambia')
+
+countries <- which(ds.nm=='Zambia')
+
 each.val <- 200                          #  number of couples per couple formation (marital) cohort
 counterf.betas <- F                       # change betas in counterfactuals? if not change beta_within & c's (so beta_within affects all routes)
 sub.betas <- F                           # substitute betas? if not beta_within & c's
 rtsc <- c(0, 1/10, 1/5, 1/2, 1, 2, 5, 10)  # transmission route scalars
 nrtsc <- length(rtsc)                      # how many scalars?
-acutes <- as.numeric(in.arr[,1,2])    # acute phase relative hazards we used to fit in fitting phase
+# acutes <- as.numeric(in.arr[,1,2])    # acute phase relative hazards we used to fit in fitting phase
+acutes <- c(1,5,7,10)
 nac <- length(acutes)                 # how many are there?
 hsds <- c(.5,1,2,3)                     # standard deviation of log(hazards)
 hsds.rts <- c(0,1,2)                      # same but use smaller subset when also scaling transmission routes
@@ -162,6 +165,7 @@ for(aa in acutes)  {                    # loop through acute phase relative haza
       het.e.cor[sel] <- cr        
       blocks <- rbind(blocks, data.frame(start = min(sel), end = max(sel), lab = paste0('pre extra route heterogeneity cor=',cr)))
     }  
+
     ## LEFT OFF HERE
     for(ii in 1:max(sel)) {
       jb <- ii                   # job num
@@ -188,12 +192,13 @@ for(aa in acutes)  {                    # loop through acute phase relative haza
                    " psNonPar=", psNonPar[ii], " seed=1 tmar=(65*12):(113*12) each=", each[ii],
                    " tint=113*12' SimulationStarter.R ", file.path(batchdirnm, "routs", paste0(ds.nm[group[ii]], ii, ".Rout")), sep='')
   #     if(totn %in% jtd & ii %in% 89:92 & aa==7) { ## for finishing up jobs that didn't get properly submitted (cluster issues sometimes)
-      if(ii %in% c(1:26,89:92,117:120,145:148) & aa==7) { ## for finishing up jobs that didn't get properly submitted (cluster issues sometimes)
-      if(paste0(group[ii],'-',ii) %in% jtd) {
+ #     if(ii %in% c(1:26,89:92,117:120,145:148) & aa==7) { ## for finishing up jobs that didn't get properly submitted (cluster issues sometimes)
+#      if(paste0(group[ii],'-',ii) %in% jtd) {
           num.doing <- num.doing+1
           cat(cmd)               # add command
           cat('\n')              # add new line
-      }}
+ #     }
+#}
   }
 } 
 }
