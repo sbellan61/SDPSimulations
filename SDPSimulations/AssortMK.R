@@ -2,10 +2,12 @@
 ## Makes control files for each analysis within which each line giving one R CMD BATCH command line
 ## to run on a cluster.
 ####################################################################################################
+setwd("/home1/02413/sbellan/SDPSimulations/SDPSimulations")
+library(data.table)
 rm(list=ls())                                  # clear workspace
-load("data files/ds.nm.all.Rdata") # country names
-load('data files/pars.arr.ac.Rdata')    # load acute phase relative hazards used to fit (in.arr[,,2])
-load(file='data files/AssortJobsToDo.Rdata') ## for finishing up jobs from last run that didn't get finished due to cluster problems.
+load("../DHSFitting/data files/ds.nm.all.Rdata") # country names
+load('../DHSFitting/data files/pars.arr.ac.Rdata')    # load acute phase relative hazards used to fit (in.arr[,,2])
+load('../DHSFitting/data files/AssortJobsToDo.Rdata') ## for finishing up jobs from last run that didn't get finished due to cluster problems.
 hazs <- c('bmb','bfb','bme','bfe','bmp','bfp') #  transmission coefficient names, for convenience
 nc <- 12                                       # core per simulation
 ## source('AssortMK.R')
@@ -34,6 +36,7 @@ blocks$bfe.sc <- blocks$bme.sc
 blocks$bfp.sc <- blocks$bmp.sc
 blocks$het.gen <- blocks$het.gen.sd > 0
 blocks$jobnum <- 1:nrow(blocks)
+blocks <- as.data.table(blocks)
 
 counterf.betas <- F ## change betas in counterfactuals? if not change beta_within & c's (so beta_within affects all routes)
 sub.betas <- F      ## substitute betas? if not beta_within & c's
@@ -45,6 +48,8 @@ sample.tmar <- F ## sample marital (couple formation) date from copulas?
 psNonPar <- F ##  use non-parametric couple pseudo-population builder?
 outdir <- file.path('results','CounterAssort')
 if(!file.exists(outdir))      dir.create(outdir) ## create directory if necessary
+
+jtd <- 1:nrow(blocks)
 
 sink("Assort.txt") ## create a control file to send to the cluster
 for(ii in 1:nrow(blocks)) { ## for each simulation
