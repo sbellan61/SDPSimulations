@@ -4,9 +4,9 @@
 ####################################################################################################
 #rm(list=ls())                                  # clear workspace
 if(grepl('tacc', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/DHSProject/SDPSimulations/')
-load("data files/ds.nm.all.Rdata") # country names
-load('data files/pars.arr.ac.Rdata')    # load acute phase relative hazards used to fit (in.arr[,,2])
-load('data files/CFJobsToDo.Rdata') ## for finishing up jobs from last run that didn't get finished due to cluster problems.
+load("../DHSFitting/data files/ds.nm.all.Rdata") # country names
+load('../DHSFitting/data files/pars.arr.ac.Rdata')    # load acute phase relative hazards used to fit (in.arr[,,2])
+load('../DHSFitting/data files/CFJobsToDo.Rdata') ## for finishing up jobs from last run that didn't get finished due to cluster problems.
 hazs <- c('bmb','bfb','bme','bfe','bmp','bfp') #  transmission coefficient names, for convenience
 nc <- 12                                       # core per simulation
 ## source('CounterFactualMK.R')
@@ -36,8 +36,9 @@ nn <- 400 # number of simulations per country-acute combination (must be bigger 
 substitute <- F                         # not a substitution analysis
 totn <- 0                               # total number of simulations (steps up to final value)
 num.doing <- 0
-sink("HetCounterFactualAcute.txt")         # create a control file to send to the cluster
 outdir <- file.path('results','CounterFactual')
+
+sink("HetCounterFactualAcute.txt")         # create a control file to send to the cluster
 if(!file.exists(outdir))      dir.create(outdir) # create directory if necessary
 for(aa in acutes)  {                    # loop through acute phase relative hazard
   acdirnm <- file.path(outdir,paste0('Acute', aa)) # set up directory for each acute phase relative hazard

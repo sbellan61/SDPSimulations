@@ -47,6 +47,7 @@ maxN <- 10^5 ## max pseudopopulation size
 sample.tmar <- F ## sample marital (couple formation) date from copulas?
 psNonPar <- F ##  use non-parametric couple pseudo-population builder?
 outdir <- file.path('results','CounterAssort')
+if(!file.exists('results'))      dir.create('results') ## create directory if necessary
 if(!file.exists(outdir))      dir.create(outdir) ## create directory if necessary
 
 jtd <- 1:nrow(blocks)
