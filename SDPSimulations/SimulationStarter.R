@@ -15,6 +15,8 @@
 #################################################################################################### 
 rm(list=ls())                           # clear workspace
 
+## jobnum=2049;simj=1024;batchdirnm="results/CounterAssort/Acute7/Zimbabwe";nc=12;group.ind=16;substitute=FALSE;sub.betas=FALSE;counterf.betas=FALSE;death=TRUE;acute.sc=7;late.sc=1;aids.sc=1;bmb.sc=1;bfb.sc=1;bme.sc=1;bfe.sc=1;bmp.sc=10;bfp.sc=10;s.bmb=16;s.bfb=16;s.bme=16;s.bfe=16;s.bmp=16;s.bfp=16;s.demog=16;s.epic=16;het.gen=TRUE;het.gen.sd=3;het.gen.cor=0.9;sample.tmar=FALSE;seed=1;tmar=(65*12):(113*12);each=200;maxN=1e+05;tint=113*12
+
 args=(commandArgs(TRUE))                # load arguments from R CMD BATCH 
 if(length(args)>0)  {## Then cycle through each element of the list and evaluate the expressions.
     for(i in 1:length(args)) {
@@ -23,15 +25,15 @@ if(length(args)>0)  {## Then cycle through each element of the list and evaluate
 set.seed(seed)
 vfreq <- 200 ## how often to report on results
 source("SimulationFunctions.R")                   # load simulation functions from script
-load("data files/copula sigmas.Rdata")  # multivariate copula covariance matrix for simulating couple pseudopopulations
-load("data files/epic.Rdata")     # infectious HIV prevalence
+load("../DHSFitting/data files/copula sigmas.Rdata")  # multivariate copula covariance matrix for simulating couple pseudopopulations
+load("../DHSFitting/data files/epic.Rdata")     # infectious HIV prevalence
 ##  transmission parameters fit to DHS across the range of a acute phase relative hazards
-load("data files/pars.arr.ac.Rdata")
+load("../DHSFitting/data files/pars.arr.ac.Rdata")
 ## loads out.arr [parname, ci.l med ci.u, acute, country] and in.arr (describes inputs & gelman diagnostics)
-load("data files/csurv.Rdata")    #  probability of survival (row) months by age (in months) at seroconversion (column)
-load('data files/ds.nm.all.Rdata')        # load country names
-load("data files/allDHSAIS.Rdata")         # DHS data
-load("data files/dframe.Rdata")   # summary characteristics of DHS data
+load("../DHSFitting/data files/csurv.Rdata")    #  probability of survival (row) months by age (in months) at seroconversion (column)
+load('../DHSFitting/data files/ds.nm.all.Rdata')        # load country names
+load("../DHSFitting/data files/allDHSAIS.Rdata")         # DHS data
+load("../DHSFitting/data files/dframe.Rdata")   # summary characteristics of DHS data
 country <- group.ind              # set country to country-group index
 out.dir <- batchdirnm #  output directory
 if(!file.exists(out.dir)) dir.create(out.dir) # create this directory if it doesn't exist
