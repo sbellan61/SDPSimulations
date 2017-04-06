@@ -25,7 +25,7 @@ countries <- c(1:length(ds.nm)) ## countries to do
 ncount <- length(ds.nm)
 # acute phase relative hazards to do (must match those fitted previously, since it determines the
 # transmission coefficients used)
-acutes <- c(1,5,7,10,25,30,40,50) 
+acutes <- c(1,5,7,10)#,25,30,40,50) 
 each.val <- 200 #  number of couples per couple formation (marital) cohort
 counterf.betas <- F                       # change betas in counterfactuals? if not change beta_within & c's (so beta_within affects all routes)
 sub.betas <- F                           # substitute betas? if not beta_within & c's
@@ -144,6 +144,7 @@ for(aa in acutes)  {          # loop through acute phase relative hazard
                           " het.p=", het.p[ii], " het.p.sd=", het.p.sd[ii], " het.p.cor=", het.p.cor[ii],                     
                           " het.gen=", het.gen[ii], " het.gen.sd=", het.gen.sd[ii], " het.gen.cor=", het.gen.cor[ii],
                           " het.beh=", het.beh[ii], " het.beh.sd=", het.beh.sd[ii], " het.beh.cor=", het.beh.cor[ii],
+                          " hilo=0 phihi=0 phi.m=0 phi.f=0 rrhi.m=0 rrhi.f=0",
                           " scale.by.sd=", scale.by.sd[ii], " scale.adj=", scale.adj[ii],
                           " infl.fac=", infl.fac[ii], " maxN=", maxN[ii], " sample.tmar=", sample.tmar[ii],
                           " psNonPar=", psNonPar[ii], " seed=1 tmar=(65*12):(113*12) each=", each[ii],

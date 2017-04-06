@@ -6,9 +6,9 @@ if(grepl('tacc', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/DHSProject
 source('PlotFunctions.R')                    # load functions to collect & plot results
 source('SimulationFunctions.R')                   # load simulation functions
 library(abind)                          # array binding
-load('data files/ds.nm.all.Rdata')        # country names
-load('data files/dframe.s.Rdata')        # SDP by survey
-do.again <- T                           # collect results again (otherwise load cfs.Rdata)
+load('../DHSFitting/data files/ds.nm.all.Rdata')        # country names
+load('../DHSFitting/data files/dframe.s.Rdata')        # SDP by survey
+do.again <- F                           # collect results again (otherwise load cfs.Rdata)
 show.pts <- T                           # show observed SDP in real DHS data
 ## source('CounterFactualSummaries.R')
 
@@ -39,7 +39,7 @@ print(paste(sum(duplicated(cframe$job)), 'duplicate jobs'))
 cframe <- cframe[!duplicated(cframe$job),]
 t.arr <-  t.arr[,,!duplicated(cframe$job)]
 acutes <- unique(cframe$acute.sc)       # which acute phase relative hazards (RHs) were simulated
-nac <- 8 #length(acutes)                   # how many
+nac <- length(acutes)                   # how many
 col.pl <- 'black'                       # base plot color
 mend <- max(blocks$end)                 # last job of each block
 countries <- unique(cframe$group.ind)   # countries simulated
@@ -49,7 +49,7 @@ jtd.all <- expand.grid(1:16, c(1:26,89:92,117:120,145:148))
 jtd.all <- paste0(jtd.all[,1],'-',jtd.all[,2])
 jtd <- jtd.all[which(!jtd.all %in% paste0(cframe$group.ind, '-', cframe$simj))]
 print(paste("didn't do jobs:",paste(head(jtd,50), collapse=','))) # check to see if any jobs didn't complete
-save(jtd, file='data files/CFJobsToDo.Rdata')
+save(jtd, file=file.path(dir.results,'CFJobsToDo.Rdata'))
 
 ## Set labels & indices for plotting below
 set.labs <- function(bb, js) {
@@ -144,8 +144,8 @@ for(cc in countries) {   # make summary figures for each country
       par(mar = c(3,4,1,.5), oma = c(.5,6,5,0))
     }
     for(aa in 1:nac) { 
-      jst <- c(1, blocks$start[bb]:blocks$end[bb])
-      js <- which(cframe$simj %in% jst)
+      jst <- c(1, blocks$start[bb]:blocks$end[bb]) ## 1=baseline, blocks[bb] = CF scenarios
+      js <- which(cframe$simj %in% jst) ## simj is type of simulation (replicated over acutes)
       js <- js[cframe$acute.sc[js]==ac.to.do[aa] & cframe$group.ind[js]==cc] # select sims for this acute phase RH & country
       set.labs(bb, js)
       js1 <- cframe$job[js[cframe$simj[js]==1]] # which line was as fitted? always simj=1
@@ -178,7 +178,7 @@ for(cc in countries) {   # make summary figures for each country
   dev.off()
 }
 
-countries <- 1:16
+## countries <- 1:16
 
 ####################################################################################################
 ## Figure 2 for the manuscript - Homogeneous
@@ -306,7 +306,7 @@ for(one.file in c(F,T)) {
         par(mar=c(0,0,0,0))
         sel <- which(cframe$simj==1 & cframe$acute.sc==ac)
         ord <- rev(order((t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel]))
-        save(ord, file='data files/sdp ord.Rdata')
+        save(ord, file=file.path(dir.results,'sdp ord.Rdata'))
         par(xpd=NA)
         legend('bottomleft', ds.nm[ord], col=rainbow(length(sel))[ord], lwd = 1, title = 'top to bottom', cex = .8, inset = -.1)
         if(one.file) mtext(ds.nm[cc1], adj = 0.5, line = -2, side = 3, outer = F, cex = .75)
@@ -394,7 +394,7 @@ for(one.file in c(F,T)) {
         par(mar=c(0,0,0,0))
         sel <- which(cframe$simj==1 & cframe$acute.sc==ac)
         ord <- rev(order((t.arr[yrind,'mm',sel] + t.arr[yrind,'ff',sel]) / t.arr[yrind,'inf.alive',sel]))
-        save(ord, file='data files/sdp ord.Rdata')
+        save(ord, file=file.path(dir.results,'sdp ord.Rdata'))
         par(xpd=NA)
         legend('bottomleft', ds.nm[ord], col=rainbow(length(sel))[ord], lwd = 1, title = 'top to bottom', cex = .8, inset = -.1)
         if(one.file) mtext(ds.nm[cc1], adj = 0.5, line = -2, side = 3, outer = F, cex = .75)
