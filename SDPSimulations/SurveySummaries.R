@@ -4,11 +4,11 @@
 ######################################################################
 rm(list=ls())                           # clear workspace
 if(grepl('tacc', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/DHSProject/SDPSimulations/')
-#load("data files/ds.name.Rdata")        # country names
-load("data files/ds.nm.all.Rdata") # country names
-load("data files/allDHSAIS.Rdata")         # DHS data
-#load("data files/alldhs.Rdata")         # DHS data
-load("data files/epic.Rdata")       # Infectious HIV prevalence in men
+#load("../DHSFitting/data files/ds.name.Rdata")        # country names
+load("../DHSFitting/data files/ds.nm.all.Rdata") # country names
+load("../DHSFitting/data files/allDHSAIS.Rdata")         # DHS data
+#load("../DHSFitting/data files/alldhs.Rdata")         # DHS data
+load("../DHSFitting/data files/epic.Rdata")       # Infectious HIV prevalence in men
 head(dat,2)
 outdir <- file.path('results','PrevFigs')
 if(!file.exists(outdir)) dir.create(outdir)
@@ -79,7 +79,7 @@ dev.off()
 ## log-ratio of time spent in couple to time spent sexually active before
 dframe$logmrelpre <- log(dframe$rms / dframe$pms) 
 dframe$logfrelpre <- log(dframe$rfs / dframe$pfs)
-save(dframe, file=file.path("data files/dframe.Rdata"))
+save(dframe, file=file.path("../DHSFitting/data files/dframe.Rdata"))
 
 ####################################################################################################
 ## initialize dframe.s: one row per survey
@@ -128,13 +128,13 @@ for(cc in 1:length(unique(dframe.s$country))) {
 legend('topleft', unique(dframe.s$country), col = cols, pch = 19, bty = 'n')
 legend('bottomright', c('all','first marriage'), pch = c(21,19), bty = 'n')
 dev.off()
-save(dframe.s, file=file.path("data files","dframe.s.Rdata"))
+save(dframe.s, file=file.path("../DHSFitting/data files","dframe.s.Rdata"))
 ###################################################################### 
 
 ####################################################################################################
 ## Now make same types of summary plots but with all the data before pre-processing to remove
 ## couples with missing/inconsistent data for model fitting.
-load("data files/allRawDHSAIS.Rdata")       # raw data
+load("../DHSFitting/data files/allRawDHSAIS.Rdata")       # raw data
 ##################################################
 ## First need to fix Ethiopian survey dates due to their calendar shift.
 ## Ethiopia 2005: "The survey was fielded from April 27 to August 30, 2005." (p. 11, Ethiopia DHS
@@ -170,7 +170,7 @@ for(cc in 1:nrow(draw)) {
 draw$psdc.m <- draw$pmsdc / (draw$pmsdc + draw$pfsdc)
 draw <- draw[order(draw$country),]
 head(draw,3)
-save(draw, file="data files/draw.Rdata")
+save(draw, file="../DHSFitting/data files/draw.Rdata")
 
 ####################################################################################################
 ##  get discordance rates by surveys for raw data (draw.s), do for first mar only too.
@@ -221,7 +221,7 @@ for(cc in 1:length(unique(draw.s$country))) {
     draw.s$col[draw.s$country==tcount] <- cols[cc] # color
 }
 head(draw.s,5)
-save(draw.s, file="data files/draw.s.Rdata")
+save(draw.s, file="../DHSFitting/data files/draw.s.Rdata")
 
 
 ####################################################################################################

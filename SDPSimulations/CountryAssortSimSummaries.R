@@ -7,12 +7,12 @@ if(grepl('tacc', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/DHSProject
 source('PlotFunctions.R')                    # load functions to collect & plot results
 source('SimulationFunctions.R')                   # load simulation functions
 library(abind)                          # array binding
-load('data files/ds.nm.all.Rdata')        # country names
-load('data files/dframe.s.Rdata')        # SDP by survey
-load('data files/dframe.Rdata') # country summary data (peak prevalence, country-prevalence, etc...)
-load("data files/draw.Rdata") # raw country summary data (peak prevalence, country-prevalence, etc...)
-load('data files/dframe.s.Rdata')# country summary data (peak prevalence, country-prevalence, etc...) by DHS survey
-load('data files/draw.s.Rdata')# country summary data (peak prevalence, country-prevalence, etc...) by DHS survey (unfiltered data)
+load('../DHSFitting/data files/ds.nm.all.Rdata')        # country names
+load('../DHSFitting/data files/dframe.s.Rdata')        # SDP by survey
+load('../DHSFitting/data files/dframe.Rdata') # country summary data (peak prevalence, country-prevalence, etc...)
+load('../DHSFitting/data files/draw.Rdata') # raw country summary data (peak prevalence, country-prevalence, etc...)
+load('../DHSFitting/data files/dframe.s.Rdata')# country summary data (peak prevalence, country-prevalence, etc...) by DHS survey
+load('../DHSFitting/data files/draw.s.Rdata')# country summary data (peak prevalence, country-prevalence, etc...) by DHS survey (unfiltered data)
 do.again <- T                           # collect results again (otherwise load cfs.Rdata)
 show.pts <- T                           # show observed SDP in real DHS data
 ## source('CountryAssortSimSummaries.R')
