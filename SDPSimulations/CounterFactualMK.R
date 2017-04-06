@@ -22,7 +22,7 @@ nc <- 12                                       # core per simulation
 ####################################################################################################
 countries <- 1:length(ds.nm)
 
-countries <- which(ds.nm=='Zambia')
+#countries <- which(ds.nm=='Zambia')
 
 each.val <- 200                          #  number of couples per couple formation (marital) cohort
 counterf.betas <- F                       # change betas in counterfactuals? if not change beta_within & c's (so beta_within affects all routes)
