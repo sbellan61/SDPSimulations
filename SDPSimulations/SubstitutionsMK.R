@@ -3,12 +3,12 @@
 ## to run on a cluster.
 ####################################################################################################
 rm(list=ls())                                  # clear workspace
-setwd('/home1/02413/sbellan/SDPSimulations/')     # setwd
-load('data files/ds.nm.all.Rdata')        # load country names
-load('data files/pars.arr.ac.Rdata')    # load acute phase relative hazards used to fit (in.arr[,,2])
+setwd('/home1/02413/sbellan/SDPSimulations/SDPSimulations')     # setwd
+load('../DHSFitting/data files/ds.nm.all.Rdata')        # load country names
+load('../DHSFitting/data files/pars.arr.ac.Rdata')    # load acute phase relative hazards used to fit (in.arr[,,2])
 hazs <- c('bmb','bfb','bme','bfe','bmp','bfp') #  transmission coefficient names, for convenience
 nc <- 12                                       # core per simulation
-load(file=file.path('data files/SubAlreadyDone.Rdata'))
+load(file=file.path('../DHSFitting/data files/SubAlreadyDone.Rdata'))
 ## source('SubstitutionsMK.R')
 
 ####################################################################################################
@@ -148,11 +148,12 @@ for(aa in acutes)  {          # loop through acute phase relative hazard
                           " infl.fac=", infl.fac[ii], " maxN=", maxN[ii], " sample.tmar=", sample.tmar[ii],
                           " psNonPar=", psNonPar[ii], " seed=1 tmar=(65*12):(113*12) each=", each[ii],
                           " tint=113*12' SimulationStarter.R ", file.path(batchdirnm, "routs", paste0(ds.nm[group[ii]], jb, ".Rout")), sep='')
-             if(ii > 0 & acute.sc[ii]==1 & !totn %in% already.done ) {
+#             if(ii > 0 & acute.sc[ii]==1 & !totn %in% already.done ) {
                num.doing <- num.doing + 1
                  cat(cmd)               # add command
                  cat('\n')              # add new line
-               } } } }
+#               }
+ } } }
 sink()
 blocks$sub.country.nm <- ds.nm[blocks$sub.country]
 head(blocks,50)
