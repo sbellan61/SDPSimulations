@@ -2,11 +2,14 @@
 ## Makes control files for each analysis within which each line giving one R CMD BATCH command line
 ## to run on a cluster.
 ####################################################################################################
-library(copula); library(bindata)
+setwd("/home1/02413/sbellan/SDPSimulations/SDPSimulations")
+library(copula); 
+library(bindata); 
+library(data.table)
 rm(list=ls())                                  # clear workspace
-load("data files/ds.nm.all.Rdata") # country names
-load('data files/pars.arr.ac.Rdata')    # load acute phase relative hazards used to fit (in.arr[,,2])
-load(file='data files/AssortJobsToDo.Rdata') ## for finishing up jobs from last run that didn't get finished due to cluster problems.
+load('../DHSFitting/data files/ds.nm.all.Rdata') # country names
+load('../DHSFitting/data files/pars.arr.ac.Rdata')    # load acute phase relative hazards used to fit (in.arr[,,2])
+load(file='../DHSFitting/data files/AssortJobsToDo.Rdata') ## for finishing up jobs from last run that didn't get finished due to cluster problems.
 hazs <- c('bmb','bfb','bme','bfe','bmp','bfp') #  transmission coefficient names, for convenience
 nc <- 12                                       # core per simulation
 ## setwd('/home1/02413/sbellan/DHSProject/SDPSimulations/')
@@ -41,8 +44,9 @@ blocks$phi.m <- blocks$phi - blocks$phi^2*blocks$rel.assort
 blocks$phi.f <- blocks$phi.m
 blocks$rrhi.f <- blocks$rrhi.m
 blocks$jobnum <- 1:nrow(blocks)
+blocks <- as.data.table(blocks)
 
-head(blocks)
+blocks
 with(blocks, phihi + phi.m)
 
 counterf.betas <- F ## change betas in counterfactuals? if not change beta_within & c's (so beta_within affects all routes)
@@ -78,15 +82,16 @@ for(ii in 1:nrow(blocks)) { ## for each simulation
                     " s.demog=", group, " s.epic=", group,
                     " hilo=", hilo, " phihi=", phihi, " phi.m=", phi.m, " phi.f=", phi.f, " rrhi.m=", rrhi.m, " rrhi.f=", rrhi.f,
                     " het.gen=", F, " het.gen.sd=", 0, " het.gen.cor=", 0,
+                    " het.beh=", F, " het.beh.sd=", 0, " het.beh.cor=", 0,
                     " sample.tmar=", sample.tmar,
                     " seed=1 tmar=(65*12):(113*12) each=", each, " maxN=", maxN, 
                     " tint=113*12' SimulationStarter.R ", file.path(batchdirnm, "routs", paste0(ds.nm[group], ii, ".Rout")), sep='')
               )
-  if(ii %in% jtd) {
+#  if(ii %in% jtd) {
     num.doing <- num.doing+1
     cat(cmd)               # add command
     cat('\n')              # add new line
-  }
+#  }
 }
 sink()
 save(blocks, file = file.path(outdir,'blocks.Rdata')) # these are country-acute phase specific blocks
