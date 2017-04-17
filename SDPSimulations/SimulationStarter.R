@@ -15,7 +15,7 @@
 #################################################################################################### 
 rm(list=ls())                           # clear workspace
 
-## jobnum=3;simj=1;batchdirnm="results/CounterFactual/Acute1/Burundi";nc=12;group.ind=1;substitute=FALSE;sub.betas=FALSE;counterf.betas=FALSE;s.epic=1;s.demog=1;s.bmb=1;s.bfb=1;s.bme=1;s.bfe=1;s.bmp=1;s.bfp=1;death=TRUE;acute.sc=1;late.sc=1;aids.sc=1;bmb.sc=1;bfb.sc=1;bme.sc=1;bfe.sc=1;bmp.sc=1;bfp.sc=1;het.b=FALSE;het.b.sd=0;het.b.cor=0;het.e=FALSE;het.e.sd=0;het.e.cor=0;het.p=FALSE;het.p.sd=0;het.p.cor=0;het.gen=FALSE;het.gen.sd=0;het.gen.cor=0;het.beh=FALSE;het.beh.sd=0;het.beh.cor=0;scale.by.sd=TRUE;scale.adj=1;infl.fac=200;maxN=1e+05;sample.tmar=FALSE;psNonPar=FALSE;seed=1;tmar=(65*12):(113*12);each=200;tint=113*12
+## acute.sc=1;country=15;batch=1;simj=1;lab="as;fitted";death="TRUE";het.gen="FALSE";het.gen.sd=0;het.gen.cor=0;het.beh="FALSE";het.beh.sd=0;het.beh.cor=0;het.b="FALSE";het.b.sd=0;het.b.cor=0;het.e="FALSE";het.e.sd=0;het.e.cor=0;het.p="FALSE";het.p.sd=0;het.p.cor=0;bmb.sc=1;bfb.sc=1;bme.sc=1;bfe.sc=1;bmp.sc=1;bfp.sc=1;late.sc=1;aids.sc=1;group=15;s.epic=15;s.demog=15;scale.by.sd="TRUE";scale.adj=1;infl.fac=200;maxN=1e+05;sample.tmar="FALSE";psNonPar="FALSE";each=200;jobnum=57;seed=1;out.dir="results/CounterFactual";sim.nm="CF";
 
 args=(commandArgs(TRUE))                # load arguments from R CMD BATCH 
 if(length(args)>0)  {## Then cycle through each element of the list and evaluate the expressions.
@@ -25,9 +25,7 @@ if(length(args)>0)  {## Then cycle through each element of the list and evaluate
 set.seed(seed)
 vfreq <- 200 ## how often to report on results
 source("SimulationFunctions.R")                   # load simulation functions from script
-country <- group.ind              # set country to country-group index
-out.dir <- batchdirnm #  output directory
-if(!file.exists(out.dir)) dir.create(out.dir) # create this directory if it doesn't exist
+country <- group              # set country to country-group index
 odat <- dat          # backup original data in this workspace before it gets manipulated
 print(ds.nm[country])                   # Print country name.
 

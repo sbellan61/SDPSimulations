@@ -11,6 +11,18 @@ load("../DHSFitting/data files/dframe.Rdata")   # summary characteristics of DHS
 
 subsArgs <- function(parms, fxn) parms[names(parms) %in% names(formals(fxn))] ## get parameters necessary for a fxn
 
+## Set up MK txt files
+addParm <- function(x, parmsMat,ii) {
+    for(pp in 1:length(parmsMat)) {
+        tempP <- as.data.frame(parmsMat)[,pp]
+        isch <- !is.numeric(tempP[1])
+        parmAdd <- tempP[parmsMat$jobnum==ii]
+        addStrg <- paste0(" ", names(parmsMat)[pp], "=", "\""[isch], parmAdd, "\""[isch])
+        x <- paste0(x, addStrg)
+    }
+    return(x)
+}
+
 ## Age-at-seroconversion dependent Weibull survival times fit to
 ## CASCADE 2000 data. See Bellan et al. (2013) Supp Info for details.
 ageweib <- function(age, death = T)
@@ -63,7 +75,7 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
                   scale.adj = 1,   # adjust betas arbitrarily
                   ## processing & visualizations
                   nc = 12,               # number of cores
-                  out.dir,               # output directory
+                  out.dir, sim.nm,              # output directory
                   make.jpgs = T,         # make some pictures of results
                   early.yr = 1985,       # earliest year to show in timeseries plots
                   plot.pdfs = T,         # make some PDFs of results
@@ -213,18 +225,8 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
                      psNonPar = psNonPar, last.int = F, sample.tmar = sample.tmar, tint = tint,
                      hours = hours),
                    tmar = tmar, each = each) # these are vectors & so must be given separately
-    sim.nm <- paste(ds.nm[country], "-", nrow(evout), '-', jobnum, sep = "") # name simulation results (country-#couples-jobum)
     ## create file name making sure not to save over old files
-    output.nm.base <- file.path(out.dir, sim.nm) #paste(sim.nm, ".Rdata", sep = ""))
-    stepper <- 1
-    output.nm <- output.nm.base
-    if(save.new) { ## don't save over old files
-        while(file.exists(paste0(output.nm,'.Rdata'))) { 
-            stepper <- stepper + 1
-            output.nm <- paste0(output.nm.base, '-', stepper)
-        }
-    }
-    output.nm <- paste0(output.nm, '.Rdata')
+    output.nm <- file.path(out.dir, paste0(sim.nm, '-', sprintf("%06d", jobnum) '.Rdata'))
     print(paste('saving file',output.nm))
     save(output, file = output.nm)
     return(output.nm)
