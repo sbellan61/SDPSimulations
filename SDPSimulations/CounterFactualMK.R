@@ -4,6 +4,7 @@
 ####################################################################################################
 #rm(list=ls())                                  # clear workspace
 require(data.table)
+source("SimulationFunctions.R")                   # load simulation functions from script
 if(grepl('tacc', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/DHSProject/SDPSimulations/')
 if(grepl('stevenbellan', Sys.info()['login'])) setwd('~/Documents/R Repos/SDPSimulations/SDPSimulations/')
 load("../DHSFitting/data files/ds.nm.all.Rdata") # country names
@@ -103,7 +104,7 @@ blocksg[,c('tmar','tint'):=.('tmar=(65*12):(113*12)',113*12)]
 blocksgTD <- blocksg[country==15]
 
 if(!file.exists(out.dir))      dir.create(out.dir) # create directory if necessary
-if(!file.exists(file.path(out.dir,'Rdata')))      dir.create(file.path(out.dir,'Rdata')) # create directory if necessary
+if(!file.exists(file.path(out.dir,'Rdatas')))      dir.create(file.path(out.dir,'Rdatas')) # create directory if necessary
 if(!file.exists(file.path(out.dir,'Routs')))      dir.create(file.path(out.dir,'Routs')) # create directory if necessary
 sink("HetCounterFactualAcute.txt")         # create a control file to send to the cluster
 for(ii in blocksgTD[,jobnum][1:4]) { #blocksgTD[,jobnum]) {
