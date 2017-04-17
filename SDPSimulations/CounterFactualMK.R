@@ -2,6 +2,8 @@
 ## Makes control files for each analysis within which each line giving one R CMD BATCH command line
 ## to run on a cluster.
 ####################################################################################################
+
+## source('CounterFactualMK.R')
 #rm(list=ls())                                  # clear workspace
 require(data.table)
 source("SimulationFunctions.R")                   # load simulation functions from script
@@ -107,7 +109,7 @@ if(!file.exists(out.dir))      dir.create(out.dir) # create directory if necessa
 if(!file.exists(file.path(out.dir,'Rdatas')))      dir.create(file.path(out.dir,'Rdatas')) # create directory if necessary
 if(!file.exists(file.path(out.dir,'Routs')))      dir.create(file.path(out.dir,'Routs')) # create directory if necessary
 sink("HetCounterFactualAcute.txt")         # create a control file to send to the cluster
-for(ii in blocksgTD[,jobnum][1:4]) { #blocksgTD[,jobnum]) {
+for(ii in blocksgTD[,jobnum]) { #blocksgTD[,jobnum]) {
     cmd <- "R CMD BATCH '--no-restore --no-save --args"
     cmd <- addParm(cmd, blocksgTD, ii)
     cmd <- paste0(cmd, " ' SimulationStarter.R ", file.path(out.dir,'Routs', paste0('CFsim', sprintf("%06d", ii),'.Rout')), 
