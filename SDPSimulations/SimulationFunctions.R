@@ -1,4 +1,4 @@
-library(graphics); library(abind); library(mvtnorm); library(multicore) # load necessary libraries
+library(graphics); library(abind); library(mvtnorm); library(parallel) # load necessary libraries
 load("../DHSFitting/data files/copula sigmas.Rdata")  # multivariate copula covariance matrix for simulating couple pseudopopulations
 load("../DHSFitting/data files/epic.Rdata")     # infectious HIV prevalence
 ##  transmission parameters fit to DHS across the range of a acute phase relative hazards
