@@ -226,7 +226,7 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
                      hours = hours),
                    tmar = tmar, each = each) # these are vectors & so must be given separately
     ## create file name making sure not to save over old files
-    output.nm <- file.path(out.dir, paste0(sim.nm, '-', sprintf("%06d", jobnum) '.Rdata'))
+    output.nm <- file.path(out.dir, paste0(sim.nm, '-', sprintf("%06d", jobnum), '.Rdata'))
     print(paste('saving file',output.nm))
     save(output, file = output.nm)
     return(output.nm)
