@@ -19,8 +19,23 @@ if(!file.exists(dir.figs)) dir.create(dir.figs)      # create it
 load(file.path(dir.results, 'blocks.Rdata'))
 ## Load all results files in the results directory (all Rdata files except blocks & cfs)
 fs <- list.files(pattern = '.Rdata', path = file.path(dir.results), recursive = T, full.names = T)
-fs <- fs[!grepl('blocks',fs) & !grepl('cfs',fs)]
+fs <- fs[!grepl('blocks',fs) & !grepl('cfs',fs) & grepl('Acute', fs)]
 #fs <- fs[grepl('Acute7',fs)]
+print(length(fs))
+
+## make sure they're not empty files
+getsize <- function(x) file.info(x)$size
+sizes <- sapply(fs, getsize)
+fs <- fs[sizes>0]
+print(length(fs))
+
+## tryload <- function(ff) {
+## err <- try(load(file=ff), silent=F)
+## print(paste(ff, err))
+## }
+## mclapply(fs, tryload, mc.cores = detectCores())
+
+fs <- fs[fs!='results/CounterFactual/Acute1/Rwanda/Rwanda-115400-1476.Rdata']
 print(length(fs))
 
 ## coll: collects all results into data frame of input parameters, and array of time series
@@ -83,7 +98,7 @@ set.labs <- function(bb, js) {
   }
 }
 
-ac.to.do <- c(7) #1,7,25,50)
+ac.to.do <- c(5) #1,7,25,50)
 nac <- length(ac.to.do)
 for(cc in countries) {   # make summary figures for each country
 ####################################################################################################

@@ -3,7 +3,9 @@
 ## to run on a cluster.
 ####################################################################################################
 #rm(list=ls())                                  # clear workspace
+require(data.table)
 if(grepl('tacc', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/DHSProject/SDPSimulations/')
+if(grepl('stevenbellan', Sys.info()['login'])) setwd('~/Documents/R Repos/SDPSimulations/SDPSimulations/')
 load("../DHSFitting/data files/ds.nm.all.Rdata") # country names
 load('../DHSFitting/data files/pars.arr.ac.Rdata')    # load acute phase relative hazards used to fit (in.arr[,,2])
 load('../DHSFitting/data files/CFJobsToDo.Rdata') ## for finishing up jobs from last run that didn't get finished due to cluster problems.
@@ -35,11 +37,93 @@ nac <- length(acutes)                 # how many are there?
 hsds <- c(.5,1,2,3)                     # standard deviation of log(hazards)
 hsds.rts <- c(0,1,2)                      # same but use smaller subset when also scaling transmission routes
 cors <- c(0,.4,.8)                      # inter-partner correlations
+ncors <- length(cors)
+
 nn <- 400 # number of simulations per country-acute combination (must be bigger than max(sel) later but is fine to leave big
 substitute <- F                         # not a substitution analysis
 totn <- 0                               # total number of simulations (steps up to final value)
 num.doing <- 0
 outdir <- file.path('results','CounterFactual')
+
+nhsds <- length(hsds)
+hets <- c('b','e','p','gen','beh')
+labs <- c('pre-','extra-','within-', 'genetic', 'behavioral')
+
+currbatch <- 1
+blocks <- data.table(batch = 99, simj = 1:160, lab = 'as fitted', death=T, 
+                     het.gen=F, het.gen.sd=0, het.gen.cor=0, het.beh=F, het.beh.sd=0, het.beh.cor=0,
+                     het.b=F, het.b.sd=0, het.b.cor=0, het.e=F, het.e.sd=0, het.e.cor=0, het.p=F, het.p.sd=0, het.p.cor=0,
+                     bmb.sc=1, bfb.sc=1, bme.sc=1, bfe.sc=1, bmp.sc=1, bfp.sc=1,
+                     acute.sc=1, late.sc=1, aids.sc=1)
+blocks[1, batch:=currbatch]
+for(ghsd in hsds.rts) {
+    nextsimj <- blocks[batch==currbatch, max(simj)+1]
+    currbatch <- currbatch + 1
+    blocks[nextsimj, c('batch','lab','death','het.gen', 'het.gen.sd'):=.(currbatch,paste0('no AIDS mortality, gen het=',ghsd), F, ghsd>0, ghsd)]
+    for(hi in 1:3) {
+        hh <- hets[hi]
+        nextsimj <- blocks[batch==currbatch, max(simj)+1]
+        currbatch <- currbatch + 1
+        blocks[nextsimj:(nextsimj+nrtsc-1), c('batch', 'lab', paste0('bm', hh,'.sc'),paste0('bf', hh,'.sc'), 'het.gen', 'het.gen.sd')
+               := .(currbatch, paste0('scale ',labs[hi], '-couple, gen het=', ghsd), rtsc, rtsc, ghsd>0, ghsd)]
+    }
+}
+for(cr in cors) {
+    for(hi in 1:5) {
+        hh <- hets[hi]
+        nextsimj <- blocks[batch==currbatch, max(simj)+1]
+        currbatch <- currbatch + 1
+        blocks[nextsimj:(nextsimj+nhsds-1), c('batch', 'lab', paste0(paste0('het.',hh), c('','.sd','.cor'))) := .(currbatch, paste0(hh, ' cor=', cr), T, hsds, cr)]
+    }
+    ## pre-/extra- route heterogeneity (different rfs per route)
+    nextsimj <- blocks[batch==currbatch, max(simj)+1]
+    currbatch <- currbatch + 1
+    blocks[nextsimj:(nextsimj+nhsds-1), c('batch', 'lab', paste0(rep(c('het.b','het.e'), each = 3), c('','.sd','.cor')) ) := .(currbatch, paste0('pre/extra cor=', cr), T, hsds, cr, T, hsds, cr)]
+    ## all route heterogeneity (different rfs per route)
+    nextsimj <- blocks[batch==currbatch, max(simj)+1]
+    currbatch <- currbatch + 1
+    blocks[nextsimj:(nextsimj+nhsds-1), c('batch', 'lab', paste0(rep(c('het.b','het.e','het.p'), each = 3), c('','.sd','.cor')) ) := .(currbatch, paste0('all route cor=', cr), 
+                                                                                                                                       T, hsds, cr, T, hsds, cr, T, hsds, cr)]
+}
+
+CJ.dt = function(X,Y) {
+  stopifnot(is.data.table(X),is.data.table(Y))
+  k = NULL
+  X = X[, c(k=1, .SD)]
+  setkey(X, k)
+  Y = Y[, c(k=1, .SD)]
+  setkey(Y, NULL)
+  X[Y, allow.cartesian=TRUE][, k := NULL][]
+}
+blocks$acute.sc <- NULL
+blocksg <- CJ.dt(data.table(country = countries), blocks)
+blocksg <- CJ.dt(data.table(acute.sc = acutes), blocksg)
+blocksg
+blocksg[,c('group','s.epic','s.demog','scale.by.sd','scale.adj','infl.fac','maxN','sample.tmar','psNonPar','each'):= .(country,country, country, T, 1, 200, 10^5, F, F, each.val)]
+
+addParm <- function(x, parmsMat,ii) {
+    for(pp in 1:length(parmsMat)) {
+        tempP <- as.data.frame(parmsMat)[,pp]
+        isch <- !is.numeric(tempP[1])
+        parmAdd <- tempP[parmsMat$simNum==ii]
+        addStrg <- paste0(" ", names(parmsMat)[pp], "=", "\""[isch], parmAdd, "\""[isch])
+        x <- paste0(x, addStrg)
+    }
+    return(x)
+}
+
+blocksg[,simn:=1:nrow(blocksg)]
+
+sink(paste0("HetCounterFactualAcute.txt"))
+for(ii in 1:4) { #blocksg[,simn]) {
+    cmd <- "R CMD BATCH '--no-restore --no-save --args"
+    cmd <- addParm(cmd, blocksg, ii)
+    cmd <- paste0(cmd, " ' SimulationStarter.R ", file.path(batchdirnm,'Routs', paste0(nmtmp, sprintf("%06d", ii),'.Rout')), 
+                  sep='')
+    cat(cmd)               # add command
+    cat('\n')              # add new line
+}
+sink()
 
 sink("HetCounterFactualAcute.txt")         # create a control file to send to the cluster
 if(!file.exists(outdir))      dir.create(outdir) # create directory if necessary
@@ -54,118 +138,6 @@ for(aa in acutes)  {                    # loop through acute phase relative haza
 ######################################################################           
     ## Set defaults for all parameters for each simulation, simulatin specific-values set later
 ######################################################################
-    group <- rep(cc,nn)          # country group.
-    ## set substitution country (donor country) indices to country:
-    ## s.epic, s.demog, s.bmb...
-    for(svar in c('epic','demog', hazs)) assign(paste0('s.',svar), rep(cc,nn))
-    ## set all phases to have same infectivity (change below)
-    for(ph in c('acute','late', 'aids')) assign(paste0(ph,'.sc'), rep(1,nn))
-    death <- rep(T,nn)       # include death
-    ## all haz scalars (bmb.sc,etc...) set to 1
-    for(hh in hazs) assign(paste0(hh,'.sc'), rep(1,nn))
-    ## set heterogeneity defaults (i.e. het.b, het.b.sd, het.b.cor,etc...)
-    for(ht in c('b','e','p','gen','beh')) {
-      assign(paste0('het.',ht),         rep(F,nn))
-      assign(paste0('het.',ht,'.sd'),   rep(0,nn))
-      assign(paste0('het.',ht,'.cor'),  rep(0,nn))
-    }
-    scale.by.sd <- rep(T,nn)     # scale by standard deviation?
-    scale.adj <- rep(1,nn)       # arbitrary scalar if not doing that.
-    infl.fac <- rep(200,nn)  # inflation factor for non-parametric couple pseudo-population builder
-    maxN <- rep(10^5,nn)     # max pseudopopulation size
-    sample.tmar <- rep(F,nn) # sample marital (couple formation) date from copulas?
-    psNonPar <- rep(F,nn) #  use non-parametric couple pseudo-population builder?
-    each <- rep(each.val, nn) # how many couples per marital (couple formation) cohort
-######################################################################
-######################################################################
-    ## simulation-specific settings
-    ## 
-    ## as fitted
-    sel <- 1
-    blocks <- data.frame(start = min(sel), end = max(sel), lab = 'as fitted')
-    for(hsd in hsds.rts)  {            # with varying amounts of within-couple heterogeneity
-      ## no AIDS mortality
-      sel <- sel[length(sel)] + 1
-      death[sel] <- F
-      het.gen[sel] <- hsd > 0
-      het.gen.sd[sel] <- hsd
-      blocks <- rbind(blocks, data.frame(start = min(sel), end = max(sel), lab = paste0('no AIDS mortality',paste0(' gen het=',hsd))))
-      ## scale pre-couple
-      sel <- (sel[length(sel)] + 1):(sel[length(sel)] + nrtsc)
-      bmb.sc[sel] <- rtsc
-      bfb.sc[sel] <- rtsc
-      het.gen[sel] <- hsd > 0
-      het.gen.sd[sel] <- hsd
-      blocks <- rbind(blocks, data.frame(start = min(sel), end = max(sel), lab = paste0('scale pre-couple',paste0(' gen het=',hsd))))
-      ## scale extra-couple
-      sel <- (sel[length(sel)] + 1):(sel[length(sel)] + nrtsc)
-      bme.sc[sel] <- rtsc
-      bfe.sc[sel] <- rtsc
-      het.gen[sel] <- hsd > 0
-      het.gen.sd[sel] <- hsd
-      blocks <- rbind(blocks, data.frame(start = min(sel), end = max(sel), lab = paste0('scale extra-couple',paste0(' gen het=',hsd))))  
-      ## scale within-couple
-      sel <- (sel[length(sel)] + 1):(sel[length(sel)] + nrtsc)
-      bmp.sc[sel] <- rtsc
-      bfp.sc[sel] <- rtsc
-      het.gen[sel] <- hsd > 0
-      het.gen.sd[sel] <- hsd
-      blocks <- rbind(blocks, data.frame(start = min(sel), end = max(sel), lab = paste0('scale within-couple',paste0(' gen het=',hsd))))
-    }
-    for(cr in cors) {      # for each inter-partner correlation
-      ## pre-couple heterogeneity (no heterogeneity for other routes)
-      sel <- (sel[length(sel)] + 1):(sel[length(sel)] + length(hsds))
-      het.b[sel] <- T
-      het.b.sd[sel] <- hsds
-      het.b.cor[sel] <- cr        
-      blocks <- rbind(blocks, data.frame(start = min(sel), end = max(sel), lab = paste0('pre- heterogeneity cor=',cr)))
-      ## extra-couple heterogeneity (no heterogeneity for other routes)
-      sel <- (sel[length(sel)] + 1):(sel[length(sel)] + length(hsds))
-      het.e[sel] <- T
-      het.e.sd[sel] <- hsds
-      het.e.cor[sel] <- cr        
-      blocks <- rbind(blocks, data.frame(start = min(sel), end = max(sel), lab = paste0('extra- heterogeneity cor=',cr)))
-      ## within-couple heterogeneity (no heterogeneity for other routes)
-      sel <- (sel[length(sel)] + 1):(sel[length(sel)] + length(hsds))
-      het.p[sel] <- T
-      het.p.sd[sel] <- hsds
-      het.p.cor[sel] <- cr        
-      blocks <- rbind(blocks, data.frame(start = min(sel), end = max(sel), lab = paste0('within- heterogeneity cor=',cr)))
-      ## genetic heterogeneity (same individual risk factor for all routes)
-      sel <- (sel[length(sel)] + 1):(sel[length(sel)] + length(hsds))
-      het.gen[sel] <- T
-      het.gen.sd[sel] <- hsds
-      het.gen.cor[sel] <- cr
-      blocks <- rbind(blocks, data.frame(start = min(sel), end = max(sel), lab = paste0('genetic heterogeneity cor=',cr)))
-      ## behavioral heterogeneity (same individual risk factor for pre-/extra- routes, no heterogeneity for within-)
-      sel <- (sel[length(sel)] + 1):(sel[length(sel)] + length(hsds))
-      het.beh[sel] <- T
-      het.beh.sd[sel] <- hsds
-      het.beh.cor[sel] <- cr        
-      blocks <- rbind(blocks, data.frame(start = min(sel), end = max(sel), lab = paste0('behavioral heterogeneity cor=',cr)))
-      ## all route heterogeneity but different risk factors
-      sel <- (sel[length(sel)] + 1):(sel[length(sel)] + length(hsds))
-      het.b[sel] <- T
-      het.b.sd[sel] <- hsds
-      het.b.cor[sel] <- cr        
-      het.e[sel] <- T
-      het.e.sd[sel] <- hsds
-      het.e.cor[sel] <- cr        
-      het.p[sel] <- T
-      het.p.sd[sel] <- hsds
-      het.p.cor[sel] <- cr        
-      blocks <- rbind(blocks, data.frame(start = min(sel), end = max(sel), lab = paste0('all route heterogeneity cor=',cr)))
-      ## pre-/extra- route heterogeneity but different risk factors
-      sel <- (sel[length(sel)] + 1):(sel[length(sel)] + length(hsds))
-      het.b[sel] <- T
-      het.b.sd[sel] <- hsds
-      het.b.cor[sel] <- cr        
-      het.e[sel] <- T
-      het.e.sd[sel] <- hsds
-      het.e.cor[sel] <- cr        
-      blocks <- rbind(blocks, data.frame(start = min(sel), end = max(sel), lab = paste0('pre extra route heterogeneity cor=',cr)))
-    }  
-
     ## LEFT OFF HERE
     for(ii in 1:max(sel)) {
       jb <- ii                   # job num

@@ -1,5 +1,15 @@
 library(graphics); library(abind); library(mvtnorm); library(multicore) # load necessary libraries
+load("../DHSFitting/data files/copula sigmas.Rdata")  # multivariate copula covariance matrix for simulating couple pseudopopulations
+load("../DHSFitting/data files/epic.Rdata")     # infectious HIV prevalence
+##  transmission parameters fit to DHS across the range of a acute phase relative hazards
+load("../DHSFitting/data files/pars.arr.ac.Rdata")
+## loads out.arr [parname, ci.l med ci.u, acute, country] and in.arr (describes inputs & gelman diagnostics)
+load("../DHSFitting/data files/csurv.Rdata")    #  probability of survival (row) months by age (in months) at seroconversion (column)
+load('../DHSFitting/data files/ds.nm.all.Rdata')        # load country names
+load("../DHSFitting/data files/allDHSAIS.Rdata")         # DHS data
+load("../DHSFitting/data files/dframe.Rdata")   # summary characteristics of DHS data
 
+subsArgs <- function(parms, fxn) parms[names(parms) %in% names(formals(fxn))] ## get parameters necessary for a fxn
 
 ## Age-at-seroconversion dependent Weibull survival times fit to
 ## CASCADE 2000 data. See Bellan et al. (2013) Supp Info for details.

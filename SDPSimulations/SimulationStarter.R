@@ -1,7 +1,7 @@
 ######################################################################
 ## Drivers of serodiscordance patterns and sub-Saharan Africa
 ###################################################################### 
-## Steve Bellan, 2013
+## Steve Bellan, 2013-2017
 ## steve.bellan@gmail.com
 #################################################################################################### 
 ##  The goal of this analysis is to assess the extent to which pre-, extra-, & within-couple
@@ -15,25 +15,16 @@
 #################################################################################################### 
 rm(list=ls())                           # clear workspace
 
-## jobnum=2049;simj=1024;batchdirnm="results/CounterAssort/Acute7/Zimbabwe";nc=12;group.ind=16;substitute=FALSE;sub.betas=FALSE;counterf.betas=FALSE;death=TRUE;acute.sc=7;late.sc=1;aids.sc=1;bmb.sc=1;bfb.sc=1;bme.sc=1;bfe.sc=1;bmp.sc=10;bfp.sc=10;s.bmb=16;s.bfb=16;s.bme=16;s.bfe=16;s.bmp=16;s.bfp=16;s.demog=16;s.epic=16;het.gen=TRUE;het.gen.sd=3;het.gen.cor=0.9;sample.tmar=FALSE;seed=1;tmar=(65*12):(113*12);each=200;maxN=1e+05;tint=113*12
+## jobnum=3;simj=1;batchdirnm="results/CounterFactual/Acute1/Burundi";nc=12;group.ind=1;substitute=FALSE;sub.betas=FALSE;counterf.betas=FALSE;s.epic=1;s.demog=1;s.bmb=1;s.bfb=1;s.bme=1;s.bfe=1;s.bmp=1;s.bfp=1;death=TRUE;acute.sc=1;late.sc=1;aids.sc=1;bmb.sc=1;bfb.sc=1;bme.sc=1;bfe.sc=1;bmp.sc=1;bfp.sc=1;het.b=FALSE;het.b.sd=0;het.b.cor=0;het.e=FALSE;het.e.sd=0;het.e.cor=0;het.p=FALSE;het.p.sd=0;het.p.cor=0;het.gen=FALSE;het.gen.sd=0;het.gen.cor=0;het.beh=FALSE;het.beh.sd=0;het.beh.cor=0;scale.by.sd=TRUE;scale.adj=1;infl.fac=200;maxN=1e+05;sample.tmar=FALSE;psNonPar=FALSE;seed=1;tmar=(65*12):(113*12);each=200;tint=113*12
 
 args=(commandArgs(TRUE))                # load arguments from R CMD BATCH 
 if(length(args)>0)  {## Then cycle through each element of the list and evaluate the expressions.
     for(i in 1:length(args)) {
         eval(parse(text=args[[i]]))
-      }  }
+    }  }
 set.seed(seed)
 vfreq <- 200 ## how often to report on results
 source("SimulationFunctions.R")                   # load simulation functions from script
-load("../DHSFitting/data files/copula sigmas.Rdata")  # multivariate copula covariance matrix for simulating couple pseudopopulations
-load("../DHSFitting/data files/epic.Rdata")     # infectious HIV prevalence
-##  transmission parameters fit to DHS across the range of a acute phase relative hazards
-load("../DHSFitting/data files/pars.arr.ac.Rdata")
-## loads out.arr [parname, ci.l med ci.u, acute, country] and in.arr (describes inputs & gelman diagnostics)
-load("../DHSFitting/data files/csurv.Rdata")    #  probability of survival (row) months by age (in months) at seroconversion (column)
-load('../DHSFitting/data files/ds.nm.all.Rdata')        # load country names
-load("../DHSFitting/data files/allDHSAIS.Rdata")         # DHS data
-load("../DHSFitting/data files/dframe.Rdata")   # summary characteristics of DHS data
 country <- group.ind              # set country to country-group index
 out.dir <- batchdirnm #  output directory
 if(!file.exists(out.dir)) dir.create(out.dir) # create this directory if it doesn't exist
@@ -48,73 +39,48 @@ hazs <- c("bmb","bfb","bme","bfe","bmp","bfp") # six gender-route specific trans
 spars <- pars.arr[hazs,2,country]              # get transmission coefficients from base country
 ## If substituting, substitute parameters/epidemic curves out for those from donor country
 if(substitute) {
-  ##  For each country substitute things from others and see how close
-  ##  it gets to the serodiscordance levels of the other country.
+    ##  For each country substitute things from others and see how close
+    ##  it gets to the serodiscordance levels of the other country.
 ######################################################################
-  ##  Epidemic curve
-  if(s.epic!=country) {     # if substituting, replce it in data (otherwise it defaults to original)
-    s.epic.nm <- ds.nm[s.epic]              # epidemic curve to use (country name)
-    s.epic.ind <- which(colnames(epicf)==s.epic.nm) # epidemic curve to use (column index of epicf/m matrices)
-    ## substitute epidemic curves into data
-    dat$epic.ind <- s.epic.ind
-    dat$epic.nm <- s.epic.nm
-  }
-  if(sub.betas) { ## substituting betas between countries
-      ##  substitute parameters from substitution (donor) country. At most two of these substitutions will change spars.
-      spars['bmb'] <- pars.arr['bmb',2,s.bmb] # pre-couple to male
-      spars['bfb'] <- pars.arr['bfb',2,s.bfb] # pre-couple to female
-      spars['bme'] <- pars.arr['bme',2,s.bme] # extra-couple to male  
-      spars['bfe'] <- pars.arr['bfe',2,s.bfe] # extra-couple to female  
-      spars['bmp'] <- pars.arr['bmp',2,s.bmp] # within-couple to male  
-      spars['bfp'] <- pars.arr['bfp',2,s.bfp] # within-couple to female  
-      ## substitute demography is just done by using parameters & epi curves from the opposite country in psrun() below.
+    ##  Epidemic curve
+    if(s.epic!=country) {     # if substituting, replce it in data (otherwise it defaults to original)
+        s.epic.nm <- ds.nm[s.epic]              # epidemic curve to use (country name)
+        s.epic.ind <- which(colnames(epicf)==s.epic.nm) # epidemic curve to use (column index of epicf/m matrices)
+        ## substitute epidemic curves into data
+        dat$epic.ind <- s.epic.ind
+        dat$epic.nm <- s.epic.nm
+    }
+    if(sub.betas) { ## substituting betas between countries
+        ##  substitute parameters from substitution (donor) country. At most two of these substitutions will change spars.
+        for(hh in hazs[1:4]) {
+            s.hh <- get(paste('s.',hh))
+            spars[hh] <- pars.arr[hh,2,s.hh]
+        }
+        ## substitute demography is just done by using parameters & epi curves from the opposite country in psrun() below.
     }else{ ## substituting HIV transmission rate & contact coefficients
-      spars['bmb'] <- pars.arr['bmp',2,s.bmp] * pars.arr['cmb',2,s.bmb] # pre-couple to male
-      spars['bfb'] <- pars.arr['bfp',2,s.bfp] * pars.arr['cfb',2,s.bfb] # pre-couple to female
-      spars['bme'] <- pars.arr['bmp',2,s.bmp] * pars.arr['cme',2,s.bme] # extra-couple to male  
-      spars['bfe'] <- pars.arr['bfp',2,s.bfp] * pars.arr['cfe',2,s.bfe] # extra-couple to female  
-      spars['bmp'] <- pars.arr['bmp',2,s.bmp] # within-couple to male  
-      spars['bfp'] <- pars.arr['bfp',2,s.bfp] # within-couple to female  
+        for(hh in hazs[1:4]) {
+            s.hh <- get(paste('s.',hh))
+            chh <- sub('b', 'c',hh)
+            spars[hh] <- pars.arr[hh,2,s.hh] * pars.arr[chh,2,s.hh]
+        }
+    }
+    for(hh in hazs[4:6]) { ##w/in couple transmission doesn't vary based on sub.betas
+        s.hh <- get(paste('s.',hh))
+        spars[hh] <- pars.arr[hh,2,s.hh]
     }
 }else{
-  s.epic.nm <- NA # not substituting epidemic curves, this will cause rcop() to use default country epidemic curves
-  s.epic.ind <- NA
+    s.epic.nm <- NA # not substituting epidemic curves, this will cause rcop() to use default country epidemic curves
+    s.epic.ind <- NA
 }
 
+parmArgs <- subsArgs(as.list(environment()), psrun)
+parmArgs$pars <- spars
+## parmArgs$s.epic.nm <- s.epic.nm ## not used below for some reason?
+## parmArgs$s.epic.ind <- s.epic.ind
+parmArgs$each <- 1
+
 ## Simulate couples transmission model (calling psrun() from sim fxns3.R). Output (temp) is the name of the file that is produced.
-temp <- psrun(country = country,   # what country are we 'simulating'
-              s.demog = s.demog,        # what country to use for demograhy
-              maxN = maxN, vfreq = vfreq, # maximum # of couples in pseudo-population; Frequency with which to report on simulation progress.
-              pars = spars,             # transmission coefficients
-              last.int = F, sample.tmar = sample.tmar, # if non-parametric approach decide how to distribute marriage dates & interview times.
-              tmar = tmar, each = each, tint = tint, # parametric approach, couple pseudopop built parametrically from multivariate copulas
-              death = death,          # include HIV mortality in model?
-              acute.sc = acute.sc, late.sc = late.sc, aids.sc = aids.sc, # relative of infectivity of different phases vs chronic phase
-              ##  how to scale transmission coefficients (for counterfactual analysis of how
-              ##  changing these routes affects SDP, defaults to 1 for substitution analyses)
-              bmb.sc = bmb.sc, bfb.sc = bfb.sc, # pre-couple 
-              bme.sc = bme.sc, bfe.sc = bfe.sc, # extra-couple
-              bmp.sc = bmp.sc, bfp.sc = bfp.sc, # within-couple
-              counterf.betas = counterf.betas, # change betas in counterfactuals? if not change beta_within & c's (so beta_within affects all routes)
-              ## Heterogeneity
-              het.gen = het.gen,        # do it?
-              het.gen.sd = het.gen.sd, # standard deviation of genetic heterogeneity
-              het.gen.cor = het.gen.cor, # inter-partner correlation of individual risk deviate for genetic heterogeneity
-              ## next 3 are same as previous 3, but for behavioral heterogeneity (risk deviate
-              ## amplifies only pre- and extra-couple transmission susceptibility)
-              het.beh = het.beh, het.beh.sd = het.beh.sd, het.beh.cor = het.beh.cor,
-              ## ## route-specific heterogeneity (i.e. individuals' hazards are multiplied by a different lognormal risk deviate for each route)
-              ## het.b = het.b, het.b.sd = het.b.sd, het.b.cor = het.b.cor, # pre-couple   
-              ## het.e = het.e, het.e.sd = het.e.sd, het.e.cor = het.e.cor, # extra-couple 
-              ## het.p = het.p, het.p.sd = het.p.sd, het.p.cor = het.p.cor, # within-couple
-              hilo = hilo, phihi = phihi, phi.m = phi.m, phi.f = phi.f, rrhi.m = rrhi.m, rrhi.f = rrhi.f, 
-              ##########
-              ## scale.by.sd = scale.by.sd, # adjust beta means to keep geometric mean constant with increasing heterogeneity (defaults to TRUE)
-              ## scale.adj = scale.adj,   # adjust them arbitrarily
-              out.dir = out.dir,       # output directory
-              nc = nc,                 # number of cores
-              make.jpgs = F,           # create jpgs of results
-              browse = F)              # debug
+temp <- do.call(psrun, args=parmArgs)
 
 load(temp)                              # load output of simulations
 names(output)                           # list objects summarized below
