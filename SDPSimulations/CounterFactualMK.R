@@ -43,7 +43,7 @@ nn <- 400 # number of simulations per country-acute combination (must be bigger 
 substitute <- F                         # not a substitution analysis
 totn <- 0                               # total number of simulations (steps up to final value)
 num.doing <- 0
-outdir <- file.path('results','CounterFactual')
+out.dir <- file.path('results','CounterFactual')
 
 nhsds <- length(hsds)
 hets <- c('b','e','p','gen','beh')
@@ -100,84 +100,23 @@ blocksg <- CJ.dt(data.table(country = countries), blocks)
 blocksg <- CJ.dt(data.table(acute.sc = acutes), blocksg)
 blocksg
 blocksg[,c('group','s.epic','s.demog','scale.by.sd','scale.adj','infl.fac','maxN','sample.tmar','psNonPar','each'):= .(country,country, country, T, 1, 200, 10^5, F, F, each.val)]
+blocksg[,jobnum:=1:nrow(blocksg)]
+blocksg[,c('seed','out.dir','sim.nm'):=.(1,out.dir, 'CF')]
+blocksgTD <- blocksg[country==15]
 
-addParm <- function(x, parmsMat,ii) {
-    for(pp in 1:length(parmsMat)) {
-        tempP <- as.data.frame(parmsMat)[,pp]
-        isch <- !is.numeric(tempP[1])
-        parmAdd <- tempP[parmsMat$simNum==ii]
-        addStrg <- paste0(" ", names(parmsMat)[pp], "=", "\""[isch], parmAdd, "\""[isch])
-        x <- paste0(x, addStrg)
-    }
-    return(x)
-}
-
-blocksg[,simn:=1:nrow(blocksg)]
-
-sink(paste0("HetCounterFactualAcute.txt"))
-for(ii in 1:4) { #blocksg[,simn]) {
+if(!file.exists(out.dir))      dir.create(out.dir) # create directory if necessary
+if(!file.exists(file.path(out.dir,'Rdata')))      dir.create(file.path(out.dir,'Rdata')) # create directory if necessary
+if(!file.exists(file.path(out.dir,'Routs')))      dir.create(file.path(out.dir,'Routs')) # create directory if necessary
+sink("HetCounterFactualAcute.txt")         # create a control file to send to the cluster
+for(ii in blocksgTD[,jobnum][1:4]) { #blocksgTD[,jobnum]) {
     cmd <- "R CMD BATCH '--no-restore --no-save --args"
-    cmd <- addParm(cmd, blocksg, ii)
-    cmd <- paste0(cmd, " ' SimulationStarter.R ", file.path(batchdirnm,'Routs', paste0(nmtmp, sprintf("%06d", ii),'.Rout')), 
+    cmd <- addParm(cmd, blocksgTD, ii)
+    cmd <- paste0(cmd, " ' SimulationStarter.R ", file.path(out.dir,'Routs', paste0('CFsim', sprintf("%06d", ii),'.Rout')), 
                   sep='')
     cat(cmd)               # add command
     cat('\n')              # add new line
 }
 sink()
-
-sink("HetCounterFactualAcute.txt")         # create a control file to send to the cluster
-if(!file.exists(outdir))      dir.create(outdir) # create directory if necessary
-for(aa in acutes)  {                    # loop through acute phase relative hazard
-  acdirnm <- file.path(outdir,paste0('Acute', aa)) # set up directory for each acute phase relative hazard
-  if(!file.exists(acdirnm))      dir.create(acdirnm) # create directory if necessary
-  for(cc in countries) {
-    batchdirnm <- file.path(acdirnm, ds.nm[cc]) # setup directory for country
-    if(!file.exists(batchdirnm))      dir.create(batchdirnm) # created if necessary
-    if(!file.exists(file.path(batchdirnm,'routs')))      dir.create(file.path(batchdirnm, 'routs')) # setup directory to store Rout files
-######################################################################
-######################################################################           
-    ## Set defaults for all parameters for each simulation, simulatin specific-values set later
-######################################################################
-    ## LEFT OFF HERE
-    for(ii in 1:max(sel)) {
-      jb <- ii                   # job num
-      totn <- totn+1             # total jobs
-      cmd <- paste("R CMD BATCH '--args jobnum=", totn, " simj=", ii, " batchdirnm=\"", batchdirnm, "\"", " nc=", nc,
-                   " group.ind=", group[ii], " substitute=", substitute, " sub.betas=", sub.betas, " counterf.betas=", counterf.betas,
-                   " s.epic=", s.epic[ii],  " s.demog=", s.demog[ii],
-                   " s.bmb=", s.bmb[ii], " s.bfb=", s.bfb[ii],
-                   " s.bme=", s.bme[ii], " s.bfe=", s.bfe[ii],
-                   " s.bmp=", s.bmp[ii], " s.bfp=", s.bfp[ii], 
-                   " death=", death[ii],
-                   " acute.sc=", aa, " late.sc=", late.sc[ii]," aids.sc=", aids.sc[ii], # acute phase varying throughout loop
-                   " bmb.sc=", bmb.sc[ii], " bfb.sc=", bfb.sc[ii],
-                   " bme.sc=", bme.sc[ii], " bfe.sc=", bfe.sc[ii],
-                   " bmp.sc=", bmp.sc[ii], " bfp.sc=", bfp.sc[ii],
-                   " het.b=", het.b[ii], " het.b.sd=", het.b.sd[ii], " het.b.cor=", het.b.cor[ii],
-                   " het.e=", het.e[ii], " het.e.sd=", het.e.sd[ii], " het.e.cor=", het.e.cor[ii],
-                   " het.p=", het.p[ii], " het.p.sd=", het.p.sd[ii], " het.p.cor=", het.p.cor[ii],                     
-                   " het.gen=", het.gen[ii], " het.gen.sd=", het.gen.sd[ii], " het.gen.cor=", het.gen.cor[ii],
-                   " het.beh=", het.beh[ii], " het.beh.sd=", het.beh.sd[ii], " het.beh.cor=", het.beh.cor[ii],
-                   " hilo=F phihi=.2 phi.m=.2 phi.f=.2 rrhi.m=10 rrhi.f=10", ## default hilo parameters, not used
-                   " scale.by.sd=", scale.by.sd[ii], " scale.adj=", scale.adj[ii],
-                   " infl.fac=", infl.fac[ii], " maxN=", maxN[ii], " sample.tmar=", sample.tmar[ii],
-                   " psNonPar=", psNonPar[ii], " seed=1 tmar=(65*12):(113*12) each=", each[ii],
-                   " tint=113*12' SimulationStarter.R ", file.path(batchdirnm, "routs", paste0(ds.nm[group[ii]], ii, ".Rout")), sep='')
-  #     if(totn %in% jtd & ii %in% 89:92 & aa==7) { ## for finishing up jobs that didn't get properly submitted (cluster issues sometimes)
- #     if(ii %in% c(1:26,89:92,117:120,145:148) & aa==7) { ## for finishing up jobs that didn't get properly submitted (cluster issues sometimes)
-#      if(paste0(group[ii],'-',ii) %in% jtd) {
-          num.doing <- num.doing+1
-          cat(cmd)               # add command
-          cat('\n')              # add new line
- #     }
-#}
-  }
-} 
-}
-sink()
-blocks
-totn
-save(blocks, file = file.path(outdir,'blocks.Rdata')) # these are country-acute phase specific blocks
-####################################################################################################
-print(totn)
-print(num.doing)
+save(blocksg, file = file.path(out.dir,'blocksg.Rdata')) # these are country-acute phase specific blocks
+print(nrow(blocksg))
+print(nrow(blocksgTD))

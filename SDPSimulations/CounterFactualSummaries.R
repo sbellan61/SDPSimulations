@@ -6,13 +6,12 @@ if(grepl('tacc', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/DHSProject
 source('PlotFunctions.R')                    # load functions to collect & plot results
 source('SimulationFunctions.R')                   # load simulation functions
 library(abind)                          # array binding
-load('../DHSFitting/data files/ds.nm.all.Rdata')        # country names
-load('../DHSFitting/data files/dframe.s.Rdata')        # SDP by survey
 do.again <- F                           # collect results again (otherwise load cfs.Rdata)
 show.pts <- T                           # show observed SDP in real DHS data
 ## source('CounterFactualSummaries.R')
 
 dir.results <- file.path('results','CounterFactual') # results locations
+dir.results <- file.path('results','CounterFactualOld') # results locations **CHANGE**
 dir.figs <- file.path(dir.results, 'Figures')        # make a directory to store figures
 if(!file.exists(dir.figs)) dir.create(dir.figs)      # create it
 ## load 'blocks' which gives info on all simulations within each country-acute group
