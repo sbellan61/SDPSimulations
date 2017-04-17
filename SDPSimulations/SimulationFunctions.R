@@ -101,6 +101,7 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
     dat$mds <- dat$tmar - dat$tms
     dat$fds <- dat$tmar - dat$tfs
     psNonPar <- as.logical(psNonPar)
+    substitute <- as.logical(substitute)
     sample.tmar <- as.logical(sample.tmar)
 ######################################## 
     ## Generate Pseudo-Population
@@ -295,6 +296,8 @@ event.fn <- function(pars, dat, browse = F, # transmission coefficients to use f
       } 
     }# end heterogeneity risk deviate assignment loop
     ## make data frame for storing output
+    if(browse) browser()
+browser()
     dat <- data.frame(dat, mser, fser, mdoi, fdoi, mdod, fdod, mcoi, fcoi, m.het.gen, f.het.gen, m.het.beh, f.het.beh,
                       m.het.b, f.het.b, # pre-couple   
                       m.het.e, f.het.e, # extra-couple 
@@ -303,7 +306,6 @@ event.fn <- function(pars, dat, browse = F, # transmission coefficients to use f
     ## track if infections from partner were due to acute phase infectiousness
     dat$mcoi.phase <- NA
     dat$fcoi.phase <- NA
-    if(browse) browser()
     ## Break couples into nc batches to split between cores. Divide between cores by couple
     ## formation date strata since early couples will always take longest.
     breaks <- rep(1:nc, length.out = nrow(dat))
