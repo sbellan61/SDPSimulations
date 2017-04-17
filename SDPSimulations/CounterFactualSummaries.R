@@ -11,7 +11,6 @@ show.pts <- T                           # show observed SDP in real DHS data
 ## source('CounterFactualSummaries.R')
 
 dir.results <- file.path('results','CounterFactual') # results locations
-dir.results <- file.path('results','CounterFactualOld') # results locations **CHANGE**
 dir.figs <- file.path(dir.results, 'Figures')        # make a directory to store figures
 if(!file.exists(dir.figs)) dir.create(dir.figs)      # create it
 ## load 'blocks' which gives info on all simulations within each country-acute group
