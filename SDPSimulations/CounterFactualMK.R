@@ -111,7 +111,7 @@ if(!file.exists(file.path(out.dir,'Routs')))      dir.create(file.path(out.dir,'
 sink("HetCounterFactualAcute.txt")         # create a control file to send to the cluster
 for(ii in blocksgTD[,jobnum]) { #blocksgTD[,jobnum]) {
     cmd <- "R CMD BATCH '--no-restore --no-save --args"
-    cmd <- addParm(cmd, blocksgTD, ii)
+    cmd <- addParm(cmd, blocksgTD[,-.(lab), ii) ## remove lab since it has spaces & isn't used in psrun
     cmd <- paste0(cmd, " ' SimulationStarter.R ", file.path(out.dir,'Routs', paste0('CFsim', sprintf("%06d", ii),'.Rout')), 
                   sep='')
     cat(cmd)               # add command
