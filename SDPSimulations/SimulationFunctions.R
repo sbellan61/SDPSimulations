@@ -86,7 +86,7 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
                   sscol = "dark gray",   # concordant negative color
                   cccol = "red",         # concordant positive color
                   browse = F)            # debug
-  {
+{
     set.seed(seed)                      # set RNG seed
     start.time1 <- Sys.time()           # track computation time
     odat <- dat                         # store original data set workspace
@@ -100,13 +100,15 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
     ##  they affect output later on.
     dat$mds <- dat$tmar - dat$tms
     dat$fds <- dat$tmar - dat$tfs
+    psNonPar <- as.logical(psNonPar)
+    sample.tmar <- as.logical(sample.tmar)
 ######################################## 
     ## Generate Pseudo-Population
 ########################################
     if(psNonPar) { ## NON-Parametric APPROACH:Inflate observed couples times their inverse
-                   ## probability of having survived to be observed. First, simulate with state
-                   ## probability model to get inflation factors for each couple based on
-                   ## probability of survival
+        ## probability of having survived to be observed. First, simulate with state
+        ## probability model to get inflation factors for each couple based on
+        ## probability of survival
         sim <- pcalc(pars, dat, sim = T, survive = T, browse = F, trace = F) # Use Markov State Probability model to get survival probabilities
         surp <- rowSums(sim$pser.a) # survival probabilities =  probability couples are in one of the alive states at DHS interview
         infl <- 1/surp              # infl fator = 1 / survival probabilities
@@ -119,12 +121,12 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
             smp <- sample(1:nrow(psdat), maxN)
             smp <- smp[order(smp)]
             psdat <- psdat[smp,]
-          }
+        }
         ## make interview dates all the last interview date so we don't truncate some couple's simulations
         psdat$tint <- max(psdat$tint)
-      }else{ # Parametric Approach: use normal copulas fitted to relationship history patterns for each country to simulate pseudo-population.
+    }else{ # Parametric Approach: use normal copulas fitted to relationship history patterns for each country to simulate pseudo-population.
         psdat <- rcop(s.demog, NN = maxN, sample.tmar = sample.tmar, tmar = tmar, each = each, tint = tint, browse = F)
-      }
+    }
     ## Plots pseudo-population distributions for exploration later.
     psdat.add <- add.vars(psdat) # Append extra variables (see psdat.add() below) to pseudo-population
     real <- add.vars(dat)       # Append extra variables (see psdat.add() below) to real population
@@ -140,7 +142,7 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
             abline(lm(psdat.add[,vars[vv]]~psdat.add$tmar), col = "red", lwd = 3)
             mtext(paste(ds.nm[country],"nonpar"[psNonPar],"smpTmar"[sample.tmar], "synthCoh"[!psNonPar & !sample.tmar]),
                   side = 3, line = 0, outer = T, cex = 2)        
-          }
+        }
         legend("topleft", c("linear fit", "loess fit"), col = c("red","black"), lty = 1, lwd = 1, bty = "n")    
         dev.off()
         ## Secular trends of real data for comparison
@@ -150,7 +152,7 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
             scatter.smooth(real$tmar, real[,vars[vv]], xlab = "couple formation date", ylab = labs[vv], bty = "n", pch = 19, cex = .5, ylim = rgs[,vv])
             abline(lm(real[,vars[vv]]~real$tmar), col = "red", lwd = 3)
             mtext(paste(ds.nm[country],"real data"), side = 3, line = 0, outer = T, cex = 2)        
-          }
+        }
         legend("topleft", c("linear fit", "loess fit"), col = c("red","black"), lty = 1, lwd = 1, bty = "n")        
         dev.off()
         ## 5D multivariate distribution
@@ -170,28 +172,28 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
         sbpairs(real[,vars], browse = F, do.pdf = F, do.jpeg = F, rgs = rgs, hist.freq = F, yrg = ylim, breaks = breaks)
         mtext(paste(ds.nm[country],"actual data"), side = 3, line = 0, outer = T, cex = 2)
         dev.off()
-      }
-    ######################################################################
+    }
+######################################################################
     ## Simulate couple transmission model with pseudo-population
-    ######################################################################
+######################################################################
     ## Scale extra-couple parameters
     print('Running simulation')
     cpars <- pars
     if(counterf.betas) { ## change betas in counterfactuals
-    cpars["bmb"] <- cpars["bmb"]*bmb.sc
-    cpars["bfb"] <- cpars["bfb"]*bfb.sc   
-    cpars["bme"] <- cpars["bme"]*bme.sc
-    cpars["bfe"] <- cpars["bfe"]*bfe.sc   
-    cpars["bmp"] <- cpars["bmp"]*bmp.sc
-    cpars["bfp"] <- cpars["bfp"]*bfp.sc
-  }else{ ## change HIV transmission rate (beta_within) & contact coefficients (c's) in counterfactuals
-    cpars["bmb"] <- cpars["bmb"]*bmb.sc*bmp.sc
-    cpars["bfb"] <- cpars["bfb"]*bfb.sc*bfp.sc
-    cpars["bme"] <- cpars["bme"]*bme.sc*bmp.sc
-    cpars["bfe"] <- cpars["bfe"]*bfe.sc*bfp.sc
-    cpars["bmp"] <- cpars["bmp"]*bmp.sc
-    cpars["bfp"] <- cpars["bfp"]*bfp.sc
-  }
+        cpars["bmb"] <- cpars["bmb"]*bmb.sc
+        cpars["bfb"] <- cpars["bfb"]*bfb.sc   
+        cpars["bme"] <- cpars["bme"]*bme.sc
+        cpars["bfe"] <- cpars["bfe"]*bfe.sc   
+        cpars["bmp"] <- cpars["bmp"]*bmp.sc
+        cpars["bfp"] <- cpars["bfp"]*bfp.sc
+    }else{ ## change HIV transmission rate (beta_within) & contact coefficients (c's) in counterfactuals
+        cpars["bmb"] <- cpars["bmb"]*bmb.sc*bmp.sc
+        cpars["bfb"] <- cpars["bfb"]*bfb.sc*bfp.sc
+        cpars["bme"] <- cpars["bme"]*bme.sc*bmp.sc
+        cpars["bfe"] <- cpars["bfe"]*bfe.sc*bfp.sc
+        cpars["bmp"] <- cpars["bmp"]*bmp.sc
+        cpars["bfp"] <- cpars["bfp"]*bfp.sc
+    }
     ##  call event-driven simulation
     evout <- event.fn(cpars, psdat, vfreq = 100, death = death, acute.sc = acute.sc, late.sc = late.sc, aids.sc = aids.sc, nc = nc,
                       het.b = het.b, het.b.sd = het.b.sd, het.b.cor = het.b.cor,
@@ -208,29 +210,18 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
     if(!exists(as.character(substitute(jobnum)))) jobnum <- NA # jobnum is set globally when on cluster
     if(!exists(as.character(substitute(simj)))) simj <- NA # simj is set globally when on cluster (job # within country/acute batch)
     ##  produce output list
+    argsIn <- as.list(match.call())
+    argsIn <- argsIn[!names(argsIn) %in% c('','tmar','each')] ## remove function & long tmar/each vector
+    argsIn <- unlist(argsIn)
     output <- list(jobnum = jobnum, simj = simj, evout = evout, tss = tss, 
-                   pars = c(bmb.sc = bmb.sc, bfb.sc = bfb.sc, bme.sc = bme.sc, bfe.sc = bfe.sc, bmp.sc = bmp.sc, bfp.sc = bfp.sc, 
-                     death = death, acute.sc = acute.sc, late.sc = late.sc, aids.sc = aids.sc,
-                     s.epic = s.epic, s.demog = s.demog,
-                     s.bmb = s.bmb, s.bfb = s.bfb,
-                     s.bme = s.bme, s.bfe = s.bfe,
-                     s.bmp = s.bmp, s.bfp = s.bfp,                     
-                     het.b = het.b, het.b.sd = het.b.sd, het.b.cor = het.b.cor,
-                     het.e = het.e, het.e.sd = het.e.sd, het.e.cor = het.e.cor,
-                     het.p = het.p, het.p.sd = het.p.sd, het.p.cor = het.p.cor, 
-                     het.gen = het.gen, het.gen.sd = het.gen.sd, het.gen.cor = het.gen.cor,
-                     het.beh = het.beh, het.beh.sd = het.beh.sd, het.beh.cor = het.beh.cor,
-                     hilo = hilo, phihi = phihi, phi.m = phi.m, phi.f = phi.f, rrhi.m = rrhi.m, rrhi.f = rrhi.f, 
-                     group.ind = group.ind, infl.fac = infl.fac, maxN = maxN,
-                     psNonPar = psNonPar, last.int = F, sample.tmar = sample.tmar, tint = tint,
-                     hours = hours),
+                   pars = argsIn,
                    tmar = tmar, each = each) # these are vectors & so must be given separately
     ## create file name making sure not to save over old files
     output.nm <- file.path(out.dir, paste0(sim.nm, '-', sprintf("%06d", jobnum), '.Rdata'))
     print(paste('saving file',output.nm))
     save(output, file = output.nm)
     return(output.nm)
-  }
+}
 ## Returns results in a couples line list format, a time series format, and also gives all information on simulation parameters
 
 ##  Event-driven simulation function
