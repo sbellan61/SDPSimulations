@@ -15,7 +15,7 @@
 #################################################################################################### 
 rm(list=ls())                           # clear workspace
 
-## acute.sc=1;country=15;batch=1;simj=1;lab="as;fitted";death="TRUE";het.gen="FALSE";het.gen.sd=0;het.gen.cor=0;het.beh="FALSE";het.beh.sd=0;het.beh.cor=0;het.b="FALSE";het.b.sd=0;het.b.cor=0;het.e="FALSE";het.e.sd=0;het.e.cor=0;het.p="FALSE";het.p.sd=0;het.p.cor=0;bmb.sc=1;bfb.sc=1;bme.sc=1;bfe.sc=1;bmp.sc=1;bfp.sc=1;late.sc=1;aids.sc=1;group=15;s.epic=15;s.demog=15;scale.by.sd="TRUE";scale.adj=1;infl.fac=200;maxN=1e+05;sample.tmar="FALSE";psNonPar="FALSE";each=200;jobnum=57;seed=1;out.dir="results/CounterFactual";sim.nm="CF";substitute=F;tmar="(65*12):(113*12)";tint=113*12
+## acute.sc=1;country=15;batch=1;simj=1;lab="as;fitted";death="TRUE";het.gen="FALSE";het.gen.sd=0;het.gen.cor=0;het.beh="FALSE";het.beh.sd=0;het.beh.cor=0;het.b="FALSE";het.b.sd=0;het.b.cor=0;het.e="FALSE";het.e.sd=0;het.e.cor=0;het.p="FALSE";het.p.sd=0;het.p.cor=0;bmb.sc=1;bfb.sc=1;bme.sc=1;bfe.sc=1;bmp.sc=1;bfp.sc=1;late.sc=1;aids.sc=1;group=15;s.epic=15;s.demog=15;scale.by.sd="TRUE";scale.adj=1;infl.fac=200;maxN=1e+05;sample.tmar="FALSE";psNonPar="FALSE";each=200;jobnum=57;seed=1;out.dir="results/CounterFactual";sim.nm="CF";substitute="FALSE";tmar="tmar=(65*12):(113*12)";tint=1356;'
 
 args=(commandArgs(TRUE))                # load arguments from R CMD BATCH 
 if(length(args)>0)  {## Then cycle through each element of the list and evaluate the expressions.

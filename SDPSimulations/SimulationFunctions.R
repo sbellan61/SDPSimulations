@@ -76,7 +76,7 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
                   ## processing & visualizations
                   nc = 12,               # number of cores
                   out.dir, sim.nm,              # output directory
-                  make.jpgs = T,         # make some pictures of results
+                  make.jpgs = F,         # make some pictures of results
                   early.yr = 1985,       # earliest year to show in timeseries plots
                   plot.pdfs = T,         # make some PDFs of results
                   save.new = F,          # always save as a new file (don't overwrite)
@@ -217,7 +217,7 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
                    pars = argsIn,
                    tmar = tmar, each = each) # these are vectors & so must be given separately
     ## create file name making sure not to save over old files
-    output.nm <- file.path(out.dir, paste0(sim.nm, '-', sprintf("%06d", jobnum), '.Rdata'))
+    output.nm <- file.path(out.dir, 'Rdatas', paste0(sim.nm, '-', sprintf("%06d", jobnum), '.Rdata'))
     print(paste('saving file',output.nm))
     save(output, file = output.nm)
     return(output.nm)
