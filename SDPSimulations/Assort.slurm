@@ -36,7 +36,7 @@
 
 export LAUNCHER_PLUGIN_DIR=$LAUNCHER_DIR/plugins
 export LAUNCHER_RMI=SLURM
-export LAUNCHER_JOB_FILE="Assort.txt"
+export LAUNCHER_JOB_FILE="AssortHiLo.txt"
 
 ml launcher
 $LAUNCHER_DIR/paramrun

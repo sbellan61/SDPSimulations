@@ -100,7 +100,7 @@ blocksg <- CJ.dt(data.table(acute.sc = acutes), blocksg)
 blocksg
 blocksg[,c('group','s.epic','s.demog','scale.by.sd','scale.adj','infl.fac','maxN','sample.tmar','psNonPar','each'):= .(country,country, country, T, 1, 200, 10^5, F, F, each.val)]
 blocksg[,jobnum:=1:nrow(blocksg)]
-blocksg[,c('seed','out.dir','sim.nm','substitute'):=.(1,out.dir, 'CF', F)]
+blocksg[,c('seed','out.dir','sim.nm','doSubs'):=.(1,out.dir, 'CF', F)]
 blocksg[,c('tmar','tint'):=.('tmar=(65*12):(113*12)',113*12)]
 
 blocksgTD <- blocksg[country==15]
@@ -111,7 +111,7 @@ if(!file.exists(file.path(out.dir,'Routs')))      dir.create(file.path(out.dir,'
 sink("HetCounterFactualAcute.txt")         # create a control file to send to the cluster
 for(ii in blocksgTD[,jobnum]) { #blocksgTD[,jobnum]) {
     cmd <- "R CMD BATCH '--no-restore --no-save --args"
-    cmd <- addParm(cmd, blocksgTD[,-.(lab), ii) ## remove lab since it has spaces & isn't used in psrun
+    cmd <- addParm(cmd, blocksgTD[, !'lab'], ii) ## remove lab since it has spaces & isn't used in psrun
     cmd <- paste0(cmd, " ' SimulationStarter.R ", file.path(out.dir,'Routs', paste0('CFsim', sprintf("%06d", ii),'.Rout')), 
                   sep='')
     cat(cmd)               # add command
