@@ -15,7 +15,7 @@
 #################################################################################################### 
 rm(list=ls())                           # clear workspace
 
-## acute.sc=10;country=15;batch=34;simj=160;death="TRUE";het.gen="FALSE";het.gen.sd=0;het.gen.cor=0;het.beh="FALSE";het.beh.sd=0;het.beh.cor=0;het.b="TRUE";het.b.sd=3;het.b.cor=0.8;het.e="TRUE";het.e.sd=3;het.e.cor=0.8;het.p="TRUE";het.p.sd=3;het.p.cor=0.8;bmb.sc=1;bfb.sc=1;bme.sc=1;bfe.sc=1;bmp.sc=1;bfp.sc=1;late.sc=1;aids.sc=1;group=15;s.epic=15;s.demog=15;scale.by.sd="TRUE";scale.adj=1;infl.fac=200;maxN=1e+05;sample.tmar="FALSE";psNonPar="FALSE";each=200;jobnum=10236;seed=1;out.dir="results/CounterFactual";sim.nm="CF";substitute="FALSE";tmar="tmar=(65*12):(113*12)";tint=1356;
+## acute.sc=10;country=15;batch=34;simj=160;death="TRUE";het.gen="FALSE";het.gen.sd=0;het.gen.cor=0;het.beh="FALSE";het.beh.sd=0;het.beh.cor=0;het.b="TRUE";het.b.sd=3;het.b.cor=0.8;het.e="TRUE";het.e.sd=3;het.e.cor=0.8;het.p="TRUE";het.p.sd=3;het.p.cor=0.8;bmb.sc=1;bfb.sc=1;bme.sc=1;bfe.sc=1;bmp.sc=1;bfp.sc=1;late.sc=1;aids.sc=1;group=15;s.epic=15;s.demog=15;scale.by.sd="TRUE";scale.adj=1;infl.fac=200;maxN=1e+05;sample.tmar="FALSE";psNonPar="FALSE";each=200;jobnum=10236;seed=1;out.dir="results/CounterFactual";sim.nm="CF";doSubs="FALSE";tmar="tmar=(65*12):(113*12)";tint=1356;
 
 args=(commandArgs(TRUE))                # load arguments from R CMD BATCH 
 if(length(args)>0)  {## Then cycle through each element of the list and evaluate the expressions.
@@ -37,7 +37,7 @@ pars.arr <- out.arr[,,which(in.arr[,1,2]==acute.sc),] # median and credible inte
 hazs <- c("bmb","bfb","bme","bfe","bmp","bfp") # six gender-route specific transmission coefficients (*b*efore-, *e*xtra-, from-*p*artner-) for *m*ale & *f*emale
 spars <- pars.arr[hazs,2,country]              # get transmission coefficients from base country
 ## If substituting, substitute parameters/epidemic curves out for those from donor country
-if(substitute) {
+if(doSubs) {
     ##  For each country substitute things from others and see how close
     ##  it gets to the serodiscordance levels of the other country.
 ######################################################################

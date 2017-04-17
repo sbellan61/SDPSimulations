@@ -101,7 +101,7 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
     dat$mds <- dat$tmar - dat$tms
     dat$fds <- dat$tmar - dat$tfs
     psNonPar <- as.logical(psNonPar)
-    substitute <- as.logical(substitute)
+    doSubs <- as.logical(doSubs)
     sample.tmar <- as.logical(sample.tmar)
 ######################################## 
     ## Generate Pseudo-Population
@@ -297,7 +297,6 @@ event.fn <- function(pars, dat, browse = F, # transmission coefficients to use f
     }# end heterogeneity risk deviate assignment loop
     ## make data frame for storing output
     if(browse) browser()
-browser()
     dat <- data.frame(dat, mser, fser, mdoi, fdoi, mdod, fdod, mcoi, fcoi, m.het.gen, f.het.gen, m.het.beh, f.het.beh,
                       m.het.b, f.het.b, # pre-couple   
                       m.het.e, f.het.e, # extra-couple 
@@ -403,7 +402,7 @@ cloop <- function(batch, dat, pars, breaks, vfreq, browse = F, death, acute.sc, 
     for(ii in 1:nrow(dat))              # loop over couples
       {
         if(ii %% vfreq == 0) print(paste("On couple", ii, "of", nrow(dat))) # show progress
-        if(substitute & exists(as.character(substitute(s.epic.ind)))) { # if substitution analysis and there is a substituted epidemic curve (otherwise not)
+        if(as.logical(doSubs) & exists(as.character(substitute(s.epic.ind)))) { # if substitution analysis and there is a substituted epidemic curve (otherwise not)
           epic.ind.temp <- s.epic.ind   # substitued epidemic curve
         }else{
           epic.ind.temp <- dat$epic.ind[ii]                                   # choose epidemic curve
