@@ -6,10 +6,8 @@ rm(list=ls())                                  # clear workspace
 if(grepl('tacc', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/DHSProject/SDPSimulations/')
 if(grepl('stevenbellan', Sys.info()['login'])) setwd('~/Documents/R Repos/SDPSimulations/SDPSimulations/')
 source("SimulationFunctions.R")                   # load simulation functions from script
-load("../DHSFitting/data files/ds.nm.all.Rdata") # country names
-load('../DHSFitting/data files/pars.arr.ac.Rdata')    # load acute phase relative hazards used to fit (in.arr[,,2])
 hazs <- c('bmb','bfb','bme','bfe','bmp','bfp') #  transmission coefficient names, for convenience
-nc <- 12                                       # core per simulation
+nc <- 24                                       # core per simulation
 ## source('AssortHetHeatMapMK.R')
 
 ####################################################################################################
