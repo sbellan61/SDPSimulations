@@ -51,7 +51,7 @@ with(blocks, phihi + phi.m)
 
 counterf.betas <- F ## change betas in counterfactuals? if not change beta_within & c's (so beta_within affects all routes)
 sub.betas <- F      ## substitute betas? if not beta_within & c's
-substitute <- F ## not a substitution analysis
+doSubs <- F ## not a substitution analysis
 totn <- 0 ## total number of simulations (steps up to final value)
 num.doing <- 0
 maxN <- 10^5 ## max pseudopopulation size
@@ -98,3 +98,21 @@ save(blocks, file = file.path(outdir,'blocks.Rdata')) # these are country-acute 
 ## ##################################################################################################
 print(totn)
 print(num.doing)
+
+
+if(!file.exists(out.dir))      dir.create(out.dir) # create directory if necessary
+if(!file.exists(file.path(out.dir,'Rdatas')))      dir.create(file.path(out.dir,'Rdatas')) # create directory if necessary
+if(!file.exists(file.path(out.dir,'Routs')))      dir.create(file.path(out.dir,'Routs')) # create directory if necessary
+sink("HetCounterFactualAcute.txt")         # create a control file to send to the cluster
+for(ii in blocksgTD[,jobnum]) { #blocksgTD[,jobnum]) {
+    cmd <- "R CMD BATCH '--no-restore --no-save --args"
+    cmd <- addParm(cmd, blocksgTD[, !'lab'], ii) ## remove lab since it has spaces & isn't used in psrun
+    cmd <- paste0(cmd, " ' SimulationStarter.R ", file.path(out.dir,'Routs', paste0('CFsim', sprintf("%06d", ii),'.Rout')), 
+                  sep='')
+    cat(cmd)               # add command
+    cat('\n')              # add new line
+}
+sink()
+save(blocksg, file = file.path(out.dir,'blocksg.Rdata')) # these are country-acute phase specific blocks
+print(nrow(blocksg))
+print(nrow(blocksgTD))
