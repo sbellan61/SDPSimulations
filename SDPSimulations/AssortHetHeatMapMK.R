@@ -41,8 +41,9 @@ head(blocks,50)
 out.dir <- file.path('results','AssortHetHeatMap')
 blocksg[,c('group','s.epic','s.demog','scale.by.sd','scale.adj','infl.fac','maxN','sample.tmar','psNonPar','each'):= .(country,country, country, T, 1, 200, 10^5, F, F, each.val)]
 blocksg[,jobnum:=1:nrow(blocksg)]
-blocksg[,c('seed','out.dir','sim.nm','doSubs'):=.(1,out.dir, 'CF', F)]
+blocksg[,c('seed','out.dir','sim.nm','doSubs'):=.(1,out.dir, 'AHH', F)]
 blocksg[,c('tmar','tint'):=.('tmar=(65*12):(113*12)',113*12)]
+blocksg[,c('acute.sc'):=.(5)]
 
 blocksgTD <- blocksg[country==15] ##
 
@@ -53,7 +54,7 @@ sink("AssortHetHeatMap.txt")         # create a control file to send to the clus
 for(ii in blocksgTD[,jobnum]) { #blocksgTD[,jobnum]) {
     cmd <- "R CMD BATCH '--no-restore --no-save --args"
     cmd <- addParm(cmd, blocksgTD, ii) ## remove lab since it has spaces & isn't used in psrun
-    cmd <- paste0(cmd, " ' SimulationStarter.R ", file.path(out.dir,'Routs', paste0('CFsim', sprintf("%06d", ii),'.Rout')), 
+    cmd <- paste0(cmd, " ' SimulationStarter.R ", file.path(out.dir,'Routs', paste0('AHHsim', sprintf("%06d", ii),'.Rout')), 
                   sep='')
     cat(cmd)               # add command
     cat('\n')              # add new line
