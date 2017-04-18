@@ -26,16 +26,16 @@ addParm <- function(x, parmsMat,ii) {
 ## Age-at-seroconversion dependent Weibull survival times fit to
 ## CASCADE 2000 data. See Bellan et al. (2013) Supp Info for details.
 ageweib <- function(age, death = T)
-  {
+{
     if(death)
-      {
+    {
         shp <- 2.3                      # Weibull shape parameter
         scl <- 2000/shp/(age/12)^.53    # Weibull scale parameter
         return(round(rweibull(length(age), shape = shp, scale = scl),0))
-      }else{
+    }else{
         return(200*12)               # if there's no death arbitrarily return 200 year survival time
-      }
-  }
+    }
+}
 
 ## Create a pseudo-population and do it event driven simulation with that then compiling it into a
 ## population timeseries.
@@ -53,7 +53,7 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
                   tmar, each, tint,    # marriage times, # at each marriage time & interview time
                   ## sensitivity analyses
                   death = T,             #  include AIDS mortality?
-                  acute.sc, late.sc, aids.sc, #  relative hazards of HIV phases compared to chronic phase
+                  acute.sc=5, late.sc=1, aids.sc=1, #  relative hazards of HIV phases compared to chronic phase
                   ##  next three lines scale transmission coefficients by the following values (used
                   ## for counterfactual simulations where different routes are amplified or
                   ## diminished)
@@ -196,6 +196,7 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
         cpars["bfp"] <- cpars["bfp"]*bfp.sc
     }
     ##  call event-driven simulation
+if(browse) browser()
     evout <- event.fn(cpars, psdat, vfreq = 100, death = death, acute.sc = acute.sc, late.sc = late.sc, aids.sc = aids.sc, nc = nc,
                       het.b = het.b, het.b.sd = het.b.sd, het.b.cor = het.b.cor,
                       het.e = het.e, het.e.sd = het.e.sd, het.e.cor = het.e.cor,
@@ -249,7 +250,7 @@ event.fn <- function(pars, dat, browse = F, # transmission coefficients to use f
                      end.at.int = T, # end infections at interviews (otherwise go til first partner is 60)
                      nc = 12,        # number of cores
                      vfreq = 200)    # how often to show progress
-  {
+{
     K <- nrow(dat)
     mser <- rep(0, nrow(dat))    ## serostatus at end
     fser <- rep(0, nrow(dat))
@@ -263,37 +264,37 @@ event.fn <- function(pars, dat, browse = F, # transmission coefficients to use f
 ##################################################################
     ## For each type of heterogeneity, sample random lognormal deviates
     for(het.t in c('b','e','p','gen','beh')) {     # pre-, -extra, -within, genetic (bep), behavioral (be)
-      het.log <- get(paste('het.',het.t,sep='')) ## temporary logical indicator of whether this type of heterogeneity is being simulated
-      het.sd <- get(paste('het.',het.t,'.sd',sep='')) # corresponding standard deviation
-      het.cor <- get(paste('het.',het.t,'.cor',sep='')) # corresponding inter-partner correlation
-      if(het.log) { #  include this type of heterogeneity?
-          b.corSig <- matrix(c(het.sd^2,rep(het.cor*het.sd^2,2),het.sd^2),2,2)
-          het.both <- rmvnorm(K, mean = rep(0,2), sigma = b.corSig)
-          assign(paste('m.het.',het.t,sep=''), exp(het.both[,1]))
-          assign(paste('f.het.',het.t,sep=''), exp(het.both[,2]))            
-          if(het.t %in% c('b','e','p')) { # which hazards to rescale to keep geometric mean of risk deviates = 1
-              het.hazs <- paste0('b',c('m','f'),het.t)
-          }else{
-              if(het.t=='gen') het.hazs <- hazs
-              if(het.t=='beh') het.hazs <- hazs[1:4]
-          }
-          if(scale.by.sd) { ##  keep geometric mean transmission coefficient the same
-              hpars[het.hazs] <-  hpars[het.hazs] / exp(het.sd^2 / 2)  # correct for increased geometric mean w/ hetogeneity
-          }else{
-              hpars[het.hazs] <-  hpars[het.hazs] / scale.adj # scale arbitrarily
-          }
-      }else{ ## no  pre-couple-specific heterogeneity
-          assign(paste('m.het.',het.t,sep=''), rep(1, K))
-          assign(paste('f.het.',het.t,sep=''), rep(1, K))          
-      }
-      ## Discrete (binary) heterogeneity: High risk & low risk groups
-      m.het.hilo <- rep(1,K)
-      f.het.hilo <- rep(1,K)
-      if(hilo) {
-        ctypes <- sample(c('hihi','hilo','lohi','lolo'), K, replace=T, prob = c(phihi, phi.m, phi.f, 1 - phihi - phi.m - phi.f)) ## how many of each couple type
-        m.het.hilo[ctypes %in% c('hihi','hilo')] <- rrhi.m ## set high risk men
-        f.het.hilo[ctypes %in% c('hihi','lohi')] <- rrhi.f ## set high risk women        
-      } 
+        het.log <- get(paste('het.',het.t,sep='')) ## temporary logical indicator of whether this type of heterogeneity is being simulated
+        het.sd <- get(paste('het.',het.t,'.sd',sep='')) # corresponding standard deviation
+        het.cor <- get(paste('het.',het.t,'.cor',sep='')) # corresponding inter-partner correlation
+        if(het.log) { #  include this type of heterogeneity?
+            b.corSig <- matrix(c(het.sd^2,rep(het.cor*het.sd^2,2),het.sd^2),2,2)
+            het.both <- rmvnorm(K, mean = rep(0,2), sigma = b.corSig)
+            assign(paste('m.het.',het.t,sep=''), exp(het.both[,1]))
+            assign(paste('f.het.',het.t,sep=''), exp(het.both[,2]))            
+            if(het.t %in% c('b','e','p')) { # which hazards to rescale to keep geometric mean of risk deviates = 1
+                het.hazs <- paste0('b',c('m','f'),het.t)
+            }else{
+                if(het.t=='gen') het.hazs <- hazs
+                if(het.t=='beh') het.hazs <- hazs[1:4]
+            }
+            if(scale.by.sd) { ##  keep geometric mean transmission coefficient the same
+                hpars[het.hazs] <-  hpars[het.hazs] / exp(het.sd^2 / 2)  # correct for increased geometric mean w/ hetogeneity
+            }else{
+                hpars[het.hazs] <-  hpars[het.hazs] / scale.adj # scale arbitrarily
+            }
+        }else{ ## no  pre-couple-specific heterogeneity
+            assign(paste('m.het.',het.t,sep=''), rep(1, K))
+            assign(paste('f.het.',het.t,sep=''), rep(1, K))          
+        }
+        ## Discrete (binary) heterogeneity: High risk & low risk groups
+        m.het.hilo <- rep(1,K)
+        f.het.hilo <- rep(1,K)
+        if(hilo) {
+            ctypes <- sample(c('hihi','hilo','lohi','lolo'), K, replace=T, prob = c(phihi, phi.m, phi.f, 1 - phihi - phi.m - phi.f)) ## how many of each couple type
+            m.het.hilo[ctypes %in% c('hihi','hilo')] <- rrhi.m ## set high risk men
+            f.het.hilo[ctypes %in% c('hihi','lohi')] <- rrhi.f ## set high risk women        
+        } 
     }# end heterogeneity risk deviate assignment loop
     ## make data frame for storing output
     if(browse) browser()
