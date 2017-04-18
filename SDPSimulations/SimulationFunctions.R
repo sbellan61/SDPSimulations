@@ -317,6 +317,7 @@ event.fn <- function(pars, dat, browse = F, # transmission coefficients to use f
         for(ii in 2:nc)     temp <- rbind(temp, multi.out[[ii]])
       }
     dat <- temp
+
     dat <- dat[order(dat$uid),]     #  reorder by unique couple identifier
     ## End time is the minimum of dates of death and interview time.
     dat$tend <- ord(dat[, c("tint","mdod","fdod")], 1)
