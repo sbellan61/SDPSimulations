@@ -76,7 +76,7 @@ parmArgs <- subsArgs(as.list(environment()), psrun)
 parmArgs$pars <- spars
 ## parmArgs$s.epic.nm <- s.epic.nm ## not used below for some reason?
 ## parmArgs$s.epic.ind <- s.epic.ind
-parmArgs$each <- 1
+
 
 ## Simulate couples transmission model (calling psrun() from sim fxns3.R). Output (temp) is the name of the file that is produced.
 temp <- do.call(psrun, args=parmArgs)

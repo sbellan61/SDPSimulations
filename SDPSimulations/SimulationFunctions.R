@@ -53,7 +53,7 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
                   tmar, each, tint,    # marriage times, # at each marriage time & interview time
                   ## sensitivity analyses
                   death = T,             #  include AIDS mortality?
-                  acute.sc, late.sc, aids.sc, #  relative hazards of HIV phases compared to chronic phase
+                  acute.sc=5, late.sc=1, aids.sc=1, #  relative hazards of HIV phases compared to chronic phase
                   ##  next three lines scale transmission coefficients by the following values (used
                   ## for counterfactual simulations where different routes are amplified or
                   ## diminished)
@@ -316,6 +316,7 @@ event.fn <- function(pars, dat, browse = F, # transmission coefficients to use f
         for(ii in 2:nc)     temp <- rbind(temp, multi.out[[ii]])
       }
     dat <- temp
+
     dat <- dat[order(dat$uid),]     #  reorder by unique couple identifier
     ## End time is the minimum of dates of death and interview time.
     dat$tend <- ord(dat[, c("tint","mdod","fdod")], 1)
