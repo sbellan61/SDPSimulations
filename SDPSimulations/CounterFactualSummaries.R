@@ -3,6 +3,7 @@
 ####################################################################################################
 rm(list=ls())                           # clear workspace
 if(grepl('tacc', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/DHSProject/SDPSimulations/')
+if(grepl('stevenbellan', Sys.info()['login'])) setwd('~/Documents/R Repos/SDPSimulations/SDPSimulations/')
 source('PlotFunctions.R')                    # load functions to collect & plot results
 source('SimulationFunctions.R')                   # load simulation functions
 library(abind)                          # array binding
@@ -14,32 +15,16 @@ dir.results <- file.path('results','CounterFactual') # results locations
 dir.figs <- file.path(dir.results, 'Figures')        # make a directory to store figures
 if(!file.exists(dir.figs)) dir.create(dir.figs)      # create it
 ## load 'blocks' which gives info on all simulations within each country-acute group
-load(file.path(dir.results, 'blocks.Rdata'))
+load(file.path(dir.results, 'blocksg.Rdata'))
 ## Load all results files in the results directory (all Rdata files except blocks & cfs)
-fs <- list.files(pattern = '.Rdata', path = file.path(dir.results), recursive = T, full.names = T)
-fs <- fs[!grepl('blocks',fs) & !grepl('cfs',fs) & grepl('Acute', fs)]
-#fs <- fs[grepl('Acute7',fs)]
-print(length(fs))
-
-## make sure they're not empty files
-getsize <- function(x) file.info(x)$size
-sizes <- sapply(fs, getsize)
-fs <- fs[sizes>0]
-print(length(fs))
-
-## tryload <- function(ff) {
-## err <- try(load(file=ff), silent=F)
-## print(paste(ff, err))
-## }
-## mclapply(fs, tryload, mc.cores = detectCores())
-
-fs <- fs[fs!='results/CounterFactual/Acute1/Rwanda/Rwanda-115400-1476.Rdata']
+fs <- list.files(path = file.path(dir.results, 'Rdatas'), recursive = T, full.names = T)
 print(length(fs))
 
 ## coll: collects all results into data frame of input parameters, and array of time series
 if(!file.exists(file.path(dir.results, 'cfs.Rdata')) | do.again) {
-  cfs <- coll(fs, nc = 12, give.ev = F, lbrowse=F, trace=F)
-  cfs$cframe <- cfs$cframe[order(cfs$cframe$job),] # order by jobs
+  cfs <- coll(fs, nc = 24, give.ev = F, lbrowse=F, trace=F)
+  cfs$cframe$job <- as.numeric(as.character(cfs$cframe$job))
+  cfs$cframe <- data.table(cfs$cframe[order(cfs$cframe$job),]) # order by jobs
   cfs$t.arr <- cfs$t.arr[,,order(cfs$cframe$job)]          # ditto
   attach(cfs) # for convenience, be careful later!
   save(cfs, file = file.path(dir.results, 'cfs.Rdata'))
@@ -51,30 +36,29 @@ dim(cframe) ## dimensions & check for duplicate runs
 print(paste(sum(duplicated(cframe$job)), 'duplicate jobs'))
 cframe <- cframe[!duplicated(cframe$job),]
 t.arr <-  t.arr[,,!duplicated(cframe$job)]
-acutes <- unique(cframe$acute.sc)       # which acute phase relative hazards (RHs) were simulated
+acutes <- as.numeric(as.character(unique(cframe$acute.sc))) # which acute phase relative hazards (RHs) were simulated
 nac <- length(acutes)                   # how many
 col.pl <- 'black'                       # base plot color
-mend <- max(blocks$end)                 # last job of each block
-countries <- unique(cframe$group.ind)   # countries simulated
+countries <- as.numeric(as.character(unique(cframe$country)))
 countries <- countries[order(countries)]
 ngroup <- length(countries)             # how many
-jtd.all <- expand.grid(1:16, c(1:26,89:92,117:120,145:148))
-jtd.all <- paste0(jtd.all[,1],'-',jtd.all[,2])
-jtd <- jtd.all[which(!jtd.all %in% paste0(cframe$group.ind, '-', cframe$simj))]
-print(paste("didn't do jobs:",paste(head(jtd,50), collapse=','))) # check to see if any jobs didn't complete
+dim(blocksg)
+jtd <- blocksg[!jobnum %in% cframe$job, jobnum]
+print(paste("didn't do jobs:",paste(head(jtd,50), collapse=','),', ...')) # check to see if any jobs didn't complete
 save(jtd, file=file.path(dir.results,'CFJobsToDo.Rdata'))
+
 
 ## Set labels & indices for plotting below
 set.labs <- function(bb, js) {
-  if(grepl('scale', blocks$lab[bb])) { # set up legend for scaled transmission routes
-    route.ind <<- which(colSums(cframe[js,grepl('b...sc',names(cframe))]!=1)>0)[1]
+  if(grepl('scale', blocks[batch==bb, unique(lab)])) { # set up legend for scaled transmission routes
+    route.ind <<- which(colSums(cframe[job %in% js,grepl('b...sc',names(cframe)), with=F]!=1)>0)[1]
     route <<- paste0(rep(c('pre','extra','within'),each=2),'-couple')[route.ind]
     col.ind <<- rep(c('bmb.sc','bme.sc','bmp.sc'),each=2)[route.ind]
     legtitle <<- paste(route, '\ntransmission X') # route-specific transmission scaled by
     leg <<- cframe[js,col.ind]                    # scalar values
   }
-  if(grepl('heterogeneity', blocks$lab[bb])) { # set up legend for different heterogeneity
-    route.ind <<- which(colSums(cframe[js,grepl('het.*sd',names(cframe))]!=0, na.rm=T)>0) # which het sd is not 0 
+  if(grepl('heterogeneity', blocks[batch==bb, unique(lab)])) { # set up legend for different heterogeneity
+    route.ind <<- which(colSums(cframe[job %in% js,grepl('het.*sd',names(cframe)), with=F]!=0, na.rm=T)>0) # which het sd is not 0 
     route <<- paste0(c('pre','extra','within','pre, extra, within','pre & extra'),'-couple heterogeneity')[route.ind]
     col.ind <<- paste0('het.',c('b','e','p','gen','beh'),'.sd')[route.ind]
     if(length(route.ind)==3) { ## all 3 routes (individuals have different risk deviates for each route though)
@@ -88,7 +72,7 @@ set.labs <- function(bb, js) {
     legtitle <<- paste(route, '\nstd dev =') # route-specific standard deviation
     leg <<- cframe[js,col.ind]               # what were the sds?
   }
-  if(grepl('mortality', blocks$lab[bb])) { # set up legend for AIDS mortality counterfactual
+  if(grepl('mortality', blocks[batch==bb, unique(lab)])) { # set up legend for AIDS mortality counterfactual
     legtitle <<- ''
     leg <<- c('as fitted', 'no AIDS mortality \ncounterfactual')
   }else{ ## below: call plotting function (from plot fxns.R)
@@ -96,28 +80,31 @@ set.labs <- function(bb, js) {
   }
 }
 
+blocks <- blocksg[jobnum %in% cframe$job, ]
+
 ac.to.do <- c(5) #1,7,25,50)
 nac <- length(ac.to.do)
 for(cc in countries) {   # make summary figures for each country
 ####################################################################################################
   ## Summary of all blocks: 1 page per block, 1 row per acute phase.
   print(paste0('visualizing results from ', ds.nm[cc], ' counterfactual simulations'))
-  pdf(file.path(dir.figs,paste0(ds.nm[cc], 'SDP summary.pdf')), w = 8, h = 4)
-  for(bb in 2:(nrow(blocks)-1)) { ## for each block
-    par(mfrow = c(1,nac), oma = c(0,0,1.5,0))   # one panel per acute phase
-    for(aa in 1:nac) { 
-      jst <- c(1, blocks$start[bb]:blocks$end[bb])
-      js <- which(cframe$simj %in% jst)
-      js <- js[cframe$acute.sc[js]==ac.to.do[aa] & cframe$group.ind[js]==cc] # select sims for this acute phase RH & country
-      set.labs(bb, js)
-      js1 <- cframe$job[js[cframe$simj[js]==1]] # which line was as fitted? always simj=1
-      plot.sdp.nsub(js = js, leg = leg, js1 = js1, make.pdf = F, early.yr = 1985, show.pts = show.pts, pts.group = cc,
-                    main = paste('acute phase \nrelative hazard =',ac.to.do[aa]), cex.leg = .8,
-                    title = legtitle, browse=F, col.pl = col.pl, show.leg = T, sep.leg = F)
-      mtext(blocks$lab[bb], side = 3, outer = T, line = 0, adj = .5) # add label describing block to top of figure
+  #pdf(file.path(dir.figs,paste0(ds.nm[cc], 'SDP summary.pdf')), w = 8, h = 4)
+
+    for(bb in 2:length(unique(blocks$batch))) { ## for each block
+        par(mfrow = c(1,nac), oma = c(0,0,1.5,0))   # one panel per acute phase
+        for(aa in 1:nac) { 
+            ac <- acutes[aa]
+            js <- blocks[acute.sc == ac & batch %in% c(1,bb) & country==cc, jobnum] #blocks$start[bb]:blocks$end[bb])
+            set.labs(bb, js)
+            js1 <- cframe[job %in% js & simj==1, job]
+            plot.sdp.nsub(js = js, leg = leg, js1 = js1, make.pdf = F, early.yr = 1985, show.pts = show.pts, pts.group = cc,
+                          main = paste('acute phase \nrelative hazard =', ac), cex.leg = .8,
+                          title = legtitle, browse=F, col.pl = col.pl, show.leg = T, sep.leg = F)
+            mtext(blocks$lab[bb], side = 3, outer = T, line = 0, adj = .5) # add label describing block to top of figure
+        }
     }
-  }
-  dev.off()
+#  dev.off()
+
 ####################################################################################################
   ## Summary of transmission route-scaling counterfactuals, columns = acute RH, rows = route, page
   ## = genetic heterogeneity std dev

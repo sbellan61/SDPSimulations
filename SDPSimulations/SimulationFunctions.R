@@ -8,6 +8,7 @@ load("../DHSFitting/data files/csurv.Rdata")    #  probability of survival (row)
 load('../DHSFitting/data files/ds.nm.all.Rdata')        # load country names
 load("../DHSFitting/data files/allDHSAIS.Rdata")         # DHS data
 load("../DHSFitting/data files/dframe.Rdata")   # summary characteristics of DHS data
+load("../DHSFitting/data files/dframe.s.Rdata")   # summary characteristics of DHS data
 
 subsArgs <- function(parms, fxn) parms[names(parms) %in% names(formals(fxn))] ## get parameters necessary for a fxn
 

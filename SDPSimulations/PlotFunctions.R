@@ -122,7 +122,7 @@ coll <- function(files, give.ev = T,    # files to collect; return 'evout' (line
             list(cframe = cframe[jord,], t.arr = t.arr[,,jord])
         }
     }
-s
+
 ####################################################################################################
 ## Plot time series array file from psrun()
 ####################################################################################################
