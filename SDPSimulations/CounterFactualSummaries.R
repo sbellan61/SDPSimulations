@@ -12,7 +12,7 @@ do.again <- F                           # collect results again (otherwise load 
 show.pts <- T                           # show observed SDP in real DHS data
 ## source('CounterFactualSummaries.R')
 
-dir.results <- file.path('results','CounterFactual') # results locations
+dir.results <- file.path('results','CounterFactual-Zambia') # results locations
 dir.figs <- file.path(dir.results, 'Figures')        # make a directory to store figures
 if(!file.exists(dir.figs)) dir.create(dir.figs)      # create it
 ## load 'blocks' which gives info on all simulations within each country-acute group
@@ -56,7 +56,7 @@ set.labs <- function(bb, js) {
     route <<- paste0(rep(c('pre','extra','within'),each=2),'-couple')[route.ind]
     col.ind <<- rep(c('bmb.sc','bme.sc','bmp.sc'),each=2)[route.ind]
     legtitle <<- paste(route, '\ntransmission X') # route-specific transmission scaled by
-    leg <<- cframe[js,col.ind]                    # scalar values
+    leg <<- cframe[js,col.ind, with=F]                    # scalar values
   }
   if(grepl('heterogeneity', blocks[batch==bb, unique(lab)])) { # set up legend for different heterogeneity
     route.ind <<- which(colSums(cframe[job %in% js,grepl('het.*sd',names(cframe)), with=F]!=0, na.rm=T)>0) # which het sd is not 0 
@@ -71,7 +71,7 @@ set.labs <- function(bb, js) {
       col.ind <<- col.ind[1]   # just pick first one to get legend since the sd's are the same for all routes in each sim
     }                    
     legtitle <<- paste(route, '\nstd dev =') # route-specific standard deviation
-    leg <<- cframe[js,col.ind]               # what were the sds?
+    leg <<- cframe[js,col.ind, with=F]               # what were the sds?
   }
   if(grepl('mortality', blocks[batch==bb, unique(lab)])) { # set up legend for AIDS mortality counterfactual
     legtitle <<- ''
@@ -82,9 +82,9 @@ set.labs <- function(bb, js) {
 }
 
 blocks <- blocksg[jobnum %in% cframe$job, ]
-
-ac.to.do <- c(5) #1,7,25,50)
+ac.to.do <- c(1) ## 1,7,25,50)
 nac <- length(ac.to.do)
+
 for(cc in countries) {   # make summary figures for each country
 ####################################################################################################
   ## Summary of all blocks: 1 page per block, 1 row per acute phase.
@@ -182,40 +182,157 @@ for(cc in countries) {   # make summary figures for each country
 ## countries <- 1:16
 
 ####################################################################################################
+## Figure 2 for the manuscript - MANUAL version
+####################################################################################################
+
+ac <- 1
+inds <- list()
+length(inds) <- 6
+inds[[1]] <- c(blocks[acute.sc==ac & lab=="as fitted", jobnum]
+             , blocks[acute.sc==ac & lab=="no AIDS mortality, gen het=0", jobnum])
+## each transmission route
+inds[[2]] <- c(blocks[acute.sc==ac & lab=="as fitted", jobnum]
+               , blocks[acute.sc==ac & lab=="scale pre--couple, gen het=0" & bmb.sc %in% c(.1,10), jobnum])
+inds[[3]] <- c(blocks[acute.sc==ac & lab=="as fitted", jobnum]
+               , blocks[acute.sc==ac & lab=="scale extra--couple, gen het=0" & bme.sc %in% c(.1,10), jobnum])
+inds[[4]] <- c(blocks[acute.sc==ac & lab=="as fitted", jobnum]
+               , blocks[acute.sc==ac & lab=="scale within--couple, gen het=0" & bmp.sc %in% c(.1,10), jobnum])
+## heterogeneity
+inds[[5]] <- c(blocks[acute.sc==ac & lab=="as fitted", jobnum]
+             , blocks[acute.sc==ac & lab=='gen cor=0' & het.gen.sd %in% 1:2, jobnum])
+## assortativity (genetic, i.e. all route)
+inds[[6]] <- c(blocks[acute.sc==ac & lab=='gen cor=0' & het.gen.sd==2, jobnum]
+             , blocks[acute.sc==ac & lab=='gen cor=0.4' & het.gen.sd==2, jobnum]
+             , blocks[acute.sc==ac & lab=='gen cor=0.8' & het.gen.sd==2, jobnum])
+inds
+
+## matlayout <- t(matrix(c(1:6,10,7:12,10),7,2))
+## layout(matlayout,w = c(rep(1,6),.85))
+## par(mar = c(3,1,2,0), oma = c(1,3,0,0), cex.lab = cx, cex.axis = cx, cex.main = cx, fg = col.pl, col.axis = col.pl,
+##     col.lab = col.pl, col = col.pl, col.main = col.pl)
+
+mains <- c('A','B','C','D','E','F')
+mains <- c('mortality','pre-couple \ncontact coefficient','extra-couple \ncontact coefficient',
+           'intrinsic \ntransmission rate', 'heterogeneity \nin transmission', 'heterogeneity \nwith assortativity')
+
+leg.cex <- .8
+cc1 <- countries
+cols <- gray(c(0,.4, .7))
+pdf(file.path(dir.figs, 'test.pdf'))
+par(mfrow = c(2,3))
+for(ii in 1:6) { ## each panel
+    blocks[inds[[ii]], .(acute.sc, simj, jobnum, lab)] ## look at the meta data
+    fls <- paste0("results/CounterFactual-Zambia/Rdatas/CF-", formatC(inds[[ii]], width=6, flag=0), ".Rdata")
+    ## load all files & combine
+    for(jj in 1:length(inds[[ii]])) {
+        load(fls[jj])
+        tsstmp <- data.table(output$tss)
+        tsstmp[, sdp:=(mm+ff)/inf.alive]
+        tsstmp <- cbind(tsstmp, data.table(t(output$pars)), simNumplot = jj)
+        if(jj==1) {
+            tss <- tsstmp
+        }else{
+            tss <- rbind(tss,tsstmp)
+        }
+    }
+    tss[, cols:= cols[simNumplot]]
+    tss[,ltys:= c(1, rep(2,10))[simNumplot]]
+    tss[, plot(yr, sdp, type = 'n', lwd = 2, xlab = '', ylab = '', bty = 'n', xlim=c(1990, 2015), ylim = c(0,1), col = cols[jj],
+                  main =mains[ii], las = 2)]
+    tss[, lines(yr, sdp, col=cols[1], lty = ltys[1]), simNumplot]
+    points(dframe.s$yr[dframe.s$group==cc1], dframe.s$psdc[dframe.s$group==cc1], pch = 19, col = 'black', cex = 1.1)     
+    if(ii==1) legend('bottomleft', c('as fitted', 'no AIDS mortality'), lwd = 2:1, lty = 1, col = c('black', 'gray'), bty = 'n', cex = leg.cex)
+    if(ii%in%2:3) legend('bottomleft', c('set to 0', 'as fitted', 'scaled X 10'), lwd = c(1,2,1), lty = c(1,1,2),
+                         col = c( 'gray', 'black', 'gray'), bty = 'n', cex = leg.cex)
+    if(ii%in%4) legend('bottomleft', c('scaled X 1/10', 'as fitted', 'scaled X 10'), lwd = c(1,2,1), lty = c(1,1,2),
+                       col = c( 'gray', 'black',  'gray'), bty = 'n', cex = leg.cex)
+    if(ii==5) legend('bottomleft', c('as fitted', 'std dev = 1', 'std dev = 2'), lwd = c(2,1,1), lty = c(1,1,2),
+                     col = c('black',  'gray', 'gray'), bty = 'n', cex = leg.cex)
+    if(ii==6) legend('bottomleft', c('ro = 0', 'ro = 0.4', 'ro = 0.8'), lwd = c(2,1,1), lty = c(1,1,2),
+                     title = 'std dv = 2',
+                     col = c('black',  'gray', 'gray'), bty = 'n', cex = leg.cex)
+}
+graphics.off()
+ 
+
+
+
+inds[[1]] <- 1:2
+inds[[2]] <- c(1, blocks[,which(acute.sc==ac & lab=="scale pre--couple, gen het=0" & bmb.sc %in% c(.1,10))])
+inds[[3]] <- c(1, blocks[,which(acute.sc==ac & lab=="scale extra--couple, gen het=0" & bme.sc %in% c(.1,10))])
+inds[[4]] <- c(1, blocks[,which(acute.sc==ac & lab=="scale within--couple, gen het=0" & bmp.sc %in% c(.1,10))])
+inds[[5]] <- c(1, blocks[which(acute.sc==ac & lab=='gen cor=0' & het.gen.sd %in% 1:2)]) # het
+## assortativity (genetic, i.e. all route)
+inds[[6]] <- c(blocks[which(acute.sc==ac & lab=='gen cor=0' & het.gen.sd==2)]
+             , blocks[which(acute.sc==ac & lab=='gen cor=0.4' & het.gen.sd==2)]
+             , blocks[which(acute.sc==ac & lab=='gen cor=0.8' & het.gen.sd==2)])
+
+
+
+inds
+
+for(ii in 1:6) {
+    plot(0,0, type = "n", xlim = c(1990,2015), ylim = c(0, 1), bty = "n", main = '', xlab="", ylab = '',
+         las = 1, axes = F)
+    for(jj in 1:length(inds[[ii]])) {
+        tss <- cfs$t.arr[,,inds[[ii]]]
+        lines(tss[,"yr",jj], (tss[,"mm",jj] + tss[,"ff",jj])/tss[,"inf.alive",jj], col = 'black', lty = ifelse(jj==1, 1,2), lwd = ifelse(jj==1, 2,1))
+        ## lines(tss[,"yr"], (tss[,"mm"] + tss[,"ff"])/tss[,"inf.alive"], col = 'black', lty = ifelse(jj==1, 1,2), lwd = ifelse(jj==1, 2,1))
+    }
+}
+
+
+
+####################################################################################################
 ## Figure 2 for the manuscript - Homogeneous
 ####################################################################################################
 col.pl <- 'black'
-ac <- 5 ## acute phase RH to use in Figure
-for(one.file in c(F,T)) {
+ac <- ac.to.do ## acute phase RH to use in Figure
+##for(one.file in c(F,T)) {
+
+one.file <- T
     leg.cex <- .57
     rmp <- colorRampPalette(c("yellow","red"))
     hazm <- c('bmb.sc','bme.sc','bmp.sc')   ## for each route get simjob with as fitted, 0, 10 scalars; acuteRH=7, no heterogeneity
-    inds <- matrix(NA, 6,3)
 
-    ## Mortality
-    inds[1,] <- c(1,2,NA)
-    ## each transmission route
-    for(bb in 2:4) inds[bb,] <- c(1,blocks[batch==bb, c(min(simj), max(simj))])
-    ## heterogeneity
-    inds[5,] <- c(1, blocks[acute.sc==ac & lab=='gen cor=0' & het.gen.sd %in% 1:2, simj])
-    ## correlation
-    inds[5,] <- c(blocks[acute.sc==ac & lab=='gen cor=0' & het.gen.sd==2], blocks[acute.sc==ac & lab=='gen cor=0' & het.gen.sd==2]
+inds <- list()
+length(inds) <- 6
+## Mortality
 
-    inds[6,] <- c(1,90:91)
-    inds <- rbind(c(1,2,NA), inds)
-    bltd <- c(2:5,17) ## blocks to show in summary figure (no AIDS mortality, 3 routes, within-couple, heterogeneity)
 
-    tbl <- list(lab = blocks$lab[bltd], seq = list(inds[1,], inds[2,], inds[3,], inds[4,], inds[5,])) ## 5 blocks for figure
 
-    mains <- c('A','B','C','D','E')
+inds[[1]] <- c(1, blocks[acute.sc==ac & lab=="no AIDS mortality, gen het=0", jobnum])
+## each transmission route
+inds[[2]] <- c(1, blocks[acute.sc==ac & lab=="scale pre--couple, gen het=0" & bmb.sc %in% c(.1,10), jobnum])
+inds[[3]] <- c(1, blocks[acute.sc==ac & lab=="scale extra--couple, gen het=0" & bme.sc %in% c(.1,10), jobnum])
+inds[[4]] <- c(1, blocks[acute.sc==ac & lab=="scale within--couple, gen het=0" & bmp.sc %in% c(.1,10), jobnum])
+## heterogeneity
+inds[[5]] <- c(1, blocks[acute.sc==ac & lab=='gen cor=0' & het.gen.sd %in% 1:2, jobnum])
+## assortativity (genetic, i.e. all route)
+inds[[6]] <- c(blocks[acute.sc==ac & lab=='gen cor=0' & het.gen.sd==2, jobnum]
+             , blocks[acute.sc==ac & lab=='gen cor=0.4' & het.gen.sd==2, jobnum]
+             , blocks[acute.sc==ac & lab=='gen cor=0.8' & het.gen.sd==2, jobnum])
+
+    inds
+
+blocks[637, jobnum]
+
+    ## bltd <- c(2:5,17) ## blocks to show in summary figure (no AIDS mortality, 3 routes, within-couple, heterogeneity)
+    ## tbl <- list(lab = blocks$lab[bltd], seq = list(inds[1,], inds[2,], inds[3,], inds[4,], inds[5,])) ## 5 blocks for figure
+
+    mains <- c('A','B','C','D','E','F')
     mains <- c('mortality','pre-couple \ncontact coefficient','extra-couple \ncontact coefficient',
-               'intrinsic \ntransmission rate', 'heterogeneity \nin transmission')
+               'intrinsic \ntransmission rate', 'heterogeneity \nin transmission', 'heterogeneity \nwith assortativity')
+
     ltys <- 1:3
     lwds <- c(3,1.2,1.2)
     cx <- .9
+
     if(one.file) pdf(file.path(dir.figs,paste0('Figure X - Counterfactual SummaryAc',ac,'.pdf')), w = 6.5, h = 3)
     for(cc1 in countries) {
         if(!one.file)  pdf(file.path(dir.figs,paste0('Figure X - Counterfactual Summary ', ds.nm[cc1],' Ac',ac,'.pdf')), w = 6.5, h = 3)
+
+cc1 <- 15
 
         layout(t(matrix(c(1:4,9,5:8,9),5,2)),w = c(rep(1,4),.85))
         par(mar = c(3,1,2,0), oma = c(1,3,0,0), cex.lab = cx, cex.axis = cx, cex.main = cx, fg = col.pl, col.axis = col.pl,
@@ -223,10 +340,13 @@ for(one.file in c(F,T)) {
 
         for(bb in 1:4) {
 
-            jst <- c(tbl$seq[[bb]])
+bb <- 1
+            jst <- inds[[bb]]
             main <- mains[bb]
-js <- cframe[acute.sc==ac & country==cc1 & simj %in% jst, job]
-js1 <- cframe[job %in% js & simj==1, job]
+            js <- cframe[acute.sc==ac & country==cc1 & simj %in% jst, job]
+            js1 <- cframe[job %in% js & simj==1, job]
+
+            dimnames(cfs$t.arr)[[3]] <- cframe[country==cc1,job] ## change when have multi-country results in
 
             set.labs(bb,js)
             yaxt <- ifelse(bb==1, T, F)
@@ -237,6 +357,42 @@ js1 <- cframe[job %in% js & simj==1, job]
                           main = main, cex.leg = .8, yaxt = yaxt, ylab = '', ltys = ltys, lwds = lwds, cols = cols,
                           title = legtitle, browse=F, col.pl = col.pl, show.leg = F, sep.leg = F)
 
+            par(mfrow = c(2,3))
+            for(ii in 1:length(inds)) {
+                for(jj in 1:length(inds[[ii]])) {
+                    if(jj==1) {
+                        data.table(cfs$t.arr[,,inds[[ii]][jj]])[ , plot(yr,sdp, type = 'l', xlim = c(1990, 2015), ylim = c(0,1), bty = 'n', lwd = 2,
+                                                                        main = mains[ii])]
+                    }else{
+                        data.table(cfs$t.arr[,,inds[[ii]][jj]])[ , lines(yr,sdp, type = 'l', lty = 2)]
+                    }
+                }
+            }
+            
+
+            par(mfrow = c(2,3))
+            for(ii in 1:length(inds)) {
+                for(jj in 1:length(inds[[ii]])) {
+                    if(jj==1) {
+                        data.table(cfs$t.arr[,,1])[ , plot(yr,sdp, type = 'l', xlim = c(1990, 2015), ylim = c(0,1), bty = 'n', lwd = 2)]
+                    }else{
+                        data.table(cfs$t.arr[,,2])[ , lines(yr,sdp, type = 'l', lty = 2)]
+                    }
+                }
+            }
+
+            tail(cfs$t.arr[,,1])
+tail(cfs$t.arr[,'sdp',1]-cfs$t.arr[,'sdp',2])
+
+            blocks[1:2]
+            inds[[1]]
+            
+            dimnames(cfs$t.arr)[[2]]
+            
+            head(blocksg)
+            
+            tail(cfs$t.arr[,,js[1]])
+            
             ## if(bb==1) legend('bottomleft', c('as fitted', 'no AIDS mortality'), lwd = 2:1, lty = 1:2, col = c('black', rmp(2)[2]), bty = 'n', cex = leg.cex)
             ## if(bb%in%2:3) legend('bottomleft', c('set to 0', 'as fitted', 'scaled X 10'), lwd = c(1,2,1), lty = c(2,1,3),
             ##                      col = c(rmp(3)[2], 'black', rmp(3)[3]), bty = 'n', cex = leg.cex)
@@ -252,6 +408,7 @@ js1 <- cframe[job %in% js & simj==1, job]
             if(bb==5) legend('bottomleft', c('as fitted', 'std dev = 1', 'std dev = 2'), lwd = c(2,1,1), lty = c(1,1,2),
                    col = c('black',  'gray', 'gray'), bty = 'n', cex = leg.cex)
         }
+
 ####################################################################################################
         ## Extract SDP's from 2008 for all scenarios to plot in 2nd row of figure
         par(mar = c(3,1,.5,0))

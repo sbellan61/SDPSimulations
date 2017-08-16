@@ -511,7 +511,7 @@ plot.sdp.nsub <- function(js, # jobs to plot
                           browse = F)
   {
     if(browse) browser()
-    tss <- cfs$t.arr[,,js]
+    tss <- cfs$t.arr[,,js] ## using as.character because of job > js > dimnames
     if(length(js)>1)
       {
         tss <- tss[tss[,"yr",1]>early.yr,,]
@@ -550,7 +550,9 @@ plot.sdp.nsub <- function(js, # jobs to plot
                }
     for(ii in 1:ns)
       {
-        if(ns>1) lines(tss[,"yr",ii], (tss[,"mm",ii] + tss[,"ff",ii])/tss[,"inf.alive",ii], col = cols[ii], lty = ltys[ii], lwd = lwds[ii])
+          if(ns>1)
+              ii=1
+              lines(tss[,"yr",ii], (tss[,"mm",ii] + tss[,"ff",ii])/tss[,"inf.alive",ii], col = cols[ii], lty = ltys[ii], lwd = lwds[ii])
         if(ns==1) lines(tss[,"yr"], (tss[,"mm"] + tss[,"ff"])/tss[,"inf.alive"], col = cols[ii], lty = ltys[ii], lwd = lwds[ii])        
       }
     if(show.leg)               legend("bottomleft", leg = leg, col = cols, lwd = 2, lty = ltys, bty = "n", cex = cex.leg, ncol = 2, title = title)
@@ -567,6 +569,8 @@ plot.sdp.nsub <- function(js, # jobs to plot
      }
   }
 
+
+    
 ## dplot(35, pdf.nm = 'het dot.pdf', browse=F)
 
 ## dot plot at 2010
