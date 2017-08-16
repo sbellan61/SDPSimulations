@@ -25,7 +25,7 @@ nc <- 12                                       # core per simulation
 ## affected by AIDS mortality rates and pre-couple, extra-couple, and within-couple HIV transmission
 ## rates.
 ####################################################################################################
-countries <- 1:length(ds.nm)
+countries <- 15## 1:length(ds.nm)
 
 #countries <- which(ds.nm=='Zambia')
 
@@ -42,7 +42,7 @@ hsds.rts <- c(0,1,2)                      # same but use smaller subset when als
 cors <- c(0,.4,.8)                      # inter-partner correlations
 ncors <- length(cors)
 
-out.dir <- file.path('results','CounterFactual')
+out.dir <- file.path('results','CounterFactual-Zambia')
 
 nhsds <- length(hsds)
 hets <- c('b','e','p','gen','beh')
@@ -103,7 +103,7 @@ blocksg[,jobnum:=1:nrow(blocksg)]
 blocksg[,c('seed','out.dir','sim.nm','doSubs'):=.(1,out.dir, 'CF', F)]
 blocksg[,c('tmar','tint'):=.('tmar=(65*12):(113*12)',113*12)]
 
-blocksgTD <- blocksg[country==15]
+blocksgTD <- blocksg ##[country==15]
 
 if(!file.exists(out.dir))      dir.create(out.dir) # create directory if necessary
 if(!file.exists(file.path(out.dir,'Rdatas')))      dir.create(file.path(out.dir,'Rdatas')) # create directory if necessary
