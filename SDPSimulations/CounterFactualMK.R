@@ -25,9 +25,7 @@ nc <- 12                                       # core per simulation
 ## affected by AIDS mortality rates and pre-couple, extra-couple, and within-couple HIV transmission
 ## rates.
 ####################################################################################################
-countries <- 15## 1:length(ds.nm)
-
-#countries <- which(ds.nm=='Zambia')
+countries <- 1:length(ds.nm)
 
 each.val <- 200                          #  number of couples per couple formation (marital) cohort
 counterf.betas <- F                       # change betas in counterfactuals? if not change beta_within & c's (so beta_within affects all routes)
@@ -42,7 +40,7 @@ hsds.rts <- c(0,1,2)                      # same but use smaller subset when als
 cors <- c(0,.4,.8)                      # inter-partner correlations
 ncors <- length(cors)
 
-out.dir <- file.path('results','CounterFactual-Zambia')
+out.dir <- file.path('results','CounterFactualAll')
 
 nhsds <- length(hsds)
 hets <- c('b','e','p','gen','beh')

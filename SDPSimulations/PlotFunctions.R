@@ -28,17 +28,19 @@ coll <- function(dir.results, nc = 48, browse = F) {
                                                     , het.b.sd, het.b.cor
                                                     , het.e.sd, het.e.cor
                                                     , het.p.sd, het.p.cor
-                                                    , het.beh.sd, het.beh.cor)]
+                                                    , het.beh.sd, het.beh.cor
+                                                    , het.gen.sd, het.gen.cor)]
+            for(col in names(parstmp[,!'death'])) set(parstmp, j = col, value = as.numeric(parstmp[[col]]))
+            parstmp[, death := as.logical(death)]
             tsstmp <- cbind(jobnum, tsstmp, parstmp)
             tss <- rbind(tss, tsstmp)
         }
         return(tss)
     }
-    tss <- mclapply(1:nc, wrp, mc.cores = nc) 
+    tss <- mclapply(1:nc, wrp, mc.cores = nc, browse = browse) 
     tss <- rbindlist(tss)
     return(tss)
 }
-
 
 
 ####################################################################################################
