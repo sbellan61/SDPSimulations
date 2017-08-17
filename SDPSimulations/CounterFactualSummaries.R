@@ -7,13 +7,12 @@ if(grepl('stevenbellan', Sys.info()['login'])) setwd('~/Documents/R Repos/SDPSim
 load("../DHSFitting/data files/dframe.s.Rdata") # country names
 source('PlotFunctions.R')                    # load functions to collect & plot results
 source('SimulationFunctions.R')                   # load simulation functions
-library(abind)                          # array binding
 do.again <- F                           # collect results again (otherwise load cfs.Rdata)
 show.pts <- T                           # show observed SDP in real DHS data
 ## source('CounterFactualSummaries.R')
-
 dir.results <- file.path('results','CounterFactual') # results locations
 dir.figs <- file.path(dir.results, 'Figures')        # make a directory to store figures
+
 if(!file.exists(dir.figs)) dir.create(dir.figs)      # create it
 ## load 'blocks' which gives info on all simulations within each country-acute group
 load(file.path(dir.results, 'blocksg.Rdata'))
@@ -23,163 +22,28 @@ print(length(fs))
 
 ## coll: collects all results into data frame of input parameters, and array of time series
 if(!file.exists(file.path(dir.results, 'cfs.Rdata')) | do.again) {
-  cfs <- coll(fs, nc = 24, give.ev = F, lbrowse=F, trace=F)
-  cfs$cframe$job <- as.numeric(as.character(cfs$cframe$job))
-  cfs$cframe <- data.table(cfs$cframe[order(cfs$cframe$job),]) # order by jobs
-  cfs$t.arr <- cfs$t.arr[,,order(cfs$cframe$job)]          # ditto
-  attach(cfs) # for convenience, be careful later!
-  save(cfs, file = file.path(dir.results, 'cfs.Rdata'))
+    tss <- coll(dir.results, nc = 48, browse=F)
+    save(tss, file = file.path(dir.results, 'tss.Rdata'))
 }else{
-  load(file.path(dir.results, 'cfs.Rdata'))
-  attach(cfs)
+    load(file.path(dir.results, 'tss.Rdata'))
 }
-dim(cframe) ## dimensions & check for duplicate runs
-print(paste(sum(duplicated(cframe$job)), 'duplicate jobs'))
-cframe <- cframe[!duplicated(cframe$job),]
-t.arr <-  t.arr[,,!duplicated(cframe$job)]
-acutes <- as.numeric(as.character(unique(cframe$acute.sc))) # which acute phase relative hazards (RHs) were simulated
+
+tss[,length(unique(jobnum))]
+dim(tss) ## dimensions & check for duplicate runs
+print(paste(tss[, sum(duplicated(jobnum))]), 'duplicated jobs')
+tss <- tss[!duplicated(jobnum)]
+acutes <- tss[,unique(acute.sc)] # which acute phase relative hazards (RHs) were simulated
 nac <- length(acutes)                   # how many
-col.pl <- 'black'                       # base plot color
-countries <- as.numeric(as.character(unique(cframe$country)))
+countries <- tss[,unique(country)]
 countries <- countries[order(countries)]
-ngroup <- length(countries)             # how many
-dim(blocksg)
-jtd <- blocksg[!jobnum %in% cframe$job, jobnum]
+ncountries <- length(countries)         
+jtd <- blocksg[!jobnum %in% tss$jobnum, jobnum]
 print(paste("didn't do jobs:",paste(head(jtd,50), collapse=','),', ...')) # check to see if any jobs didn't complete
 save(jtd, file=file.path(dir.results,'CFJobsToDo.Rdata'))
-
-
-## Set labels & indices for plotting below
-set.labs <- function(bb, js) {
-  if(grepl('scale', blocks[batch==bb, unique(lab)])) { # set up legend for scaled transmission routes
-    route.ind <<- which(colSums(cframe[job %in% js,grepl('b...sc',names(cframe)), with=F]!=1)>0)[1]
-    route <<- paste0(rep(c('pre','extra','within'),each=2),'-couple')[route.ind]
-    col.ind <<- rep(c('bmb.sc','bme.sc','bmp.sc'),each=2)[route.ind]
-    legtitle <<- paste(route, '\ntransmission X') # route-specific transmission scaled by
-    leg <<- cframe[js,col.ind, with=F]                    # scalar values
-  }
-  if(grepl('heterogeneity', blocks[batch==bb, unique(lab)])) { # set up legend for different heterogeneity
-    route.ind <<- which(colSums(cframe[job %in% js,grepl('het.*sd',names(cframe)), with=F]!=0, na.rm=T)>0) # which het sd is not 0 
-    route <<- paste0(c('pre','extra','within','pre, extra, within','pre & extra'),'-couple heterogeneity')[route.ind]
-    col.ind <<- paste0('het.',c('b','e','p','gen','beh'),'.sd')[route.ind]
-    if(length(route.ind)==3) { ## all 3 routes (individuals have different risk deviates for each route though)
-      route <<- 'pre, extra, & within-couple heterogeneity \n(different risk deviates)'
-      col.ind <<- col.ind[1]   # just pick first one to get legend since the sd's are the same for all routes in each sim
-    }
-    if(length(route.ind)==2) { ## pre-/extra- route (individuals have different risk deviates for each route though)
-      route <<- 'pre- & extra-couple heterogeneity \n(different risk deviates)'
-      col.ind <<- col.ind[1]   # just pick first one to get legend since the sd's are the same for all routes in each sim
-    }                    
-    legtitle <<- paste(route, '\nstd dev =') # route-specific standard deviation
-    leg <<- cframe[js,col.ind, with=F]               # what were the sds?
-  }
-  if(grepl('mortality', blocks[batch==bb, unique(lab)])) { # set up legend for AIDS mortality counterfactual
-    legtitle <<- ''
-    leg <<- c('as fitted', 'no AIDS mortality \ncounterfactual')
-  }else{ ## below: call plotting function (from plot fxns.R)
-    leg <<- ''
-  }
-}
 
 blocks <- blocksg[jobnum %in% cframe$job, ]
 ac.to.do <- c(1) ## 1,7,25,50)
 nac <- length(ac.to.do)
-
-for(cc in countries) {   # make summary figures for each country
-####################################################################################################
-  ## Summary of all blocks: 1 page per block, 1 row per acute phase.
-  print(paste0('visualizing results from ', ds.nm[cc], ' counterfactual simulations'))
-  #pdf(file.path(dir.figs,paste0(ds.nm[cc], 'SDP summary.pdf')), w = 8, h = 4)
-
-    for(bb in 2:length(unique(blocks$batch))) { ## for each block
-        par(mfrow = c(1,nac), oma = c(0,0,1.5,0))   # one panel per acute phase
-        for(aa in 1:nac) { 
-            ac <- ac.to.do[aa]
-            js <- blocks[acute.sc == ac & batch %in% c(1,bb) & country==cc, jobnum] #blocks$start[bb]:blocks$end[bb])
-            set.labs(bb, js)
-            js1 <- cframe[job %in% js & simj==1, job]
-            plot.sdp.nsub(js = js, leg = leg, js1 = js1, make.pdf = F, early.yr = 1985, show.pts = show.pts, pts.group = cc,
-                          main = paste('acute phase \nrelative hazard =', ac), cex.leg = .8,
-                          title = legtitle, browse=F, col.pl = col.pl, show.leg = T, sep.leg = F)
-            mtext(blocks$lab[bb], side = 3, outer = T, line = 0, adj = .5) # add label describing block to top of figure
-        }
-    }
-#  dev.off()
-
-####################################################################################################
-  ## Summary of transmission route-scaling counterfactuals, columns = acute RH, rows = route, page
-  ## = genetic heterogeneity std dev
-  pdf(file.path(dir.figs,paste0(ds.nm[cc], 'SDP scale summary big panels.pdf')), w = 8, h = 8)
-  for(bb in 2:13) { ## for each block
-    if(bb %in% c(2,6,10))    par(mfrow = c(4,nac), mar = c(4,4,1,.5), oma = c(0,2,4,0))   # one panel per acute phase
-    for(aa in 1:nac) { 
-      jst <- c(1, blocks$start[bb]:blocks$end[bb])
-      js <- which(cframe$simj %in% jst)
-      js <- js[cframe$acute.sc[js]==ac.to.do[aa] & cframe$group.ind[js]==cc] # select sims for this acute phase RH & country
-      set.labs(bb, js)
-      main <- ifelse(bb %in% c(2,6,10), paste('acute =',ac.to.do[aa]), '')
-      js1 <- cframe$job[js[cframe$simj[js]==1]] # which line was as fitted? always simj=1
-      plot.sdp.nsub(js = js, leg = leg, js1 = js1, make.pdf = F, early.yr = 1985, show.pts = show.pts, pts.group = cc,
-                    main = main, cex.leg = .5,
-                    title = legtitle, browse=F, col.pl = col.pl, show.leg = T, sep.leg = F)
-      if(bb %in% c(2,6,10) & aa ==1) {
-        mtext('AIDS death', side = 2, outer = T, line = 0, adj = .95) # add label describing block to top of figure          
-        mtext('pre-couple', side = 2, outer = T, line = 0, adj = .65) # add label describing block to top of figure
-        mtext('extra-couple', side = 2, outer = T, line = 0, adj = .4) # add label describing block to top of figure
-        mtext('within-couple', side = 2, outer = T, line = 0, adj = .12) # add label describing block to top of figure
-        if(bb==2)   mtext('scaling routes, no heterogeneity', side = 3, outer = T, line = 1, adj = .5, cex = 2) 
-        if(bb==6)   mtext('scaling routes, genetic heterogeneity sd = 1', side = 3, outer = T, line = 1, adj = .5, cex = 2) 
-        if(bb==10)   mtext('scaling routes, genetic heterogeneity sd = 2', side = 3, outer = T, line = 1, adj = .5, cex = 2) 
-      }
-    }
-  }
-  dev.off()
-####################################################################################################
-  ## Summary of heterogeneity counterfactuals, columns = heterogeneity type, rows = acute phase
-  ## RH, page = genetic heterogeneity inter-partner correlation
-  pdf(file.path(dir.figs,paste0(ds.nm[cc],'SDP heterogeneity summary big panels.pdf')), w = 14, h = 9)
-  for(bb in 14:34) { ## for each block
-    ## one panel per acute phase
-    if(bb %in% c(14,21,28)) {
-      layout(matrix(1:(7*nac),nac,7))
-      par(mar = c(3,4,1,.5), oma = c(.5,6,5,0))
-    }
-    for(aa in 1:nac) { 
-      jst <- c(1, blocks$start[bb]:blocks$end[bb]) ## 1=baseline, blocks[bb] = CF scenarios
-      js <- which(cframe$simj %in% jst) ## simj is type of simulation (replicated over acutes)
-      js <- js[cframe$acute.sc[js]==ac.to.do[aa] & cframe$group.ind[js]==cc] # select sims for this acute phase RH & country
-      set.labs(bb, js)
-      js1 <- cframe$job[js[cframe$simj[js]==1]] # which line was as fitted? always simj=1
-      plot.sdp.nsub(js = js, leg = leg, js1 =js1, make.pdf = F, early.yr = 1985, show.pts = show.pts, pts.group = cc,
-                    main = '', cex.leg = .8,
-                    title = legtitle, browse=F, col.pl = col.pl, show.leg = T, sep.leg = F)
-      if(aa==1) {
-        if(bb%%7==5) mtext('pre-couple', side = 3,  line = 0, adj = .5) # add label describing block to top of figure
-        if(bb%%7==6) mtext('extra-couple', side = 3,  line = 0, adj = .5) # add label describing block to top of figure
-        if(bb%%7==0) mtext('within-couple', side = 3,  line = 0, adj = .5) # add label describing block to top of figure
-        if(bb%%7==1) mtext('all route \n(same)', side = 3,  line = 0, adj = .5) # add label describing block to top of figure
-        if(bb%%7==2) mtext('pre/extra \n(same)', side = 3,  line = 0, adj = .5) # add label describing block to top of figure
-        if(bb%%7==3) mtext('all route \n(different)', side = 3,  line = 0, adj = .5) # add label describing block to top of figure
-        if(bb%%7==4) mtext('pre/extra \n(different)', side = 3,  line = 0, adj = .5) # add label describing block to top of figure
-      }
-      if(bb %in% c(12,19,26)) {
-        if(aa==1) {
-          if(bb==12)   mtext('different heterogeneity std devs, inter-partner correlation=0 ',
-               side = 3, outer = T, line = 2, adj = .5, cex = 2)
-          if(bb==19)   mtext('different heterogeneity std devs, inter-partner correlation=0.4',
-               side = 3, outer = T, line = 2, adj = .5, cex = 2)
-          if(bb==26)   mtext('different heterogeneity std devs, inter-partner correlation=0.8',
-               side = 3, outer = T, line = 2, adj = .5, cex = 2)
-        }
-        ytext <- ifelse(bb %in% c(12,19,26), paste('acute phase \nrelative hazard =',ac.to.do[aa]), '')
-        mtext(ytext, side = 2, line = 6, adj = .5)
-      }
-    }
-  }
-  dev.off()
-}
-
-## countries <- 1:16
 
 ####################################################################################################
 ## Figure 2 for the manuscript
