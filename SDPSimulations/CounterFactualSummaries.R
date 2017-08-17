@@ -41,9 +41,6 @@ save(jtd, file=file.path(dir.results,'CFJobsToDo.Rdata'))
 ####################################################################################################
 
 ## matlayout <- t(matrix(c(1:6,10,7:12,10),7,2))
-## layout(matlayout,w = c(rep(1,6),.85))
-## par(mar = c(3,1,2,0), oma = c(1,3,0,0), cex.lab = cx, cex.axis = cx, cex.main = cx, fg = col.pl, col.axis = col.pl,
-##     col.lab = col.pl, col = col.pl, col.main = col.pl)
 
 parmsFxn <- function(country=15, s.demog=NA, death=T, acute.sc=5
                    , bmb.sc=1, bme.sc=1, bmp.sc=1
@@ -91,8 +88,15 @@ legFxn <- function(ii, leg.cex = .8, cols, ltys
 }
 
 
+
+cx <- .8
+col.pl <- 'black'
 pdf(file.path(dir.figs, 'Fig 2 - Counterfactual Summary.pdf'), width = 6.5, h = 5)
-par(mfrow = c(2,6), mar = c(3,1,2,.3), oma = c(1,3,0,0), cex.main = .7)
+matlayout <- t(matrix(c(1:6,13,7:12,13),7,2))
+layout(matlayout,w = c(rep(1,6),.8))
+par(mar = c(3,1,2,0), oma = c(1,3,0,0), cex.lab = cx, cex.axis = cx, cex.main = cx, fg = col.pl, col.axis = col.pl,
+    col.lab = col.pl, col = col.pl, col.main = col.pl)
+## par(mfrow = c(2,6), mar = c(3,1,2,.3), oma = c(1,3,0,0), cex.main = .7)
 for(ii in 1:6) {
     seltmp <- get(paste0('sel',ii))
     tmp <- tss[seltmp, .SD, nomatch=0L, on=nms, .SDcols=names(tss)][!jobnum %in% dups]
@@ -142,15 +146,18 @@ for(ii in 1:6) {
         ## later if changing the parameters in the sensitivity analysis
         tmp <- unique(tmp[yr==2008,.(death, bmb.sc, bme.sc, bmp.sc, het.gen.sd, het.gen.cor, sdp, yr)]) 
         tmp[, class(het.gen.sd)]
-        if(ii==1) tmp[yr==2008, lines(death, sdp)]
-        if(ii==2) tmp[yr==2008, lines(bmb.sc, sdp)]
-        if(ii==3) tmp[yr==2008, lines(bme.sc, sdp)]
-        if(ii==4) tmp[yr==2008, lines(bmp.sc, sdp)]
-        if(ii==5) tmp[yr==2008][order(het.gen.sd)][, lines(het.gen.sd, sdp)]
-        if(ii==6) tmp[yr==2008, lines(het.gen.cor, sdp)]
+        if(ii==1) tmp[yr==2008, lines(death, sdp, col = dframe$col[cc])]
+        if(ii==2) tmp[yr==2008, lines(bmb.sc, sdp, col = dframe$col[cc])]
+        if(ii==3) tmp[yr==2008, lines(bme.sc, sdp, col = dframe$col[cc])]
+        if(ii==4) tmp[yr==2008, lines(bmp.sc, sdp, col = dframe$col[cc])]
+        if(ii==5) tmp[yr==2008][order(het.gen.sd)][, lines(het.gen.sd, sdp, col = dframe$col[cc])]
+        if(ii==6) tmp[yr==2008, lines(het.gen.cor, sdp, col = dframe$col[cc])]
     }
 }
 title(xlab='scalar multiple of fitted parameter used', outer = T, adj = .4, line = -.5)
+par(mar=c(3,0,0,0))
+plot(0,0, axes = F, bty='n', type = 'n')
+legend('bottom', leg = dframe$country, pch = 16, col = dframe$col, cex = .8)
 graphics.off()
 
 
