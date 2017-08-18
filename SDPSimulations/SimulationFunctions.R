@@ -197,7 +197,7 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
         cpars["bfp"] <- cpars["bfp"]*bfp.sc
     }
     ##  call event-driven simulation
-if(browse) browser()
+    if(browse) browser()
     evout <- event.fn(cpars, psdat, vfreq = 100, death = death, acute.sc = acute.sc, late.sc = late.sc, aids.sc = aids.sc, nc = nc,
                       het.b = het.b, het.b.sd = het.b.sd, het.b.cor = het.b.cor,
                       het.e = het.e, het.e.sd = het.e.sd, het.e.cor = het.e.cor,
@@ -312,6 +312,7 @@ event.fn <- function(pars, dat, browse = F, # transmission coefficients to use f
     breaks <- rep(1:nc, length.out = nrow(dat))
     ## Call couple loop function below in multicore
     multi.out <- mclapply(1:nc, cloop, dat = dat, breaks = breaks, vfreq = vfreq, death = death, acute.sc = acute.sc, late.sc = late.sc, aids.sc = aids.sc,
+                          mc.cores = nc,
                           pars = hpars, browse=F)
     temp <- multi.out[[1]]    ## Combine mclapply output from each core back into data frame
     if(nc>1) {
