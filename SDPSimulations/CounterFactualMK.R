@@ -103,6 +103,13 @@ blocksg[,c('tmar','tint'):=.('tmar=(65*12):(113*12)',113*12)]
 
 blocksgTD <- blocksg ##[country==15]
 
+blocksg[,length(unique(jobnum))]
+blocksg[, sum(jobnum %in% jtd)]
+blocksg[, sum(!jobnum %in% jtd)]
+labs <- blocksg[,unique(lab)]
+labsTD <- labs[c(1:5, 17, 24, 31)]
+blocksgTD <- blocksg[jobnum %in% jtd & acute.sc==5 & lab %in% labsTD] 
+
 if(!file.exists(out.dir))      dir.create(out.dir) # create directory if necessary
 if(!file.exists(file.path(out.dir,'Rdatas')))      dir.create(file.path(out.dir,'Rdatas')) # create directory if necessary
 if(!file.exists(file.path(out.dir,'Routs')))      dir.create(file.path(out.dir,'Routs')) # create directory if necessary
