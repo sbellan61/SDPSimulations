@@ -24,14 +24,18 @@ coll <- function(dir.results, nc = 48, browse = F) {
             tsstmp[, prev:= (mm+ff+2*hh)/(alive*2) ]
             tsstmp <- tsstmp[yr>1990, .(yr, sdp, prev)]
             jobnum <- as.numeric(gsub("[^0-9]", "", fs[ff]))
-            parstmp <- data.table(t(output$pars))[, .(country, s.demog, death, acute.sc, bmb.sc, bme.sc, bmp.sc
-                                                    , het.b.sd, het.b.cor
-                                                    , het.e.sd, het.e.cor
-                                                    , het.p.sd, het.p.cor
-                                                    , het.beh.sd, het.beh.cor
-                                                    , het.gen.sd, het.gen.cor)]
-            for(col in names(parstmp[,!'death'])) set(parstmp, j = col, value = as.numeric(parstmp[[col]]))
-            parstmp[, death := as.logical(death)]
+            nmsToKeep <- c('country', 's.demog', 'death', 'acute.sc', 'bmb.sc', 'bme.sc', 'bmp.sc'
+                         , 'het.b.sd', 'het.b.cor'
+                         , 'het.e.sd', 'het.e.cor'
+                         , 'het.p.sd', 'het.p.cor'
+                         , 'het.beh.sd', 'het.beh.cor'
+                         , 'het.gen.sd', 'het.gen.cor')
+            nmsToKeep <- names(output$pars)[names(output$pars) %in% nmsToKeep] ## only keep columns that appear in previous strings
+            parstmp <- data.table(t(output$pars))[, nmsToKeep, with=F]
+            if('death' %in% colnames(parstmp)) {
+                for(col in names(parstmp[,!'death'])) set(parstmp, j = col, value = as.numeric(parstmp[[col]]))
+                parstmp[, death := as.logical(death)]
+            }
             tsstmp <- cbind(jobnum, tsstmp, parstmp)
             tss <- rbind(tss, tsstmp)
         }

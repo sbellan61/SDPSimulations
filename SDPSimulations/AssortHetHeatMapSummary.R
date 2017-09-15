@@ -5,37 +5,45 @@
 library(plotrix)
 rm(list=ls())                           # clear workspace
 if(grepl('tacc', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/DHSProject/SDPSimulations/')
+if(grepl('nid', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/SDPSimulations/SDPSimulations/')
 source('PlotFunctions.R')                    # load functions to collect & plot results
 source('SimulationFunctions.R')                   # load simulation functions
 library(abind)                          # array binding
-load('data files/ds.nm.all.Rdata')        # country names
-load('data files/dframe.s.Rdata')        # SDP by survey
+load("../DHSFitting/data files/dframe.s.Rdata") # country names
+load("../DHSFitting/data files/ds.nm.all.Rdata") # country names
 do.again <- T                           # collect results again (otherwise load cfs.Rdata)
 show.pts <- T                           # show observed SDP in real DHS data
 ## source('AssortHetHeatMapSummary.R')
 
-dir.results <- file.path('results','AssortHetHeatMap')
+dir.results <- file.path('results','AssortHetHeatMap2') # results locations
 dir.figs <- file.path(dir.results, 'Figures')        # make a directory to store figures
-if(!file.exists(dir.figs)) dir.create(dir.figs)      # create it
-## load 'blocks' which gives info on all simulations within each country-acute group
-load(file.path(dir.results, 'blocks.Rdata'))
-## Load all results files in the results directory (all Rdata files except blocks & cfs)
-fs <- list.files(pattern = '.Rdata', path = file.path(dir.results), recursive = T, full.names = T)
-fs <- fs[!grepl('blocks',fs) & !grepl('cfs',fs) &  !grepl('JobsToDo',fs)]
-#fs <- fs[grepl('Acute7',fs)]
-print(length(fs))
+if(!file.exists(dir.figs)) dir.create(dir.figs) # Create directory
+load(file.path(dir.results, 'blocksg.Rdata')) ## information on simulations from MK file
 
-## coll: collects all results into data frame of input parameters, and array of time series
-if(!file.exists(file.path(dir.results, 'cfs.Rdata')) | do.again) {
-  cfs <- coll(fs, nc = 12, give.ev = F, lbrowse=F, trace=F, browse=F)
-  cfs$cframe <- cfs$cframe[order(cfs$cframe$job),] # order by jobs
-  cfs$t.arr <- cfs$t.arr[,,order(cfs$cframe$job)]          # ditto
-  attach(cfs) # for convenience, be careful later!
-  save(cfs, file = file.path(dir.results, 'cfs.Rdata'))
+resFile <- file.path(dir.results, 'tss.Rdata')
+if(file.exists(resFile)) {
+    load(resFile)
 }else{
-  load(file.path(dir.results, 'cfs.Rdata'))
-  attach(cfs)
+    tss <- coll(dir.results, nc = 48, browse=F) ## assemble all results into one DT
+    save(tss, file = resFile)
 }
+
+
+tss[,tmp:=paste0(jobnum,'-',yr)] ## Any duplicated jobs X time points?
+print(paste(tss[,sum(duplicated(tmp))], 'duplicated jobs'))
+tss <- tss[!duplicated(tmp)] ## Remove them
+print(paste(tss[,length(unique(jobnum))], 'unique jobs'))
+tss$tmp <- NULL
+acutes <- tss[,unique(acute.sc)] # which acute phase relative hazards (RHs) were simulated
+nac <- length(acutes)                   # how many
+countries <- tss[,unique(country)]
+countries <- countries[order(countries)]
+ncountries <- length(countries)         
+jobsDone <- as.numeric(sub('20', '', unique(tss$jobnum)))
+jtd <- blocksg[!jobnum %in% jobsDone, jobnum]
+print(paste("didn't do jobs:",paste(head(jtd,50), collapse=','))) # check to see if any jobs didn't complete
+save(jtd, file=file.path(dir.results,'CFJobsToDo.Rdata'))
+
 dim(cframe) ## dimensions & check for duplicate runs
 print(paste(sum(duplicated(cframe$job)), 'duplicate jobs'))
 cframe <- cframe[!duplicated(cframe$job),]

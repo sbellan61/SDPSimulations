@@ -43,7 +43,8 @@ blocksg[,c('seed','out.dir','sim.nm','doSubs'):=.(1,out.dir, 'AHH', F)]
 blocksg[,c('tmar','tint'):=.('tmar=(65*12):(113*12)',113*12)]
 blocksg[,c('acute.sc'):=.(5)]
 
-blocksgTD <- blocksg
+load(file.path(out.dir,'CFJobsToDo.Rdata'))
+blocksgTD <- blocksg[jobnum %in% jtd]
 
 if(!file.exists(out.dir))      dir.create(out.dir) # create directory if necessary
 if(!file.exists(file.path(out.dir,'Rdatas')))      dir.create(file.path(out.dir,'Rdatas')) # create directory if necessary
