@@ -13,7 +13,7 @@ load("../DHSFitting/data files/ds.nm.all.Rdata") # country names
 load('../DHSFitting/data files/pars.arr.ac.Rdata')    # load acute phase relative hazards used to fit (in.arr[,,2])
 load('../DHSFitting/data files/CFJobsToDo.Rdata') ## for finishing up jobs from last run that didn't get finished due to cluster problems.
 hazs <- c('bmb','bfb','bme','bfe','bmp','bfp') #  transmission coefficient names, for convenience
-nc <- 12                                       # core per simulation
+nc <- 48                                       # core per simulation
 ## source('CounterFactualMK.R')
 
 ####################################################################################################
@@ -108,7 +108,10 @@ blocksg[, sum(jobnum %in% jtd)]
 blocksg[, sum(!jobnum %in% jtd)]
 labs <- blocksg[,unique(lab)]
 labsTD <- labs[c(1:5, 17, 24, 31)]
+load(file.path(out.dir,'CFJobsToDo.Rdata'))
 blocksgTD <- blocksg[jobnum %in% jtd & acute.sc==5 & lab %in% labsTD] 
+## blocksgTD <- blocksg[acute.sc==5 & lab %in% labsTD] 
+nrow(blocksgTD)
 
 if(!file.exists(out.dir))      dir.create(out.dir) # create directory if necessary
 if(!file.exists(file.path(out.dir,'Rdatas')))      dir.create(file.path(out.dir,'Rdatas')) # create directory if necessary
@@ -123,6 +126,6 @@ for(ii in blocksgTD[,jobnum]) { #blocksgTD[,jobnum]) {
     cat('\n')              # add new line
 }
 sink()
-save(blocksg, file = file.path(out.dir,'blocksg.Rdata')) # these are country-acute phase specific blocks
+save(blocksg, blocksgTD, file = file.path(out.dir,'blocksg.Rdata')) # these are country-acute phase specific blocks
 print(nrow(blocksg))
 print(nrow(blocksgTD))
