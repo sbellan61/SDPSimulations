@@ -75,7 +75,7 @@ psrun <- function(country, s.demog = NA, # country to simulate;  country whose r
                   scale.by.sd = T, # adjust beta means to keep geometric mean constant with increasing heterogeneity
                   scale.adj = 1,   # adjust betas arbitrarily
                   ## processing & visualizations
-                  nc = 12,               # number of cores
+                  nc = 48,               # number of cores
                   out.dir, sim.nm,              # output directory
                   make.jpgs = F,         # make some pictures of results
                   early.yr = 1985,       # earliest year to show in timeseries plots
@@ -605,7 +605,7 @@ ts.fxn <- function(dat, nc = 12, verbose = T, vfreq = 500, return.ts = F, browse
         ## keep track of reordering for later
         uid.brk <- dat$uid[order(breaks)]
         ## use tsloop within each core
-        multi.out <- mclapply(1:nc, tsloop, dat = dat, breaks = breaks, start = start, end = end, verbose = verbose, vfreq = vfreq)
+        multi.out <- mclapply(1:nc, tsloop, dat = dat, breaks = breaks, start = start, end = end, verbose = verbose, vfreq = vfreq, mc.cores=nc)
         ## combine back into data frame
         tss <- multi.out[[1]][['tss']]              # each is a list(ts = ts, tss = tss) object
         ts <- multi.out[[1]][['ts']]                                               

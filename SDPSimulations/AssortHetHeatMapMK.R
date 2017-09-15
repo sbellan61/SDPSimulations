@@ -4,24 +4,25 @@
 ####################################################################################################
 rm(list=ls())                                  # clear workspace
 if(grepl('tacc', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/DHSProject/SDPSimulations/')
+if(grepl('nid', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/SDPSimulations/SDPSimulations/')
 if(grepl('stevenbellan', Sys.info()['login'])) setwd('~/Documents/R Repos/SDPSimulations/SDPSimulations/')
 source("SimulationFunctions.R")                   # load simulation functions from script
 hazs <- c('bmb','bfb','bme','bfe','bmp','bfp') #  transmission coefficient names, for convenience
-nc <- 24                                       # core per simulation
+nc <- 48                                       # core per simulation
 ## source('AssortHetHeatMapMK.R')
 
 ####################################################################################################
 ## Simulate Tanzania but with assortativity/heterogeneity & varied amounts of pre-couple extra-couple
 ####################################################################################################
 ## cc <- which(ds.nm=='Tanzania') 
-countries <- 1:length(ds.nm)
+countries <- 15 ## 1:length(ds.nm)
 each.val <- 200 ##  equates to ~100,000 couples
 
-blocks.beh <- expand.grid(country = countries, het.beh=T, het.beh.sd=seq(0,3, by = .1), het.beh.cor=seq(0,1, by = .05), bmb.sc = 1)
-blocks.beh$bfb.sc <- blocks.beh$bme.sc <- blocks.beh$bfe.sc <- blocks.beh$bmb.sc ## all contact coefficients scaled same way
-blocks.beh$bmp.sc <- blocks.beh$bfp.sc <- 1
-blocks.beh$het.gen <- F; blocks.beh$het.gen.sd <- blocks.beh$het.gen.cor <- 0
-blocks.beh <- blocks.beh[with(blocks.beh, order(country, het.beh.sd, het.beh.cor, bmb.sc)),]
+## blocks.beh <- expand.grid(country = countries, het.beh=T, het.beh.sd=seq(0,3, by = .1), het.beh.cor=seq(0,1, by = .05), bmb.sc = 1)
+## blocks.beh$bfb.sc <- blocks.beh$bme.sc <- blocks.beh$bfe.sc <- blocks.beh$bmb.sc ## all contact coefficients scaled same way
+## blocks.beh$bmp.sc <- blocks.beh$bfp.sc <- 1
+## blocks.beh$het.gen <- F; blocks.beh$het.gen.sd <- blocks.beh$het.gen.cor <- 0
+## blocks.beh <- blocks.beh[with(blocks.beh, order(country, het.beh.sd, het.beh.cor, bmb.sc)),]
 
 blocks.gen <- expand.grid(country = countries, het.gen=T, het.gen.sd=seq(0,3, by = .1), het.gen.cor=seq(0,1, by = .05), bmb.sc = 1)
 blocks.gen$bfb.sc <- blocks.gen$bme.sc <- blocks.gen$bfe.sc <- blocks.gen$bmb.sc ## all contact coefficients scaled same way
@@ -29,21 +30,20 @@ blocks.gen$bmp.sc <- blocks.gen$bfp.sc <- 1
 blocks.gen$het.beh <- F; blocks.gen$het.beh.sd <- blocks.gen$het.beh.cor <- 0
 blocks.gen <- blocks.gen[with(blocks.gen, order(country, het.beh.sd, het.beh.cor, bmb.sc)),]
 
-blocks <- rbind(blocks.beh, blocks.gen)
-blocks$jobnum <- 1:nrow(blocks)
-blocksg <- data.table(blocks)
+## blocks <- as.data.table(rbind(blocks.beh, blocks.gen))
+blocksg <- data.table(blocks.gen)
+blocksg$jobnum <- 1:nrow(blocksg)
+blocksg
 
-nn <- nrow(blocks)
-head(blocks,50)
+nn <- nrow(blocksg)
 
-out.dir <- file.path('results','AssortHetHeatMap')
+out.dir <- file.path('results','AssortHetHeatMap2')
 blocksg[,c('group','s.epic','s.demog','scale.by.sd','scale.adj','infl.fac','maxN','sample.tmar','psNonPar','each'):= .(country,country, country, T, 1, 200, 10^5, F, F, each.val)]
-blocksg[,jobnum:=1:nrow(blocksg)]
 blocksg[,c('seed','out.dir','sim.nm','doSubs'):=.(1,out.dir, 'AHH', F)]
 blocksg[,c('tmar','tint'):=.('tmar=(65*12):(113*12)',113*12)]
 blocksg[,c('acute.sc'):=.(5)]
 
-blocksgTD <- blocksg[country==15] ##
+blocksgTD <- blocksg
 
 if(!file.exists(out.dir))      dir.create(out.dir) # create directory if necessary
 if(!file.exists(file.path(out.dir,'Rdatas')))      dir.create(file.path(out.dir,'Rdatas')) # create directory if necessary
