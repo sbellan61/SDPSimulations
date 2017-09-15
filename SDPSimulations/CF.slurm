@@ -13,8 +13,8 @@
 # 
 #------------------Scheduler Options--------------------
 #SBATCH -J Disc	          # Job name
-#SBATCH -N 14                 # Total number of nodes (24 cores/node)
-#SBATCH -n 672                # Total number of tasks
+#SBATCH -N 1                 # Total number of nodes (24 cores/node)
+#SBATCH -n 48                # Total number of tasks
 #SBATCH -p normal          # Queue name
 #SBATCH -o Disco.o%j      # Name of stdout output file (%j expands to jobid)
 #SBATCH -t 24:00:00            # Run time (hh:mm:ss)
