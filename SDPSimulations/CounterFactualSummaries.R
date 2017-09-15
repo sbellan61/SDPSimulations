@@ -4,17 +4,19 @@
 rm(list=ls())                           # clear workspace
 if(grepl('tacc', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/DHSProject/SDPSimulations/')
 if(grepl('stevenbellan', Sys.info()['login'])) setwd('~/Documents/R Repos/SDPSimulations/SDPSimulations/')
+if(grepl('nid', Sys.info()['nodename'])) setwd("/home1/02413/sbellan/SDPSimulations/SDPSimulations")
 load("../DHSFitting/data files/dframe.s.Rdata") # country names
 source('PlotFunctions.R')                    # load functions to collect & plot results
 source('SimulationFunctions.R')                   # load simulation functions
 show.pts <- T                           # show observed SDP in real DHS data
 ## source('CounterFactualSummaries.R')
-dir.results <- file.path('results','CounterFactual') # results locations
+dir.results <- file.path('results','CounterFactualAll') # results locations
 dir.figs <- file.path(dir.results, 'Figures')        # make a directory to store figures
 if(!file.exists(dir.figs)) dir.create(dir.figs) # Create directory
 load(file.path(dir.results, 'blocksg.Rdata')) ## information on simulations from MK file
 
 resFile <- file.path(dir.results, 'tss.Rdata')
+
 if(file.exists(resFile)) {
     load(resFile)
 }else{
@@ -32,7 +34,7 @@ nac <- length(acutes)                   # how many
 countries <- tss[,unique(country)]
 countries <- countries[order(countries)]
 ncountries <- length(countries)         
-jtd <- blocksg[!jobnum %in% tss$jobnum, jobnum]
+jtd <- blocksgTD[!jobnum %in% tss$jobnum, jobnum]
 print(paste("didn't do jobs:",paste(head(jtd,50), collapse=','),', ...')) # check to see if any jobs didn't complete
 save(jtd, file=file.path(dir.results,'CFJobsToDo.Rdata'))
 
@@ -59,18 +61,25 @@ mains <- c('mortality','pre-couple \ncontact coefficient','extra-couple \ncontac
            'intrinsic \ntransmission rate', 'heterogeneity \nin transmission', 'heterogeneity \nwith assortativity')
 
 ## choose result contrasts
-sel <-  parmsFxn() ## base scenario
+cc <- 15
+sel <-  parmsFxn(country=cc, ) ## base scenario
 bases <- tss[sel, .SD, nomatch=0L, on=nms, .SDcols=names(tss)][,unique(jobnum)] ## have duplicates of base simulations based on old code
 dups <- bases[-1]
 base <- bases[1] ## single base scenario
-sel1 <- cbind(parmsFxn(death = c(T,F)), cols = c('black','gray'), ltys = c(1,2)) ## mortality contrast
+sel1 <- cbind(parmsFxn(country=cc, death = c(T,F)), cols = c('black','gray'), ltys = c(1,2)) ## mortality contrast
 cols <- c('gray','black','brown')
-sel2 <- cbind(parmsFxn(bmb.sc = c(0,1,10)), cols = cols, ltys = c(2,1,2)) ## pre
-sel3 <- cbind(parmsFxn(bme.sc = c(0,1,10)), cols = cols, ltys = c(2,1,2)) ## extra
-sel4 <- cbind(parmsFxn(bmp.sc = c(.1,1,10)), cols = cols, ltys = c(2,1,2)) ## within
+sel2 <- cbind(parmsFxn(country=cc, bmb.sc = c(0,1,10)), cols = cols, ltys = c(2,1,2)) ## pre
+sel3 <- cbind(parmsFxn(country=cc, bme.sc = c(0,1,10)), cols = cols, ltys = c(2,1,2)) ## extra
+sel4 <- cbind(parmsFxn(country=cc, bmp.sc = c(.1,1,10)), cols = cols, ltys = c(2,1,2)) ## within
 cols <- c('black','gray','brown')
-sel5 <- cbind(parmsFxn(het.gen.sd = c(0,1,2)), cols = cols, ltys = c(1,2,2)) ## gen het
-sel6 <- cbind(parmsFxn(het.gen.sd = 2, het.gen.cor = c(0,.4,.8)), cols = cols, ltys = c(1,2,2)) ## gen het with assort
+sel5 <- cbind(parmsFxn(country=cc, het.gen.sd = c(0,1,2)), cols = cols, ltys = c(1,2,2)) ## gen het
+sel6 <- cbind(parmsFxn(country=cc, het.gen.sd = 2, het.gen.cor = c(0,.4,.8)), cols = cols, ltys = c(1,2,2)) ## gen het with assort
+
+## sel5a <- cbind(parmsFxn(country=cc, country=1:16, het.gen.sd = c(0,1,2)), cols = cols, ltys = c(1,2,2)) ## gen het
+## sel6a <- cbind(parmsFxn(country=cc, country=1:16, het.gen.sd = 2, het.gen.cor = c(0,.4,.8)), cols = cols, ltys = c(1,2,2)) ## gen het with assort
+
+## xtabs(~country + het.gen.sd, tss[sel5a, .SD, nomatch=0L, on=nms, .SDcols=names(tss)][yr==2013])
+## xtabs(~country + het.gen.cor, tss[sel6a, .SD, nomatch=0L, on=nms, .SDcols=names(tss)][yr==2013])
 
 ## Make legends
 legFxn <- function(ii, leg.cex = .8, cols, ltys
@@ -88,7 +97,6 @@ legFxn <- function(ii, leg.cex = .8, cols, ltys
 }
 
 
-
 cx <- .8
 col.pl <- 'black'
 pdf(file.path(dir.figs, 'Fig 2 - Counterfactual Summary.pdf'), width = 6.5, h = 5)
@@ -104,7 +112,6 @@ for(ii in 1:6) {
     tmp[, plot(yr, sdp, type = 'n', xlab = '', ylab = '', bty = 'n', xlim=c(1990, 2015), ylim = c(0,1), main =mains[ii], las = 2, yaxt='n')]
     if(ii==1) axis(2, at = seq(0,1,l=5), las = 2) else axis(2, at = seq(0,1,l=5), labels = NA)
     tmp[, lines(yr, sdp, col=cols[1], lty = ltys[1], lwd=2), jobnum]
-    cc <- sel[,country[1]]
     points(dframe.s$yr[dframe.s$group==cc], dframe.s$psdc[dframe.s$group==cc], pch = 19, col = 'black', cex = 1.5) 
     seltmp[, legFxn(ii, cols=cols, ltys = ltys)]
 }
@@ -129,6 +136,8 @@ for(ii in 1:6) {
     if(ii==5)             axis(1, at = 0:3)
     if(ii==6)             axis(1, at = seq(0,.8, by = .4))
     if(ii==1) axis(2, at = seq(0,1,l=5), las = 2) else axis(2, at = seq(0,1,l=5), labels = NA)
+    if(ii<5) abline(v=1, lwd = 2, col = 'gray')
+    if(ii==5) abline(v=0, lwd = 2, col = 'gray')
     for(cc in countries) {
         sel <-  parmsFxn(country=cc) ## base scenario
         bases <- tss[sel, .SD, nomatch=0L, on=nms, .SDcols=names(tss)][,unique(jobnum)] ## have duplicates of base simulations based on old code
@@ -159,6 +168,5 @@ par(mar=c(3,0,0,0))
 plot(0,0, axes = F, bty='n', type = 'n')
 legend('bottom', leg = dframe$country, pch = 16, col = dframe$col, cex = .8)
 graphics.off()
-
 
  
