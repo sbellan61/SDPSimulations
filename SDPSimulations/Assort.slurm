@@ -13,8 +13,8 @@
 # 
 #------------------Scheduler Options--------------------
 #SBATCH -J Disc	          # Job name
-#SBATCH -N 9                 # Total number of nodes (24 cores/node)
-#SBATCH -n 108                # Total number of tasks
+#SBATCH -N 16                 # Total number of nodes (48 cores/node)
+#SBATCH -n 768                # Total number of tasks
 #SBATCH -p normal          # Queue name
 #SBATCH -o Disco.o%j      # Name of stdout output file (%j expands to jobid)
 #SBATCH -t 24:00:00            # Run time (hh:mm:ss)
@@ -36,7 +36,7 @@
 
 export LAUNCHER_PLUGIN_DIR=$LAUNCHER_DIR/plugins
 export LAUNCHER_RMI=SLURM
-export LAUNCHER_JOB_FILE="AssortHiLo.txt"
+export LAUNCHER_JOB_FILE="AssortHetHeatMap.txt"
 
 ml launcher
 $LAUNCHER_DIR/paramrun
