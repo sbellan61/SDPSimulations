@@ -35,7 +35,7 @@ countries <- tss[,unique(country)]
 countries <- countries[order(countries)]
 ncountries <- length(countries)         
 jtd <- blocksgTD[!jobnum %in% tss$jobnum, jobnum]
-print(paste("didn't do jobs:",paste(head(jtd,50), collapse=','),', ...')) # check to see if any jobs didn't complete
+print(paste("didn't do jobs:",paste(head(jtd,50), collapse=','))) # check to see if any jobs didn't complete
 save(jtd, file=file.path(dir.results,'CFJobsToDo.Rdata'))
 
 ####################################################################################################
