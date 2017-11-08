@@ -1,15 +1,17 @@
 ####################################################################################################
 ## Plot HIV prevalence & SDP vs fit transmission coefficients, and fit contact mixing coefficients.
 rm(list=ls())                           # clear workspace
-library(metatest);library(coda);library(faraway); library(hier.part); library(AICcmodavg); library(abind)
-if(grepl('tacc', Sys.info()['nodename'])) setwd('/home1/02413/sbellan/DHSProject/SDPSimulations/')
-load("data files/allDHSAIS.Rdata")         # DHS data
-load("data files/ds.nm.all.Rdata") # country names
-load('data files/dframe.Rdata') # country summary data (peak prevalence, country-prevalence, etc...)
-load("data files/draw.Rdata") # raw country summary data (peak prevalence, country-prevalence, etc...)
-load('data files/dframe.s.Rdata')# country summary data (peak prevalence, country-prevalence, etc...) by DHS survey
-load('data files/draw.s.Rdata')# country summary data (peak prevalence, country-prevalence, etc...) by DHS survey (unfiltered data)
-load('data files/pars.arr.ac.Rdata') # fitted transmission coefficients & other parameters for each assumed acute phase
+require(pacman)
+p_load(metatest, coda, faraway, hier.part, abind, data.table)
+if(grepl('sbellan', Sys.info()['user'])) setwd('/home1/02413/sbellan/SDPSimulations/SDPSimulations')
+list.files()
+load('../DHSFitting/data files/allDHSAIS.Rdata')         # DHS data
+load('../DHSFitting/data files/ds.nm.all.Rdata') # country names
+load('../DHSFitting/data files/dframe.Rdata') # country summary data (peak prevalence, country-prevalence, etc...)
+load('../DHSFitting/data files/draw.Rdata') # raw country summary data (peak prevalence, country-prevalence, etc...)
+load('../DHSFitting/data files/dframe.s.Rdata')# country summary data (peak prevalence, country-prevalence, etc...) by DHS survey
+load('../DHSFitting/data files/draw.s.Rdata')# country summary data (peak prevalence, country-prevalence, etc...) by DHS survey (unfiltered data)
+p <- load('../DHSFitting/data files/pars.arr.ac.Rdata') # fitted transmission coefficients & other parameters for each assumed acute phase
 source('SimulationFunctions.R')
 
 ## add couple prevalence to dframe
