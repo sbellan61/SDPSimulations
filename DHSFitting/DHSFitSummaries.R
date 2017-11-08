@@ -5,7 +5,9 @@
 ## Steve Bellan, 2013
 ####################################################################################################
 rm(list=ls())
-setwd('/home1/02413/sbellan/DHSProject/DHSFitting/')    # set working directory
+require(pacman)
+p_load(coda)
+if(grepl('sbellan', Sys.info()['user'])) setwd('/home1/02413/sbellan/SDPSimulations/DHSFitting')
 lab <- 'DHSFits'
 wd <- file.path('results',lab)
 outdir <- file.path('results',paste0(lab,'Summary'))
@@ -15,7 +17,6 @@ fls <- list.files(wd, full.names=T)
 dirs <- list.files(fls[1], full.names=T)
 dirs <- dirs[!grepl('routs', dirs)]     # ignore Rout output files
 load(file.path(dirs[1],'workspace.Rdata'))
-library(coda)
 
 ## use old WA directory for now
 fls <- fls[!grepl('shortchain', fls)]
