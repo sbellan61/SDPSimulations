@@ -82,17 +82,17 @@ sel6 <- cbind(parmsFxn(country=cc, het.gen.sd = 2, het.gen.cor = c(0,.4,.8)), co
 ## xtabs(~country + het.gen.cor, tss[sel6a, .SD, nomatch=0L, on=nms, .SDcols=names(tss)][yr==2013])
 
 ## Make legends
-legFxn <- function(ii, leg.cex = .8, cols, ltys
+legFxn <- function(ii, leg.cex = .7, cols, ltys
                    ) {
     if(ii==1) legend('bottomleft', c('as fitted', 'no mortality'), lwd = 2, lty = 1, col = cols, bty = 'n', cex = leg.cex)
     if(ii%in%2:3) legend('bottomleft', c('set to 0', 'as fitted', 'scaled X 10'), lwd = 2, lty = ltys,
                          col = cols, bty = 'n', cex = leg.cex)
     if(ii==4) legend(x=1988, y = .5, c('scaled X 1/10', 'as fitted', 'scaled X 10'), lwd = 2, lty = ltys,
                        col = cols, bty = 'n', cex = leg.cex)
-    if(ii==5) legend('bottomleft', c('as fitted', 'std dev = 1', 'std dev = 2'), lwd = 2, lty = ltys,
-                     col = cols, bty = 'n', cex = leg.cex)
-    if(ii==6) legend('bottomleft', c('ro = 0', 'ro = 0.4', 'ro = 0.8'), lwd = 2, lty = ltys,
-                     title = 'std dv = 2',
+    if(ii==5) legend('bottomleft', c('as fitted', expression(sigma==1), expression(sigma==2)), lwd = 2, lty = ltys,
+                     col = cols, bty = 'n', cex = leg.cex, title = expression(paste('std dev (', sigma, ')')))
+    if(ii==6) legend('bottomleft', c(expression(rho==0), expression(rho==0.4), expression(rho==0.8)), lwd = 2, lty = ltys,
+                     title = expression(paste(sigma==2, ', correlation (', rho, ')')),
                      col = cols, bty = 'n', cex = leg.cex)
 }
 

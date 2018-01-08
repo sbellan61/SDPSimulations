@@ -4,6 +4,7 @@ rm(list=ls())                           # clear workspace
 require(pacman)
 p_load(metatest, coda, faraway, hier.part, abind, data.table)
 if(grepl('sbellan', Sys.info()['user'])) setwd('/home1/02413/sbellan/SDPSimulations/SDPSimulations')
+if(grepl('stevenbellan', Sys.info()['user'])) setwd('~/Documents/R Repos/SDPSimulations/SDPSimulations/')
 list.files()
 load('../DHSFitting/data files/allDHSAIS.Rdata')         # DHS data
 load('../DHSFitting/data files/ds.nm.all.Rdata') # country names
@@ -68,6 +69,19 @@ for(aa in acs.to.do)  { ## for each acute fit
     rdatl[[aa]] <- rdat               # add to array over acute fits
   }
 
+## Show country prevalence, contact coefficients for acute phase of 5 rr in paper
+
+vars <- out.arr[c('rr.bp.m','rr.bp.f','rr.ep'),,7,]
+
+makeCIstring <- function(x) paste0(signif(x[2],2), ' (', signif(x[1],2), ', ', signif(x[3],2), ')')
+makeCIstring(vars[1,,1])
+
+tableSX <- data.table(dframe$country, signif(dframe[,c('dhsprev','peak','psdc')],2), t(apply(vars, c(1,3), makeCIstring)))
+write.csv(tableSX, file='localresults/tableSX-contactcoefficients.csv')
+
+
+## rdatl[[5]][,c('country','psdc','rr.bp.m', 'rr.bp.f'
+
 wts <- rdatl[[3]][,c('country','lbp.w','lbe.w','lbmb.w','lbfb.w','geom.w')] # weights
 wts
 outdir <- file.path('results','PrevFigs')
@@ -121,7 +135,7 @@ axis.fxn <- function(ylogit.axis, xlog.axis, ytype, xtype) {
   }
 }
 
-outdir <- file.path('results','PrevFigs')
+outdir <- file.path('localresults','PrevFigs')
 if(!file.exists(outdir)) dir.create(outdir)
 yvars <- c('lgt.cprev','lgt.pprev','lgt.psdc','lgt.fD')
 ytypes <- c('prev','prev','SDP','fancyD')
@@ -177,6 +191,7 @@ for(yv in 1:4) { ##  for each Y variable
 }
 
 acs.to.do <- which(rowSums(!is.na(in.arr[,,2]))>0)
+onlyBestMod <- T
 fg.col <- 'black'
 wid <- 6.5
 hei <- 4.5
@@ -184,7 +199,7 @@ cex <- 2
 ####################################################################################################
 ## New version of figures with color scale for SDP & no arrows for CI's
 rmp <- colorRamp(c("red","yellow"))     #create color ramp
-outdir <- file.path('results','PrevFigsNew')
+outdir <- file.path('localresults','PrevFigsNew')
 if(!file.exists(outdir)) dir.create(outdir)
 yvars <- c('lgt.cprev','lgt.pprev','lgt.psdc','lgt.fD')
 ytypes <- c('prev','prev')#,'SDP','fancyD')
@@ -233,15 +248,17 @@ for(yv in 1:2) { ##  for each Y variable
                 axis.fxn(T,T, ytype=ytype, xtype=xtypes[xv]) # add axes using function above
                 ## arrows(xvar.l, yvar, xvar.u, yvar, code = 3, col = cols, len = .05, angle = 90) # credible intervals
                 ## weighted regression model (variance in xvars, from fitting transmission coefficients)
-                mod <- lm(yvar ~ xvar, rdat, weights = 1/((xvar.u - xvar.l)/(1.96*2))^2) 
-                newx<- seq(min(xvar.l,na.rm=T), max(xvar.u,na.rm=T), l = 120) # sequence of x variables over which to predict
-                prd<-predict(mod,newdata=data.frame(xvar = newx),interval = c("confidence"), level = 0.95,type="response") # predict
-                ## plot thick solid regression line with thin dashed CI lines
-                for(pl in 1:3)    lines(newx,prd[,pl], lty=ifelse(pl==1,1,2), lwd = ifelse(pl==1,2,1))
+                if(xv==1 & onlyBestMod) {
+                    mod <- lm(yvar ~ xvar, rdat, weights = 1/((xvar.u - xvar.l)/(1.96*2))^2) 
+                    newx<- seq(min(xvar.l,na.rm=T), max(xvar.u,na.rm=T), l = 120) # sequence of x variables over which to predict
+                    prd<-predict(mod,newdata=data.frame(xvar = newx),interval = c("confidence"), level = 0.95,type="response") # predict
+                    ## plot thick solid regression line with thin dashed CI lines
+                    for(pl in 1:3)    lines(newx,prd[,pl], lty=ifelse(pl==1,1,2), lwd = ifelse(pl==1,2,1))
+                    if(r2)  mtext(paste(expression(P), '=',signif(summary(mod)[[5]][2,4],2)),
+                                  side = 3, line = 0, adj = .95, cex = .7) # add p value to plot
+                }
                 points(xvar, yvar, cex = cex, pch = 19, col = cols) # medians
                 text(xvar, yvar, c(16:1)[zord], cex = .5)
-                if(r2)  mtext(paste(expression(P), '=',signif(summary(mod)[[5]][2,4],2)),
-                              side = 3, line = 0, adj = .95, cex = .7) # add p value to plot
             }
             par(mar=rep(0,4))
             plot(0,0, xlim = c(0, 10), ylim = c(0, 100), type = 'n', bty = 'n', axes = F, xlab = '', ylab ='')
@@ -249,7 +266,7 @@ for(yv in 1:2) { ##  for each Y variable
             text(.5, seq(40, 90, l = 16), 16:1, cex = cex*.3)
             rdat$country[rdat$country=='WA'] <- 'West Africa'
             text(1, seq(40, 90, l = 16), paste0(rdat$country[order(zvar)],
-                                    ' (',signif(rdat$psdc[order(zvar)],2)*100,'%)'), pos = 4)
+                                                ' (',signif(rdat$psdc[order(zvar)],2)*100,'%)'), pos = 4)
             text(5, 100, 'country \n(serodiscordant \nproportion as %)')
             ## legend('topleft', ncol = 1, paste0(rdat$country, ' (',signif(zvar,2)*100,'%)'),
             ##        pch = 19, col = cols, pt.cex = 1.5, cex = .8, bg = 'white')
@@ -276,7 +293,7 @@ cex <- 2
 ####################################################################################################
 ## New version of figures with color scale for SDP & no arrows for CI's
 rmp <- colorRamp(c("red","yellow"))     #create color ramp
-outdir <- file.path('results','PrevFigsNew')
+outdir <- file.path('localresults','PrevFigsNew')
 if(!file.exists(outdir)) dir.create(outdir)
 yvars <- c('lgt.cprev','lgt.pprev','lgt.psdc','lgt.fD')
 ytypes <- c('prev','prev')#,'SDP','fancyD')
@@ -365,7 +382,7 @@ cex <- 2
 ####################################################################################################
 ## New version of figures with color scale for SDP & no arrows for CI's
 rmp <- colorRamp(c("red","yellow"))     #create color ramp
-outdir <- file.path('results','PrevFigsNew')
+outdir <- file.path('localresults','PrevFigsNew')
 if(!file.exists(outdir)) dir.create(outdir)
 yvars <- c('lgt.cprev','lgt.pprev','lgt.psdc','lgt.fD')
 ytypes <- c('prev','prev')#,'SDP','fancyD')
@@ -512,5 +529,32 @@ for(cc in 1:nlevels(temp$country)) {
 abline(lm(temp$psdc ~ temp$prev), col = 'black')
 legend('topright', leg = leg, col = unique(temp$col), pch = 19, bty = 'n', cex = .7, ncol=2)
 dev.off()
+
+
+## Bellan vs chemaitelly comparison
+p_load(data.table, cowplot)
+
+countrytemp <- c('Burundi','Congo','DRC','Ethiopia','Gabon','Kenya','Lesotho','Malawi','Mozambique','Rwanda','Swaziland','Tanzania','Uganda',rep('West Africa', 9), 'Zambia','Zimbabwe')
+bellanM <- c(13, 4.3, 2.4, 6.8, 4.7, 9.8, 13, 8.3, 9.6, 15, 20, 9.2, 11, rep(4.5,9), 12, 15)
+bellanF <- c(16, 3.6, 2.1, 7.4, 3.5, 9.5, 14, 6.1, 5.5, 14, 17, 4.7, 7.5, rep(5.2,9), 8, 11)
+chemaitelly <- c(30, 4.4, 6.5, 17, NA,15, 26, 20, 12, 33, 41, 10, NA,
+                 11, 4.5, 7.7, 4.4, 7.7, 6.8, 9.6, 7.2, 13.8, 
+                 19.5, 
+                 27)
+belchem <- tibble(country = countrytemp, bellanM, bellanF, chemaitelly)
+belchem <- gather(belchem, key = 'study', value = 'bellan', -country, -chemaitelly)
+belchem$sex <- NA
+belchem <- mutate(belchem, sex = replace(sex, study=='bellanM', 'male'))
+belchem <- mutate(belchem, sex = replace(sex, study=='bellanF', 'female')) %>% select(-study)
+range(belchem$bellan)
+range(belchem$chemaitelly, na.rm = T)
+
+ggplot(belchem, aes(bellan, chemaitelly, col=country, shape = sex)) +
+    geom_point(size = 3, alpha = .5) + theme(aspect.ratio = 1) +
+    coord_fixed(xlim=c(0, 45), ylim = c(0,45)) + 
+    geom_abline(slope=1, intercept = 0) +
+    xlab('rate per 100 person-years \n(Bellan et al. 2018)') + ylab('rate per 100 person-years \n(Chemaitelly et al. 2014)')
+ggsave('localresults/bellanVsChemaitelly.png', dpi=300)
+
 
 

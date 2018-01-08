@@ -10,7 +10,7 @@ load("../DHSFitting/data files/allDHSAIS.Rdata")         # DHS data
 #load("../DHSFitting/data files/alldhs.Rdata")         # DHS data
 load("../DHSFitting/data files/epic.Rdata")       # Infectious HIV prevalence in men
 head(dat,2)
-outdir <- file.path('results','PrevFigs')
+outdir <- file.path('localresults','PrevFigs')
 if(!file.exists(outdir)) dir.create(outdir)
 hazs <- c("bmb","bfb","bme","bfe","bmp","bfp")
 
@@ -109,7 +109,24 @@ for(cc in 1:nrow(dframe.s)) {
     dframe.s$prev[cc] <- prev.inf[mean(temp$tint),temp$epic.ind[1]]
   }
 dframe.s
- 
+
+p_load(cowplot)
+
+dframe.s <- data.table(dframe.s)
+multSurveyCountries <- group_by(dframe.s, country) %>% summarize(surveys=n()) %>% dplyr::filter(surveys>1) %>% .$country
+dplyr::filter(dframe.s, country %in% multSurveyCountries & group!=14) %>%
+    mutate(lab = paste0(formatC(group, width=2, flag='0'), ': ', country)) %>%
+    arrange(group) %>%
+    ggplot(aes(yr, psdc, col = lab, label=group, order=group)) + geom_point(cex=8, alpha = .4) + ylim(0,1) +
+    geom_text(col='black', cex = 4, alpha = .4) + 
+    geom_line() + scale_x_continuous(breaks = 2003:2013, limits=c(2003,2013)) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+    xlab('') + ylab('serodiscordant proportion') +
+     theme(legend.title=element_blank())
+ggsave(file.path(outdir, 'sdp over time.png'), width = 6, height = 4)
+
+
+
 ####################################################################################################
 ## Plot SDP by survey year for all couples & for those only with both in their first union (to see
 ## if there are SDP changes over time).
@@ -247,7 +264,7 @@ dev.off()
 ## Miscellaneous serostatus plots for presentations with raw data
 ####################################################################################################
 for(col in c('black','white')) {
-    presdir <- file.path('results', 'PresentationFigures')
+    presdir <- file.path(outdir, 'PresentationFigures')
     if(!file.exists(presdir))       dir.create(presdir)
 ###################################################################### 
     pdf(file.path(presdir,paste0("serostatus breakdown ",col,".pdf")), width = 5.5, height = 4)
@@ -377,3 +394,6 @@ par(mar=c(.2,0,0,0))
 plot.new()
 legend('top', ds.nm[ord], col=cols[ord], title = 'top to bottom', cex = .8, inset = .1, pch = 19) #, bty = 'n')
 graphics.off()
+
+
+
