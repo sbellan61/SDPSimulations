@@ -1,6 +1,7 @@
 rm(list=ls())
 library(plyr)
-setwd('/home1/02413/sbellan/DHSFitting/')    # set working directory
+if(Sys.info()['sysname']=='Darwin') setwd('~/Documents/R Repos/SDPSimulations/DHSFitting/')
+## setwd('/home1/02413/sbellan/DHSFitting/')    # set working directory
 #load("data files/alldhs raw.Rdata")         # DHS data
 ## load("data files/African_couplescombine.RData") # DHS + AIS
 load("data files/epic.Rdata")               ## UNAIDS
